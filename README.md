@@ -250,20 +250,20 @@ Found a security issue? Email: security@ouroc.com (PGP key available)
 
 ## Roadmap
 
-### Q1 2025
+### Q4 2025
 - [x] Core subscription system (USDC only)
 - [x] ICP timer integration
 - [x] React SDK v1.0
 - [ ] Jupiter DEX integration (multi-token support)
 - [ ] Mainnet beta launch
 
-### Q2 2025
+### Q1 2026
 - [ ] Smart contract audit
 - [ ] Mobile app (React Native)
 - [ ] Merchant dashboard v2
 - [ ] Analytics & reporting
 
-### Q3 2025
+### Q2 2026
 - [ ] EVM chain support (Ethereum, Polygon, etc.)
 - [ ] Fiat on-ramp integration
 - [ ] Subscription templates marketplace
@@ -295,13 +295,6 @@ npm run dev
 ```
 
 ---
-
-## Community
-
-- **Discord**: [discord.gg/ouroc](https://discord.gg/ouroc)
-- **Twitter**: [@OuroCProtocol](https://twitter.com/OuroCProtocol)
-- **Telegram**: [t.me/ouroc](https://t.me/ouroc)
-- **GitHub Discussions**: [Discussions](https://github.com/YOUR_USERNAME/OuroC/discussions)
 
 ---
 
