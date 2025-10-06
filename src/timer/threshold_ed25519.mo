@@ -18,30 +18,30 @@ module {
     public type MessageHash = Blob;
     public type DerivationPath = [Blob];
 
-    // Threshold Ed25519 types for IC management canister
-    public type EcdsaKeyId = {
-        curve: {#ed25519};
+    // Threshold Schnorr (Ed25519) types for IC management canister
+    public type SchnorrKeyId = {
+        algorithm: {#ed25519};
         name: Text;
     };
 
-    public type EcdsaPublicKeyArgument = {
+    public type SchnorrPublicKeyArgument = {
         canister_id: ?Principal;
         derivation_path: DerivationPath;
-        key_id: EcdsaKeyId;
+        key_id: SchnorrKeyId;
     };
 
-    public type EcdsaPublicKeyResult = {
+    public type SchnorrPublicKeyResult = {
         public_key: Blob;
         chain_code: Blob;
     };
 
-    public type SignWithEcdsaArgument = {
-        message_hash: Blob;
+    public type SignWithSchnorrArgument = {
+        message: Blob;  // Note: Ed25519 signs the message directly, not a hash
         derivation_path: DerivationPath;
-        key_id: EcdsaKeyId;
+        key_id: SchnorrKeyId;
     };
 
-    public type SignWithEcdsaResult = {
+    public type SignWithSchnorrResult = {
         signature: Blob;
     };
 
@@ -71,27 +71,27 @@ module {
 
     // IC management canister interface
     type IC = actor {
-        ecdsa_public_key: (EcdsaPublicKeyArgument) -> async EcdsaPublicKeyResult;
-        sign_with_ecdsa: (SignWithEcdsaArgument) -> async SignWithEcdsaResult;
+        schnorr_public_key: (SchnorrPublicKeyArgument) -> async SchnorrPublicKeyResult;
+        sign_with_schnorr: (SignWithSchnorrArgument) -> async SignWithSchnorrResult;
     };
 
     public class ThresholdEd25519Manager(key_name: Text) {
         private let ic: IC = actor("aaaaa-aa");
-        private let key_id: EcdsaKeyId = {
-            curve = #ed25519;
+        private let key_id: SchnorrKeyId = {
+            algorithm = #ed25519;
             name = key_name;
         };
 
         // Derive a Solana public key for this canister
         public func derive_solana_keypair(derivation_path: DerivationPath): async Result.Result<SolanaKeypair, Text> {
             try {
-                let public_key_arg: EcdsaPublicKeyArgument = {
+                let public_key_arg: SchnorrPublicKeyArgument = {
                     canister_id = null; // Use calling canister's ID
                     derivation_path = derivation_path;
                     key_id = key_id;
                 };
 
-                let public_key_result = await (with cycles = 10_000_000_000) ic.ecdsa_public_key(public_key_arg);
+                let public_key_result = await (with cycles = 10_000_000_000) ic.schnorr_public_key(public_key_arg);
 
                 let keypair: SolanaKeypair = {
                     public_key = public_key_result.public_key;
@@ -106,23 +106,29 @@ module {
             }
         };
 
-        // Sign a Solana transaction
-        public func sign_solana_transaction(message_hash: MessageHash, derivation_path: DerivationPath): async Result.Result<Signature, Text> {
+        // Sign a message using Ed25519 (for authentication or transactions)
+        // Note: Ed25519 signs the message directly, not a hash
+        public func sign_message(message: Blob, derivation_path: DerivationPath): async Result.Result<Signature, Text> {
             try {
-                let sign_arg: SignWithEcdsaArgument = {
-                    message_hash = message_hash;
+                let sign_arg: SignWithSchnorrArgument = {
+                    message = message;
                     derivation_path = derivation_path;
                     key_id = key_id;
                 };
 
-                let sign_result = await (with cycles = 25_000_000_000) ic.sign_with_ecdsa(sign_arg);
+                let sign_result = await (with cycles = 25_000_000_000) ic.sign_with_schnorr(sign_arg);
 
-                Debug.print("Transaction signed successfully");
+                Debug.print("Message signed successfully");
                 #ok(sign_result.signature)
             } catch (_) {
-                Debug.print("Failed to sign transaction");
+                Debug.print("Failed to sign message");
                 #err("Signing failed")
             }
+        };
+
+        // Alias for backwards compatibility with transaction signing
+        public func sign_solana_transaction(message: MessageHash, derivation_path: DerivationPath): async Result.Result<Signature, Text> {
+            await sign_message(message, derivation_path)
         };
 
         // Get the main canister keypair (using empty derivation path)
@@ -194,8 +200,10 @@ module {
 
         // Add leading '1's for leading zeros
         var prefix = "";
-        for (i in Iter.range(0, leading_zeros - 1)) {
-            prefix := prefix # "1";
+        if (leading_zeros > 0) {
+            for (i in Iter.range(0, leading_zeros - 1)) {
+                prefix := prefix # "1";
+            };
         };
 
         prefix # result

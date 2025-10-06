@@ -13,7 +13,6 @@ import Nat64 "mo:base/Nat64";
 import Nat "mo:base/Nat";
 import Float "mo:base/Float";
 import Int64 "mo:base/Int64";
-import Iter "mo:base/Iter";
 import SolRpcTypes "./sol_rpc_types";
 
 module {
@@ -266,8 +265,53 @@ module {
             }
         };
 
+        /// Create and sign a payment authorization message for Solana contract
+        /// Message format: subscription_id + timestamp + amount (matches Solana contract's crypto.rs)
+        public func create_payment_authorization(
+            subscription_id: Text,
+            amount: Nat64
+        ): async Result.Result<{signature: Blob; timestamp: Int64}, Text> {
+            let timestamp = Int64.fromInt(Time.now() / 1_000_000_000); // Convert nanoseconds to seconds
+
+            // Create message matching Solana contract's create_payment_message format
+            let message_buffer = Buffer.Buffer<Nat8>(0);
+
+            // Add subscription_id bytes
+            let sub_id_bytes = Blob.toArray(Text.encodeUtf8(subscription_id));
+            for (byte in sub_id_bytes.vals()) {
+                message_buffer.add(byte);
+            };
+
+            // Add timestamp as little-endian i64
+            let timestamp_bytes = int64_to_le_bytes(timestamp);
+            for (byte in timestamp_bytes.vals()) {
+                message_buffer.add(byte);
+            };
+
+            // Add amount as little-endian u64
+            let amount_bytes = nat64_to_le_bytes(amount);
+            for (byte in amount_bytes.vals()) {
+                message_buffer.add(byte);
+            };
+
+            let message = Blob.fromArray(Buffer.toArray(message_buffer));
+
+            // Sign with Ed25519 using empty derivation path (main canister key)
+            let sign_result = await threshold_manager.sign_message(message, []);
+
+            switch (sign_result) {
+                case (#ok(signature)) {
+                    Debug.print("Created payment authorization for " # subscription_id # " at timestamp " # Int64.toText(timestamp));
+                    #ok({signature = signature; timestamp = timestamp})
+                };
+                case (#err(error)) {
+                    #err("Failed to sign payment authorization: " # error)
+                };
+            }
+        };
+
         /// Call Solana contract with opcode + subscription_id
-        /// Opcode 0: Payment (Solana decides swap vs direct)
+        /// Opcode 0: Payment (Solana handles swap internally if needed)
         /// Opcode 1: Notification (send memo to subscriber)
         public func call_with_opcode(
             _contract_address: SolanaAddress,
@@ -289,124 +333,6 @@ module {
 
                                 // Placeholder - will be replaced with actual Solana transaction
                                 #ok("tx_opcode_" # Nat8.toText(opcode) # "_" # subscription_id)
-                            };
-                            case (#err(error)) {
-                                #err("Failed to get recent blockhash: " # error)
-                            };
-                        }
-                    } catch (_) {
-                        #err("Transaction failed")
-                    }
-                };
-                case null {
-                    #err("Main keypair not initialized")
-                };
-            }
-        };
-
-        /// DEPRECATED: Send notification via ICP-managed memo transaction
-        /// Use call_with_opcode(opcode=1) instead to keep notification logic on Solana contract
-        public func send_notification_memo(
-            recipient: SolanaAddress,
-            memo_message: Text
-        ): async Result.Result<TransactionHash, Text> {
-            switch (main_keypair) {
-                case (?main_kp) {
-                    try {
-                        // Get recent blockhash
-                        let recent_blockhash = await get_recent_blockhash();
-
-                        switch (recent_blockhash) {
-                            case (#ok(blockhash)) {
-                                // Send tiny amount (0.000001 SOL = 1000 lamports) as notification
-                                let notification_amount: Nat64 = 1000;
-
-                                // Create transfer instruction
-                                let transfer_instruction = ThresholdEd25519.create_solana_transfer_instruction(
-                                    main_kp.public_key,
-                                    Text.encodeUtf8(recipient),
-                                    notification_amount
-                                );
-
-                                // Create memo instruction with notification message
-                                let memo_instruction = ThresholdEd25519.create_memo_instruction(memo_message);
-
-                                // Build transaction
-                                let transaction: ThresholdEd25519.SolanaTransaction = {
-                                    recent_blockhash = blockhash;
-                                    instructions = [transfer_instruction, memo_instruction];
-                                    fee_payer = main_kp.public_key;
-                                };
-
-                                // Serialize and sign transaction
-                                let tx_hash = await sign_and_send_transaction(transaction, main_kp.derivation_path);
-
-                                switch (tx_hash) {
-                                    case (#ok(hash)) {
-                                        Debug.print("Notification memo sent to " # recipient # ": " # hash);
-                                        #ok(hash)
-                                    };
-                                    case (#err(error)) {
-                                        Debug.print("Failed to send notification memo: " # error);
-                                        #err(error)
-                                    };
-                                }
-                            };
-                            case (#err(error)) {
-                                #err("Failed to get recent blockhash: " # error)
-                            };
-                        }
-                    } catch (_) {
-                        #err("Transaction failed")
-                    }
-                };
-                case null {
-                    #err("Main keypair not initialized")
-                };
-            }
-        };
-
-        // Send trigger transaction using canister's own wallet (DEPRECATED - use call_process_payment)
-        public func send_trigger_transaction(receiver: SolanaAddress, subscription_id: Text, fee_lamports: Nat64): async Result.Result<TransactionHash, Text> {
-            switch (main_keypair) {
-                case (?main_kp) {
-                    try {
-                        // Get recent blockhash
-                        let recent_blockhash = await get_recent_blockhash();
-
-                        switch (recent_blockhash) {
-                            case (#ok(blockhash)) {
-                                // Create transfer instruction for trigger fee
-                                let transfer_instruction = ThresholdEd25519.create_solana_transfer_instruction(
-                                    main_kp.public_key,
-                                    Text.encodeUtf8(receiver), // Convert address to public key
-                                    fee_lamports
-                                );
-
-                                // Create memo instruction for subscription identification
-                                let memo = "OuroC trigger: " # subscription_id;
-                                let memo_instruction = ThresholdEd25519.create_memo_instruction(memo);
-
-                                // Build transaction
-                                let transaction: ThresholdEd25519.SolanaTransaction = {
-                                    recent_blockhash = blockhash;
-                                    instructions = [transfer_instruction, memo_instruction];
-                                    fee_payer = main_kp.public_key;
-                                };
-
-                                // Serialize and sign transaction
-                                let tx_hash = await sign_and_send_transaction(transaction, main_kp.derivation_path);
-
-                                switch (tx_hash) {
-                                    case (#ok(hash)) {
-                                        Debug.print("Trigger transaction sent: " # hash);
-                                        #ok(hash)
-                                    };
-                                    case (#err(error)) {
-                                        Debug.print("Failed to send trigger transaction: " # error);
-                                        #err(error)
-                                    };
-                                }
                             };
                             case (#err(error)) {
                                 #err("Failed to get recent blockhash: " # error)
@@ -788,6 +714,39 @@ module {
     };
 
     // Helper functions for Chain Fusion integration
+
+    // Convert Nat64 to little-endian bytes (8 bytes)
+    func nat64_to_le_bytes(value: Nat64): [Nat8] {
+        let n = Nat64.toNat(value);
+        [
+            Nat8.fromNat(n % 256),
+            Nat8.fromNat((n / 256) % 256),
+            Nat8.fromNat((n / 65536) % 256),
+            Nat8.fromNat((n / 16777216) % 256),
+            Nat8.fromNat((n / 4294967296) % 256),
+            Nat8.fromNat((n / 1099511627776) % 256),
+            Nat8.fromNat((n / 281474976710656) % 256),
+            Nat8.fromNat((n / 72057594037927936) % 256),
+        ]
+    };
+
+    // Convert Int64 to little-endian bytes (8 bytes, signed)
+    func int64_to_le_bytes(value: Int64): [Nat8] {
+        // Convert to Nat treating the bit pattern as unsigned
+        let n = Int64.toInt(value);
+        // For simplicity, treat as unsigned (timestamps are always positive)
+        let unsigned = Int.abs(n);
+        [
+            Nat8.fromNat(unsigned % 256),
+            Nat8.fromNat((unsigned / 256) % 256),
+            Nat8.fromNat((unsigned / 65536) % 256),
+            Nat8.fromNat((unsigned / 16777216) % 256),
+            Nat8.fromNat((unsigned / 4294967296) % 256),
+            Nat8.fromNat((unsigned / 1099511627776) % 256),
+            Nat8.fromNat((unsigned / 281474976710656) % 256),
+            Nat8.fromNat((unsigned / 72057594037927936) % 256),
+        ]
+    };
 
     // Parse cluster from endpoint URL
     func parse_cluster_from_endpoint(endpoint: Text): SolRpcTypes.SolanaCluster {

@@ -17,6 +17,23 @@ import CycleManagement "./cycle_management";
 
 persistent actor OuroCTimer {
 
+    // =============================================================================
+    // CONSTANTS & VALIDATION LIMITS
+    // =============================================================================
+
+    private let MAX_AMOUNT_USDC: Nat64 = 1_000_000_000_000; // 1M USDC (6 decimals)
+    private let MIN_INTERVAL_SECONDS: Nat64 = 3600; // 1 hour minimum (prevents spam)
+    private let MAX_INTERVAL_SECONDS: Nat64 = 31536000; // 1 year maximum
+    private let MAX_SUBSCRIPTIONS_PER_PRINCIPAL: Nat = 100;
+    private let MAX_TOTAL_SUBSCRIPTIONS: Nat = 10000;
+    private let SUBSCRIPTION_ID_MAX_LENGTH: Nat = 64;
+    private let SUBSCRIPTION_ID_MIN_LENGTH: Nat = 4;
+
+    // Failure handling constants
+    private let MAX_CONSECUTIVE_FAILURES: Nat = 10; // Auto-pause after this many failures
+    private let EXPONENTIAL_BACKOFF_BASE: Nat64 = 2; // 2x multiplier per failure
+    private let MAX_BACKOFF_MULTIPLIER: Nat64 = 16; // Cap at 16x normal interval
+
     // Types
     public type SubscriptionId = Text;
     public type SolanaAddress = Text;
@@ -41,25 +58,39 @@ persistent actor OuroCTimer {
         created_at: Timestamp;
         last_triggered: ?Timestamp;
         trigger_count: Nat;
+        // Failure tracking
+        failed_payment_count: Nat;              // Consecutive failures
+        last_failure_time: ?Timestamp;          // When last failure occurred
+        last_error: ?Text;                      // Last error message
     };
 
     public type CreateSubscriptionRequest = {
         subscription_id: Text;                  // Must match Solana subscription ID
         solana_contract_address: SolanaAddress; // Deployed Solana program address
         payment_token_mint: Text;               // Token mint address (to determine opcode 0=USDC, 1=other)
+        amount: Nat64;                          // Subscription amount (for validation only)
+        subscriber_address: SolanaAddress;      // Subscriber's wallet address
+        merchant_address: SolanaAddress;        // Merchant's wallet address
         reminder_days_before_payment: Nat;      // Days before payment to send notification
         interval_seconds: Nat64;                // Payment interval in seconds
         start_time: ?Timestamp;                 // Optional start time (defaults to now + interval)
     };
 
     // State
-    private var subscription_counter: Nat = 0;
     private transient var subscriptions = Map.HashMap<SubscriptionId, Subscription>(10, Text.equal, Text.hash);
     private transient var active_timers = Map.HashMap<SubscriptionId, Timer.TimerId>(10, Text.equal, Text.hash);
 
     // Enhanced Solana integration with Threshold Ed25519
-    private var ed25519_key_name: Text = "OuroC_key";
-    private var solana_rpc_endpoint: Text = "https://api.mainnet-beta.solana.com";
+    // Network configuration
+    public type NetworkEnvironment = {
+        #Mainnet;
+        #Devnet;
+        #Testnet;
+    };
+
+    private var network_env: NetworkEnvironment = #Devnet; // Start with devnet for safety
+    private var ed25519_key_name: Text = "test_key_1"; // Will be set to Ed25519:key_1 for mainnet
+    private var solana_rpc_endpoint: Text = "https://api.devnet.solana.com";
     private transient var solana_client: ?Solana.SolanaClient = null;
     private transient var is_initialized: Bool = false;
 
@@ -101,6 +132,48 @@ persistent actor OuroCTimer {
     // =============================================================================
     // CANISTER INITIALIZATION
     // =============================================================================
+
+    /// Set the network environment (MUST be called before initialization)
+    /// Only callable before canister is initialized to prevent accidental network switches
+    public func set_network(network: NetworkEnvironment): async Result.Result<(), Text> {
+        if (is_initialized) {
+            return #err("Cannot change network after initialization");
+        };
+
+        network_env := network;
+
+        // Update RPC endpoint and key name based on network
+        switch (network) {
+            case (#Mainnet) {
+                solana_rpc_endpoint := "https://api.mainnet-beta.solana.com";
+                ed25519_key_name := "Ed25519:key_1"; // Production key
+            };
+            case (#Devnet) {
+                solana_rpc_endpoint := "https://api.devnet.solana.com";
+                ed25519_key_name := "test_key_1"; // Test key for devnet
+            };
+            case (#Testnet) {
+                solana_rpc_endpoint := "https://api.testnet.solana.com";
+                ed25519_key_name := "test_key_1"; // Test key for testnet
+            };
+        };
+
+        Debug.print("Network set to " # debug_show(network) # " with endpoint: " # solana_rpc_endpoint);
+        #ok()
+    };
+
+    /// Get current network configuration
+    public query func get_network_config(): async {
+        network: NetworkEnvironment;
+        rpc_endpoint: Text;
+        key_name: Text;
+    } {
+        {
+            network = network_env;
+            rpc_endpoint = solana_rpc_endpoint;
+            key_name = ed25519_key_name;
+        }
+    };
 
     // Initialize the canister with Threshold Ed25519 wallets
     public func initialize_canister(): async Result.Result<{main_address: Text; fee_address: Text}, Text> {
@@ -152,28 +225,56 @@ persistent actor OuroCTimer {
     };
 
     public func create_subscription(req: CreateSubscriptionRequest): async Result.Result<SubscriptionId, Text> {
-        if (req.interval_seconds < 60) {
-            return #err("Minimum interval is 60 seconds");
+        // 1. Rate limiting - check total subscriptions
+        if (subscriptions.size() >= MAX_TOTAL_SUBSCRIPTIONS) {
+            return #err("Maximum total subscriptions reached");
         };
 
+        // 2. Validate subscription ID
+        let id_len = Text.size(req.subscription_id);
+        if (id_len < SUBSCRIPTION_ID_MIN_LENGTH) {
+            return #err("Subscription ID too short (min " # Nat.toText(SUBSCRIPTION_ID_MIN_LENGTH) # " chars)");
+        };
+        if (id_len > SUBSCRIPTION_ID_MAX_LENGTH) {
+            return #err("Subscription ID too long (max " # Nat.toText(SUBSCRIPTION_ID_MAX_LENGTH) # " chars)");
+        };
+
+        // Validate ID contains only alphanumeric, dash, underscore
+        if (not is_valid_subscription_id(req.subscription_id)) {
+            return #err("Subscription ID must be alphanumeric with - or _ only");
+        };
+
+        // 3. Validate interval
+        if (req.interval_seconds < MIN_INTERVAL_SECONDS) {
+            return #err("Minimum interval is " # Nat64.toText(MIN_INTERVAL_SECONDS) # " seconds (1 hour)");
+        };
+        if (req.interval_seconds > MAX_INTERVAL_SECONDS) {
+            return #err("Maximum interval is " # Nat64.toText(MAX_INTERVAL_SECONDS) # " seconds (1 year)");
+        };
+
+        // 4. Validate amount (assuming USDC with 6 decimals)
+        if (req.amount == 0) {
+            return #err("Amount must be greater than 0");
+        };
+        if (req.amount > MAX_AMOUNT_USDC) {
+            return #err("Amount exceeds maximum allowed (1M USDC)");
+        };
+
+        // 5. Validate Solana addresses
         if (not Solana.is_valid_solana_address(req.solana_contract_address)) {
-            return #err("Invalid Solana contract address");
+            return #err("Invalid Solana contract address format");
         };
-
         if (not Solana.is_valid_solana_address(req.payment_token_mint)) {
-            return #err("Invalid payment token mint address");
+            return #err("Invalid payment token mint address format");
+        };
+        if (not Solana.is_valid_solana_address(req.subscriber_address)) {
+            return #err("Invalid subscriber address format");
+        };
+        if (not Solana.is_valid_solana_address(req.merchant_address)) {
+            return #err("Invalid merchant address format");
         };
 
-        // Validate subscription_id format
-        if (req.subscription_id == "") {
-            return #err("Subscription ID cannot be empty");
-        };
-
-        if (Text.size(req.subscription_id) > 32) {
-            return #err("Subscription ID too long (max 32 characters)");
-        };
-
-        // Check if subscription already exists
+        // 6. Check if subscription already exists
         switch (subscriptions.get(req.subscription_id)) {
             case (?_) {
                 return #err("Subscription ID already exists");
@@ -204,6 +305,9 @@ persistent actor OuroCTimer {
             created_at = now;
             last_triggered = null;
             trigger_count = 0;
+            failed_payment_count = 0;
+            last_failure_time = null;
+            last_error = null;
         };
 
         subscriptions.put(id, subscription);
@@ -270,6 +374,34 @@ persistent actor OuroCTimer {
         }
     };
 
+    /// Cleanup old cancelled/expired subscriptions to free memory
+    /// Returns the number of subscriptions cleaned up
+    public func cleanup_old_subscriptions(older_than_seconds: Nat64): async Nat {
+        let now = Time.now();
+        let cutoff_time = now - (Int64.toInt(Int64.fromNat64(older_than_seconds)) * 1_000_000_000);
+        var cleanup_count: Nat = 0;
+
+        // Collect IDs to remove (can't modify HashMap while iterating)
+        let to_remove = Buffer.Buffer<SubscriptionId>(0);
+
+        for ((id, sub) in subscriptions.entries()) {
+            // Remove if cancelled/expired and old enough
+            if ((sub.status == #Cancelled or sub.status == #Expired) and sub.next_execution < cutoff_time) {
+                to_remove.add(id);
+            };
+        };
+
+        // Remove collected subscriptions
+        for (id in to_remove.vals()) {
+            subscriptions.delete(id);
+            cancel_timer(id); // Ensure timer is cancelled
+            cleanup_count += 1;
+        };
+
+        Debug.print("Cleaned up " # Nat.toText(cleanup_count) # " old subscriptions");
+        cleanup_count
+    };
+
     // Private functions
 
     private func schedule_subscription_timer<system>(subscription: Subscription): Timer.TimerId {
@@ -319,12 +451,15 @@ persistent actor OuroCTimer {
 
                     switch (result) {
                         case (#ok(tx_hash)) {
-                            // Success - update timer and schedule next
+                            // Success - reset failure count and schedule next
                             let updated_sub = {
                                 sub with
                                 next_execution = next_execution;
                                 last_triggered = ?now;
                                 trigger_count = sub.trigger_count + 1;
+                                failed_payment_count = 0; // Reset on success
+                                last_failure_time = null;
+                                last_error = null;
                             };
 
                             subscriptions.put(subscription_id, updated_sub);
@@ -333,14 +468,43 @@ persistent actor OuroCTimer {
                             Debug.print("Payment trigger sent: " # tx_hash # ". Next: " # Int.toText(next_execution));
                         };
                         case (#err(error)) {
-                            // Payment failed - just reschedule for next interval
-                            Debug.print("Payment trigger failed: " # error);
+                            // Payment failed - increment failure count and apply exponential backoff
+                            let new_failure_count = sub.failed_payment_count + 1;
+                            Debug.print("Payment trigger failed (" # Nat.toText(new_failure_count) # "): " # error);
 
-                            let updated_sub = {
-                                sub with next_execution = next_execution;
+                            // Check if we should auto-pause
+                            if (new_failure_count >= MAX_CONSECUTIVE_FAILURES) {
+                                // Too many failures - pause subscription
+                                let paused_sub = {
+                                    sub with
+                                    status = #Paused;
+                                    failed_payment_count = new_failure_count;
+                                    last_failure_time = ?now;
+                                    last_error = ?error;
+                                };
+                                subscriptions.put(subscription_id, paused_sub);
+                                cancel_timer(subscription_id);
+                                Debug.print("Subscription " # subscription_id # " auto-paused after " # Nat.toText(MAX_CONSECUTIVE_FAILURES) # " failures");
+                            } else {
+                                // Apply exponential backoff
+                                let backoff_multiplier = Nat64.min(
+                                    EXPONENTIAL_BACKOFF_BASE ** Nat64.fromNat(new_failure_count),
+                                    MAX_BACKOFF_MULTIPLIER
+                                );
+                                let backoff_interval = sub.interval_seconds * backoff_multiplier;
+                                let backoff_next_execution = now + Int64.toInt(Int64.fromNat64(backoff_interval) * 1_000_000_000);
+
+                                let updated_sub = {
+                                    sub with
+                                    next_execution = backoff_next_execution;
+                                    failed_payment_count = new_failure_count;
+                                    last_failure_time = ?now;
+                                    last_error = ?error;
+                                };
+                                subscriptions.put(subscription_id, updated_sub);
+                                ignore schedule_subscription_timer<system>(updated_sub);
+                                Debug.print("Retrying with " # Nat64.toText(backoff_multiplier) # "x backoff. Next: " # Int.toText(backoff_next_execution));
                             };
-                            subscriptions.put(subscription_id, updated_sub);
-                            ignore schedule_subscription_timer<system>(updated_sub);
                         };
                     };
                 } else {
@@ -678,7 +842,7 @@ persistent actor OuroCTimer {
             total_subscriptions = subscriptions.size();
             active_subscriptions = active_count;
             paused_subscriptions = paused_count;
-            total_payments_processed = subscription_counter; // Approximate
+            total_payments_processed = 0; // TODO: Track actual payment count
             failed_payments = failed_payment_count;
             uptime_seconds = uptime;
             cycle_balance_estimate = 1_000_000_000_000; // 1T cycles estimate
@@ -754,5 +918,25 @@ persistent actor OuroCTimer {
             last_check = now;
             status = status_text;
         }
+    };
+
+    // =============================================================================
+    // PRIVATE HELPER FUNCTIONS
+    // =============================================================================
+
+    /// Validate subscription ID contains only safe characters
+    private func is_valid_subscription_id(id: Text): Bool {
+        let chars = Text.toArray(id);
+        for (char in chars.vals()) {
+            let is_alphanumeric = (char >= 'a' and char <= 'z') or
+                                  (char >= 'A' and char <= 'Z') or
+                                  (char >= '0' and char <= '9');
+            let is_allowed_special = char == '-' or char == '_';
+
+            if (not (is_alphanumeric or is_allowed_special)) {
+                return false;
+            };
+        };
+        true
     };
 }
