@@ -1,0 +1,26 @@
+[package]
+name = "ouro_c_subscriptions"
+version = "0.1.0"
+description = "Created with Anchor"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "ouro_c_subscriptions"
+
+[features]
+default = []
+mainnet = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build"]
+
+
+[dependencies]
+anchor-lang = "0.31.1"
+anchor-spl = { version = "0.31.1", features = ["idl-build"] }
+brine-ed25519 = "0.1.0"
+pyth-solana-receiver-sdk = "0.2.0"
+
