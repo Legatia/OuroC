@@ -7,9 +7,10 @@ pub const JUPITER_PROGRAM_ID: &str = "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV
 
 /// Minimum output amount calculator with slippage
 /// Uses Pyth oracle price as reference and applies slippage tolerance
+#[allow(dead_code)]
 pub fn calculate_min_output_with_slippage(
     input_amount: u64,
-    oracle_exchange_rate: i64, // From Pyth, with 8 decimals
+    _oracle_exchange_rate: i64, // From Pyth, with 8 decimals (reserved for future use)
     slippage_bps: u16,          // Basis points (100 = 1%)
 ) -> u64 {
     // For stablecoins (USDT/PYUSD → USDC), rate should be ~1.0

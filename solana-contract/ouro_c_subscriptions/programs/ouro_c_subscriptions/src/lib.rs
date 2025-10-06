@@ -246,7 +246,7 @@ pub mod ouro_c_subscriptions {
         let usdc_mint_str = subscription.payment_token_mint.to_string();
         let is_usdc = usdc_mint_str == USDC_MINT;
 
-        let usdc_amount = if is_usdc {
+        let _usdc_amount = if is_usdc {
             // Standard USDC payment - no swap needed
             msg!("Payment token is USDC, using standard payment flow");
             subscription.amount
@@ -276,7 +276,7 @@ pub mod ouro_c_subscriptions {
             // Step 3: Execute swap via Jupiter
             let jupiter_program = &ctx.accounts.jupiter_program;
             let source_token_account = &ctx.accounts.payment_token_account;
-            let temp_usdc_account = &ctx.accounts.temp_usdc_account;
+            let _temp_usdc_account = &ctx.accounts.temp_usdc_account; // Reserved for future swap implementation
             let subscriber_authority = &ctx.accounts.subscriber;
             let source_mint = &ctx.accounts.payment_token_mint;
             let usdc_mint_account = &ctx.accounts.usdc_mint;
