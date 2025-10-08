@@ -121,9 +121,16 @@ export const SecureSubscriptionManager: React.FC<SecureSubscriptionManagerProps>
       setIsSubmitting(true)
       try {
         const request: CreateSubscriptionRequest = {
+          subscription_id: `sub_${Date.now()}`,
+          solana_contract_address: '', // TODO: Set actual contract address
           solana_payer: authState.solanaAddress,
           solana_receiver: formData.receiver,
-          payment_amount: BigInt(Math.floor(parseFloat(formData.amount) * 1_000_000_000)), // Convert SOL to lamports
+          subscriber_usdc_account: '', // TODO: Set subscriber token account
+          merchant_usdc_account: '', // TODO: Set merchant token account
+          icp_fee_usdc_account: '', // TODO: Set ICP fee account
+          payment_token_mint: '', // TODO: Set payment token mint
+          amount: BigInt(Math.floor(parseFloat(formData.amount) * 1_000_000)), // Convert to micro-units
+          reminder_days_before_payment: 3,
           interval_seconds: BigInt(parseInt(formData.interval))
         }
 
@@ -342,7 +349,7 @@ export const SecureSubscriptionManager: React.FC<SecureSubscriptionManagerProps>
                   <div className="flex items-center justify-between">
                     <div>
                       <p className={`font-medium ${themeClasses.header}`}>
-                        {(Number(subscription.payment_amount) / 1_000_000_000).toFixed(3)} SOL
+                        {(Number(subscription.amount) / 1_000_000).toFixed(2)} USDC
                       </p>
                       <p className={`text-sm ${themeClasses.text}`}>
                         To: <code className="font-mono text-xs">{subscription.solana_receiver}</code>

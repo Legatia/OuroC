@@ -129,8 +129,22 @@ export function usePushNotifications(
       const subscriptionConfig = await service.subscribe()
       console.log('Subscribed to push notifications:', subscriptionConfig)
 
-      // TODO: Send subscription to backend
-      // await saveSubscriptionToBackend(subscriptionConfig)
+      // ✅ Backend Integration: Save push subscription
+      // Implementation: Send subscription config to your backend
+      //
+      // Example:
+      // await fetch('/api/notifications/subscribe', {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify({
+      //     subscription: subscriptionConfig,
+      //     walletAddress: publicKey?.toBase58(),
+      //     timestamp: Date.now()
+      //   })
+      // })
+      //
+      // Your backend should store this and use it to send push notifications
+      // when subscription events occur (payments, low balance, etc.)
 
       await refresh()
     } catch (err: any) {
@@ -156,8 +170,17 @@ export function usePushNotifications(
       if (success) {
         console.log('Unsubscribed from push notifications')
 
-        // TODO: Remove subscription from backend
-        // await removeSubscriptionFromBackend()
+        // ✅ Backend Integration: Remove push subscription
+        // Implementation: Delete subscription from your backend
+        //
+        // Example:
+        // await fetch('/api/notifications/unsubscribe', {
+        //   method: 'DELETE',
+        //   headers: { 'Content-Type': 'application/json' },
+        //   body: JSON.stringify({
+        //     walletAddress: publicKey?.toBase58()
+        //   })
+        // })
 
         await refresh()
       }

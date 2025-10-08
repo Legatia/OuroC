@@ -51,6 +51,7 @@ interface OuroCContextValue {
   theme: OuroCTheme
   config: OuroCConfig
   error: string | null
+  clearError: () => void
 }
 
 const OuroCContext = createContext<OuroCContextValue | null>(null)
@@ -151,6 +152,11 @@ export function OuroCProvider({
     }
   }
 
+  // Clear error function
+  const clearError = () => {
+    setError(null)
+  }
+
   const contextValue: OuroCContextValue = {
     client,
     isConnected,
@@ -161,7 +167,8 @@ export function OuroCProvider({
     network,
     theme,
     config,
-    error
+    error,
+    clearError
   }
 
   return (
@@ -230,9 +237,6 @@ export function useOuroCError(): {
 
   return {
     error: context.error,
-    clearError: () => {
-      // TODO: Implement error clearing in provider state
-      console.warn('clearError is not yet implemented')
-    }
+    clearError: context.clearError
   }
 }

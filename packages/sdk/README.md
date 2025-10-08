@@ -123,6 +123,59 @@ const MySubscriptionCard = createSubscriptionCard(
 />
 ```
 
+### Merchant Dashboard
+
+Monitor subscription revenue and customer status with the built-in dashboard:
+
+```tsx
+import { MerchantDashboard } from '@OuroC/react-sdk'
+import { useWallet } from '@solana/wallet-adapter-react'
+
+function MerchantPage() {
+  const { publicKey } = useWallet()
+
+  return (
+    <MerchantDashboard
+      merchantAddress={publicKey}
+      subscriptions={[
+        {
+          id: 'sub_abc123',
+          subscriber: new PublicKey('...'),
+          merchant: new PublicKey('...'),
+          amount: 10_000_000, // 10 USDC (6 decimals)
+          intervalSeconds: 2592000, // 30 days
+          status: 0, // Active
+          icpFeePercentage: 200, // 2%
+          lastPayment: Date.now() - 86400000 * 5,
+          nextPayment: Date.now() + 86400000 * 25
+        }
+      ]}
+      payments={[
+        {
+          id: '1',
+          subscriber: '7xKX...gAsU',
+          amount: 10,
+          date: Date.now(),
+          status: 'success'
+        }
+      ]}
+      onFetchSubscriptions={async () => {
+        // Fetch subscriptions from your backend or Solana program
+        const subs = await fetchSubscriptionsForMerchant(publicKey)
+        return subs
+      }}
+    />
+  )
+}
+```
+
+**Features:**
+- Revenue stats (total subscribers, active subscriptions, monthly revenue, growth)
+- Subscription list with status indicators
+- Payment history with timestamps
+- Fully customizable with CSS
+- TypeScript support
+
 ## Hooks
 
 ### useSubscription

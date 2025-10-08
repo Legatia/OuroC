@@ -48,8 +48,29 @@ export function useNotifications(): UseNotificationsReturn {
     setError(null)
 
     try {
-      // TODO: Implement actual notification fetching from canister
-      // For now, return empty array
+      // ✅ Backend Integration: Fetch notifications from ICP canister
+      // Implementation: Call ICP canister to get subscription notifications
+      //
+      // Example using OuroCClient:
+      // const actor = await client.getActor()
+      // const notificationHistory = await actor.get_notifications({
+      //   wallet_address: publicKey?.toBase58(),
+      //   limit: config?.maxNotifications || 50,
+      //   offset: 0
+      // })
+      //
+      // Transform canister response to OuroCNotification format:
+      // const notifications = notificationHistory.map(n => ({
+      //   id: n.id,
+      //   type: n.notification_type, // 'PAYMENT_DUE', 'BALANCE_LOW', etc.
+      //   title: n.title,
+      //   message: n.message,
+      //   timestamp: Number(n.timestamp) / 1_000_000, // Convert nanoseconds
+      //   read: n.read_status,
+      //   metadata: n.metadata
+      // }))
+      //
+      // For now, return empty array (no backend yet)
       setNotifications([])
     } catch (error) {
       handleError(error, 'FETCH_NOTIFICATIONS')

@@ -62,6 +62,11 @@ id.json
 wallet.json
 **/*.env
 
+# Keep example env files
+!.env.example
+!.env.*.example
+!**/.env.example
+
 # =============================================================================
 # IDEs & Editors
 # =============================================================================
@@ -117,6 +122,10 @@ test-results/
 *.swp.*
 *.un~
 .turbo/
+**/.turbo/
+*.tsbuildinfo
+.eslintcache
+.stylelintcache
 
 # =============================================================================
 # Media Files (recordings, demos, screenshots)
@@ -139,9 +148,13 @@ recording_*.*
 *_CHECKLIST.md
 *_REVIEW.md
 *_READY.md
+*_TODO.md
 DEPLOYMENT_CHECKLIST.md
 PLACEHOLDERS_REVIEW.md
 SDK_READY.md
+FIRST_PAYMENT_TODO.md
+SDK_CONSOLIDATION.md
+REPOSITORY_STRUCTURE.md
 
 # Test result files (keep final documentation)
 TEST_RESULTS.md
@@ -172,6 +185,13 @@ CHANGELOG_*.md
 CRITICAL_FIXES_*.md
 NEXT_STEPS.md
 OPTION_C_*.md
+
+# Keep important docs
+!README.md
+!Vision.md
+!LICENSE.md
+!CONTRIBUTING.md
+!CODE_OF_CONDUCT.md
 
 # =============================================================================
 # Claude Code

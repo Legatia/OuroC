@@ -3,9 +3,11 @@ export { SubscriptionCard, createSubscriptionCard } from './SubscriptionCard/Sub
 export { ManualPaymentAlert } from './ManualPaymentAlert'
 export { HealthMonitor } from './HealthMonitor'
 export { NotificationPermissionPrompt } from './NotificationPermissionPrompt'
+export { MerchantDashboard } from './MerchantDashboard'
 
 // Export component types
 export type { SubscriptionCardProps } from '../core/types'
 export type { ManualPaymentAlertProps } from './ManualPaymentAlert'
 export type { HealthMonitorProps } from './HealthMonitor'
 export type { NotificationPermissionPromptProps } from './NotificationPermissionPrompt'
+export type { MerchantDashboardProps, SubscriptionData, PaymentData } from './MerchantDashboard'

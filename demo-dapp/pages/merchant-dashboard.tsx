@@ -1,276 +1,376 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useWallet } from '@solana/wallet-adapter-react'
-import { WalletMultiButton } from '@solana/wallet-adapter-react-ui'
-import { PublicKey, Connection } from '@solana/web3.js'
+import { PublicKey } from '@solana/web3.js'
 import { motion } from 'framer-motion'
-import { Clock, DollarSign, Users, AlertCircle, CheckCircle, Pause } from 'lucide-react'
-import ManualTriggerButton from '../components/ManualTriggerButton'
-import { checkSubscriptionStatus, SubscriptionStatusResult, SubscriptionData } from '../utils/subscriptionStatus'
+import { Shield } from 'lucide-react'
+import WalletButton from '../components/WalletButton'
+import { MerchantDashboard as SDKMerchantDashboard, SubscriptionData, PaymentData } from '@ouroc/sdk'
 
-const PROGRAM_ID = process.env.NEXT_PUBLIC_SOLANA_PROGRAM_ID || ''
+// Mock data for demo
+const MOCK_SUBSCRIPTIONS: SubscriptionData[] = [
+  {
+    id: 'sub_1a2b3c4d',
+    subscriber: new PublicKey('7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU'),
+    merchant: new PublicKey('HBvV7YqSRSPW4YEBsDvpvF2PrUWFubqVbTNYafkddTsy'),
+    amount: 10_000_000, // 10 USDC
+    intervalSeconds: 2592000, // 30 days
+    status: 0, // Active
+    icpFeePercentage: 200, // 2%
+    lastPayment: Date.now() - 86400000 * 5,
+    nextPayment: Date.now() + 86400000 * 25,
+  },
+  {
+    id: 'sub_5e6f7g8h',
+    subscriber: new PublicKey('9xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU'),
+    merchant: new PublicKey('HBvV7YqSRSPW4YEBsDvpvF2PrUWFubqVbTNYafkddTsy'),
+    amount: 25_000_000, // 25 USDC
+    intervalSeconds: 2592000,
+    status: 0,
+    icpFeePercentage: 200,
+    lastPayment: Date.now() - 86400000 * 2,
+    nextPayment: Date.now() + 86400000 * 28,
+  },
+]
 
-export default function MerchantDashboard() {
+const MOCK_PAYMENTS: PaymentData[] = [
+  { id: '1', subscriber: '7xKX...gAsU', amount: 10, date: Date.now() - 86400000 * 5, status: 'success' },
+  { id: '2', subscriber: '9xKX...gAsU', amount: 25, date: Date.now() - 86400000 * 2, status: 'success' },
+  { id: '3', subscriber: '7xKX...gAsU', amount: 10, date: Date.now() - 86400000 * 35, status: 'success' },
+]
+
+export default function MerchantDashboardPage() {
   const { publicKey, connected } = useWallet()
-  const [subscriptions, setSubscriptions] = useState<SubscriptionData[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string>('')
+  const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
-    if (connected && publicKey) {
-      fetchMerchantSubscriptions()
-    }
-  }, [connected, publicKey])
-
-  const fetchMerchantSubscriptions = async () => {
-    if (!publicKey) return
-
+  const fetchSubscriptions = async (): Promise<SubscriptionData[]> => {
     setLoading(true)
-    setError('')
-
     try {
-      const connection = new Connection(
-        process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.devnet.solana.com',
-        'confirmed'
-      )
-
-      // Fetch all subscriptions where merchant = publicKey
-      // NOTE: In production, use getProgramAccounts with memcmp filter
-      // or maintain an off-chain index
-
-      console.log('Fetching subscriptions for merchant:', publicKey.toString())
-
-      // Placeholder - implement actual fetching logic
-      // const accounts = await connection.getProgramAccounts(
-      //   new PublicKey(PROGRAM_ID),
-      //   {
-      //     filters: [
-      //       { memcmp: { offset: 8 + 32, bytes: publicKey.toBase58() } }
-      //     ]
-      //   }
-      // )
-
-      // Mock data for demonstration
-      setSubscriptions([])
-      setLoading(false)
-
-    } catch (err: any) {
-      console.error('Error fetching subscriptions:', err)
-      setError(err.message || 'Failed to fetch subscriptions')
+      // For demo, use mock data
+      // In production, fetch from Solana program
+      await new Promise(resolve => setTimeout(resolve, 500))
+      return MOCK_SUBSCRIPTIONS
+    } finally {
       setLoading(false)
     }
   }
-
-  const getStatusBadge = (status: SubscriptionStatusResult) => {
-    const badges = {
-      active: (
-        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800 flex items-center gap-1">
-          <CheckCircle className="w-3 h-3" />
-          Active
-        </span>
-      ),
-      overdue: (
-        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800 flex items-center gap-1">
-          <AlertCircle className="w-3 h-3" />
-          Overdue
-        </span>
-      ),
-      paused: (
-        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800 flex items-center gap-1">
-          <Pause className="w-3 h-3" />
-          Paused
-        </span>
-      ),
-      cancelled: (
-        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
-          Cancelled
-        </span>
-      )
-    }
-
-    return badges[status.status] || badges.active
-  }
-
-  const calculateStats = () => {
-    const total = subscriptions.length
-    const active = subscriptions.filter(s => s.status === 0).length
-    const totalRevenue = subscriptions.reduce((sum, sub) => {
-      const merchantAmount = sub.amount * (1 - sub.icpFeePercentage / 10000)
-      return sum + merchantAmount
-    }, 0)
-
-    return { total, active, totalRevenue }
-  }
-
-  const stats = calculateStats()
 
   if (!connected) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold mb-4">Merchant Dashboard</h1>
-          <p className="text-gray-600 mb-6">Connect your wallet to view subscriptions</p>
-          <WalletMultiButton />
-        </div>
+      <div className="min-h-screen bg-gradient-to-br from-dark-900 via-dark-800 to-dark-900 pt-16 flex items-center justify-center">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="glass p-12 rounded-2xl text-center max-w-md"
+        >
+          <Shield className="h-16 w-16 text-purple-primary mx-auto mb-6" />
+          <h1 className="text-3xl font-bold text-white mb-4">Merchant Dashboard</h1>
+          <p className="text-gray-400 mb-8">Connect your wallet to view subscriptions and revenue</p>
+          <WalletButton />
+        </motion.div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 p-6">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-dark-900 via-dark-800 to-dark-900 pt-16">
+      <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Merchant Dashboard</h1>
-            <p className="text-gray-600 mt-1">Manage your subscriptions</p>
+            <h1 className="text-4xl font-bold gradient-text mb-2">Merchant Dashboard</h1>
+            <p className="text-gray-400">Monitor your subscription revenue and customer status</p>
           </div>
-          <WalletMultiButton />
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-lg shadow-lg p-6"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total Subscribers</p>
-                <p className="text-3xl font-bold text-gray-900 mt-1">{stats.total}</p>
-              </div>
-              <Users className="w-12 h-12 text-purple-500" />
-            </div>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="bg-white rounded-lg shadow-lg p-6"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Active Subscriptions</p>
-                <p className="text-3xl font-bold text-gray-900 mt-1">{stats.active}</p>
-              </div>
-              <CheckCircle className="w-12 h-12 text-green-500" />
-            </div>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="bg-white rounded-lg shadow-lg p-6"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Expected Revenue</p>
-                <p className="text-3xl font-bold text-gray-900 mt-1">
-                  ${(stats.totalRevenue / 1e6).toFixed(2)}
-                </p>
-              </div>
-              <DollarSign className="w-12 h-12 text-blue-500" />
-            </div>
-          </motion.div>
-        </div>
-
-        {/* Error Message */}
-        {error && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 flex items-center gap-2"
-          >
-            <AlertCircle className="w-5 h-5 text-red-600" />
-            <p className="text-red-800">{error}</p>
-          </motion.div>
-        )}
-
-        {/* Subscriptions List */}
-        <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-900">Subscriptions</h2>
-          </div>
-
-          {loading ? (
-            <div className="p-12 text-center">
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
-              <p className="text-gray-600 mt-4">Loading subscriptions...</p>
-            </div>
-          ) : subscriptions.length === 0 ? (
-            <div className="p-12 text-center">
-              <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600">No subscriptions found</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-gray-200">
-              {subscriptions.map((subscription) => {
-                const status = checkSubscriptionStatus(subscription)
-                const merchantAmount = subscription.amount * (1 - subscription.icpFeePercentage / 10000)
-
-                return (
-                  <motion.div
-                    key={subscription.id}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="p-6 hover:bg-gray-50 transition-colors"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h3 className="font-semibold text-gray-900">
-                            Subscription #{subscription.id.substring(0, 8)}...
-                          </h3>
-                          {getStatusBadge(status)}
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4 mt-3 text-sm">
-                          <div>
-                            <p className="text-gray-600">Subscriber</p>
-                            <p className="font-mono text-xs text-gray-900">
-                              {subscription.subscriber.toString().substring(0, 12)}...
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-gray-600">Amount</p>
-                            <p className="font-semibold text-gray-900">
-                              ${(merchantAmount / 1e6).toFixed(2)} USDC
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-gray-600">Interval</p>
-                            <p className="text-gray-900">
-                              {subscription.intervalSeconds / 86400} days
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-gray-600">Status</p>
-                            <p className="text-gray-900">{status.message}</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="ml-6">
-                        {status.shouldShowManualTrigger && (
-                          <ManualTriggerButton
-                            subscriptionId={subscription.id}
-                            subscriptionData={subscription}
-                            programId={PROGRAM_ID}
-                            onSuccess={() => fetchMerchantSubscriptions()}
-                            onError={(err) => setError(err)}
-                          />
-                        )}
-                      </div>
-                    </div>
-                  </motion.div>
-                )
-              })}
-            </div>
-          )}
-        </div>
+        {/* SDK Dashboard Component */}
+        <SDKMerchantDashboard
+          merchantAddress={publicKey || undefined}
+          subscriptions={MOCK_SUBSCRIPTIONS}
+          payments={MOCK_PAYMENTS}
+          onFetchSubscriptions={fetchSubscriptions}
+          loading={loading}
+        />
       </div>
+
+      <style jsx global>{`
+        /* Merchant Dashboard Styles */
+        .merchant-dashboard {
+          width: 100%;
+        }
+
+        .stats-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+          gap: 1.5rem;
+          margin-bottom: 2rem;
+        }
+
+        .stat-card {
+          background: rgba(255, 255, 255, 0.05);
+          backdrop-filter: blur(10px);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 1rem;
+          padding: 1.5rem;
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+        }
+
+        .stat-icon {
+          padding: 0.75rem;
+          border-radius: 0.75rem;
+          display: flex;
+          align-items: center;
+          justify-center;
+        }
+
+        .stat-icon.subscribers {
+          background: rgba(139, 92, 246, 0.2);
+          color: #a78bfa;
+        }
+
+        .stat-icon.active {
+          background: rgba(34, 197, 94, 0.2);
+          color: #4ade80;
+        }
+
+        .stat-icon.revenue {
+          background: rgba(59, 130, 246, 0.2);
+          color: #60a5fa;
+        }
+
+        .stat-icon.growth {
+          background: rgba(251, 146, 60, 0.2);
+          color: #fb923c;
+        }
+
+        .stat-content {
+          flex: 1;
+        }
+
+        .stat-label {
+          font-size: 0.875rem;
+          color: #9ca3af;
+          margin-bottom: 0.25rem;
+        }
+
+        .stat-value {
+          font-size: 1.875rem;
+          font-weight: bold;
+          color: white;
+        }
+
+        .stat-badge {
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: #4ade80;
+          margin-left: 0.5rem;
+        }
+
+        .stat-badge.growth {
+          color: #4ade80;
+        }
+
+        .dashboard-content {
+          display: grid;
+          grid-template-columns: 2fr 1fr;
+          gap: 1.5rem;
+        }
+
+        @media (max-width: 1024px) {
+          .dashboard-content {
+            grid-template-columns: 1fr;
+          }
+        }
+
+        .subscriptions-panel,
+        .payments-panel {
+          background: rgba(255, 255, 255, 0.05);
+          backdrop-filter: blur(10px);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 1rem;
+          overflow: hidden;
+        }
+
+        .panel-header {
+          padding: 1.5rem;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .panel-header h2 {
+          font-size: 1.25rem;
+          font-weight: 600;
+          color: white;
+        }
+
+        .loading-state,
+        .empty-state {
+          padding: 3rem;
+          text-align: center;
+          color: #9ca3af;
+        }
+
+        .spinner {
+          display: inline-block;
+          width: 3rem;
+          height: 3rem;
+          border: 2px solid rgba(139, 92, 246, 0.3);
+          border-top-color: #a78bfa;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+
+        .subscriptions-list,
+        .payments-list {
+          divide-y: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .subscription-item {
+          padding: 1.5rem;
+          transition: background-color 0.2s;
+        }
+
+        .subscription-item:hover {
+          background: rgba(255, 255, 255, 0.05);
+        }
+
+        .subscription-header {
+          display: flex;
+          justify-content: space-between;
+          margin-bottom: 1rem;
+        }
+
+        .subscription-id-row {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          margin-bottom: 0.5rem;
+        }
+
+        .subscription-id-row h3 {
+          font-weight: 600;
+          color: white;
+        }
+
+        .status-badge {
+          padding: 0.25rem 0.75rem;
+          font-size: 0.75rem;
+          font-weight: 600;
+          border-radius: 9999px;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.25rem;
+        }
+
+        .status-badge.active {
+          background: rgba(34, 197, 94, 0.2);
+          color: #4ade80;
+        }
+
+        .status-badge.inactive {
+          background: rgba(156, 163, 175, 0.2);
+          color: #9ca3af;
+        }
+
+        .subscriber-address {
+          font-family: monospace;
+          font-size: 0.75rem;
+          color: #9ca3af;
+        }
+
+        .subscription-amount {
+          text-align: right;
+        }
+
+        .subscription-amount .amount {
+          font-size: 1.5rem;
+          font-weight: bold;
+          color: white;
+        }
+
+        .subscription-amount .period {
+          font-size: 0.75rem;
+          color: #9ca3af;
+        }
+
+        .subscription-details {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 1rem;
+          font-size: 0.875rem;
+        }
+
+        .detail-label {
+          color: #9ca3af;
+          margin-bottom: 0.25rem;
+        }
+
+        .detail-value {
+          color: white;
+        }
+
+        .payment-item {
+          padding: 1rem;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .payment-row {
+          display: flex;
+          justify-content: space-between;
+          margin-bottom: 0.5rem;
+        }
+
+        .payment-row:last-child {
+          margin-bottom: 0;
+        }
+
+        .payment-subscriber {
+          font-family: monospace;
+          font-size: 0.75rem;
+          color: #9ca3af;
+        }
+
+        .payment-amount {
+          color: white;
+          font-weight: 600;
+        }
+
+        .payment-date {
+          font-size: 0.75rem;
+          color: #6b7280;
+        }
+
+        .payment-status {
+          font-size: 0.75rem;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.25rem;
+        }
+
+        .payment-status.success {
+          color: #4ade80;
+        }
+
+        .panel-footer {
+          padding: 1.5rem;
+          border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .view-all-btn {
+          width: 100%;
+          font-size: 0.875rem;
+          color: #a78bfa;
+          transition: color 0.2s;
+        }
+
+        .view-all-btn:hover {
+          color: #c4b5fd;
+        }
+      `}</style>
     </div>
   )
 }
