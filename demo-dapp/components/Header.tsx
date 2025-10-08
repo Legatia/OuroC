@@ -3,12 +3,13 @@ import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui'
 import { useWallet } from '@solana/wallet-adapter-react'
-import { Menu, X, BarChart3, Clock, CreditCard } from 'lucide-react'
+import { Menu, X, BarChart3, Clock, CreditCard, GitBranch } from 'lucide-react'
 import clsx from 'clsx'
 
 const navigation = [
   { name: 'Home', href: '/', icon: BarChart3 },
   { name: 'Ouro-C Demo', href: '/pricing', icon: Clock },
+  { name: 'How It Works', href: '/flow', icon: GitBranch },
 ]
 
 export default function Header() {

@@ -1,0 +1,221 @@
+# =============================================================================
+# ICP / DFINITY
+# =============================================================================
+.dfx/
+.vessel/
+*.wasm
+*.did
+canister_ids.json
+
+# =============================================================================
+# Solana / Anchor
+# =============================================================================
+.anchor/
+target/
+test-ledger/
+**/*.rs.bk
+*.so
+*.dump
+*.keypair
+keys/
+localnet/
+
+# =============================================================================
+# Node / NPM
+# =============================================================================
+node_modules/
+dist/
+.npm/
+.yarn/
+.pnp.*
+.yarn-integrity
+
+# =============================================================================
+# Dependencies Lock Files
+# =============================================================================
+package-lock.json
+yarn.lock
+Cargo.lock
+pnpm-lock.yaml
+
+# =============================================================================
+# Build Outputs
+# =============================================================================
+*.js.map
+build/
+out/
+*.tsbuildinfo
+
+# =============================================================================
+# Environment & Secrets
+# =============================================================================
+.env
+.env.local
+.env.*.local
+.env.production
+.env.devnet
+.env.mainnet
+*.pem
+*.key
+id.json
+*-keypair.json
+wallet.json
+**/*.env
+
+# =============================================================================
+# IDEs & Editors
+# =============================================================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.fleet/
+*.code-workspace
+*.sublime-*
+
+# =============================================================================
+# OS Files
+# =============================================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# =============================================================================
+# Logs
+# =============================================================================
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+pnpm-debug.log*
+
+# =============================================================================
+# Test Artifacts
+# =============================================================================
+.coverage/
+coverage/
+*.profraw
+.nyc_output/
+junit.xml
+test-results/
+.pytest_cache/
+
+# =============================================================================
+# Temporary & Cache Files
+# =============================================================================
+*.tmp
+*.temp
+.cache/
+*.swp.*
+*.un~
+.turbo/
+
+# =============================================================================
+# Media Files (recordings, demos, screenshots)
+# =============================================================================
+*.mov
+*.mp4
+*.avi
+*.wmv
+*.flv
+*.webm
+*.mkv
+Screen Recording *.*
+recording_*.*
+
+# =============================================================================
+# Documentation (temporary/generated - keep committed docs)
+# =============================================================================
+# Temporary status files
+*_STATUS.md
+*_CHECKLIST.md
+*_REVIEW.md
+*_READY.md
+DEPLOYMENT_CHECKLIST.md
+PLACEHOLDERS_REVIEW.md
+SDK_READY.md
+
+# Test result files (keep final documentation)
+TEST_RESULTS.md
+DEPLOYMENT_COMPLETE.md
+QUICK_START_NO_GRID.md
+READY_FOR_BIG_TESTING.md
+
+# Build/compilation temporary docs
+BUILD_STATUS.md
+COMPILATION_STATUS.md
+FINAL_BUILD_STATUS.md
+
+# Audit temporary files
+*_AUDIT.md
+SOLANA_CONTRACT_AUDIT.md
+ICP_FUNCTION_AUDIT.md
+
+# Implementation temp docs
+*_IMPLEMENTATION.md
+*_INTEGRATION.md
+JUPITER_*.md
+MULTI_TOKEN_*.md
+NOTIFICATION_*.md
+PATH_2_*.md
+
+# Changelogs (generated)
+CHANGELOG_*.md
+CRITICAL_FIXES_*.md
+NEXT_STEPS.md
+OPTION_C_*.md
+
+# =============================================================================
+# Claude Code
+# =============================================================================
+.claude/settings.local.json
+
+# =============================================================================
+# React/Next.js (demo-dapp)
+# =============================================================================
+.next/
+.next/**
+.vercel
+**/.next/cache/
+**/.next/cache/**
+demo-dapp/.next/
+demo-dapp/node_modules/
+demo-dapp/out/
+
+# =============================================================================
+# Rust
+# =============================================================================
+**/*.pdb
+**/*.rlib
+Cargo.lock
+
+# =============================================================================
+# OuroC SDK Package (@ouroc/sdk)
+# =============================================================================
+# Keep source, ignore builds
+packages/sdk/dist/
+packages/sdk/node_modules/
+packages/sdk/.turbo/
+packages/sdk/coverage/
+sdk/dist/
+sdk/node_modules/
+sdk/.turbo/
+sdk/coverage/
+
+# =============================================================================
+# Solana Contract Tests
+# =============================================================================
+solana-contract/**/node_modules/
+solana-contract/**/target/
+solana-contract/**/.anchor/
+
+# Demo documentation (temporary)
+MINIMAL_DEMO.md

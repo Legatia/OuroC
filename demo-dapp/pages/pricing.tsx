@@ -15,7 +15,6 @@ import {
 } from 'lucide-react'
 import MockSubscriptionCard from '../components/MockSubscriptionCard'
 import RealSubscriptionCard from '../components/RealSubscriptionCard'
-import OuroCShowcase from '../components/OuroCShowcase'
 
 const plans = [
   {
@@ -104,7 +103,6 @@ const faqs = [
 export default function PricingPage() {
   const { connected } = useWallet()
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null)
-  const [showOuroCDemo, setShowOuroCDemo] = useState(false)
   const [useRealSDK, setUseRealSDK] = useState(true) // Toggle between mock and real
 
   // Demo merchant address for receiving payments
@@ -144,66 +142,56 @@ export default function PricingPage() {
             ))}
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-6 mb-8">
-            <button
-              onClick={() => setShowOuroCDemo(!showOuroCDemo)}
-              className="btn-secondary inline-flex items-center space-x-2"
-            >
-              <Zap className="h-4 w-4" />
-              <span>{showOuroCDemo ? 'Hide' : 'See'} Ouro-C in Action</span>
-            </button>
-
-            {/* Real vs Mock Toggle */}
+          {/* Real vs Mock Toggle */}
+          <div className="flex flex-col items-center space-y-4 mb-8">
             <div className="flex items-center space-x-3">
               <span className="text-sm text-gray-400">Demo Mode:</span>
               <button
                 onClick={() => setUseRealSDK(false)}
-                className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                   !useRealSDK
-                    ? 'bg-blue-primary text-white'
+                    ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/25'
                     : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                 }`}
               >
-                Mock
+                Mock UI
               </button>
               <button
                 onClick={() => setUseRealSDK(true)}
-                className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                   useRealSDK
-                    ? 'bg-green-primary text-white'
+                    ? 'bg-green-500 text-white shadow-lg shadow-green-500/25'
                     : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                 }`}
               >
                 Live SDK
               </button>
             </div>
-          </div>
 
-          {/* Mode Explanation */}
-          <div className="text-center mb-8">
-            <p className="text-sm text-gray-400">
-              {useRealSDK ? (
-                <>
-                  <span className="text-green-400 font-medium">Live SDK Mode:</span> Real Ouro-C integration with canister communication
-                </>
-              ) : (
-                <>
-                  <span className="text-blue-400 font-medium">Mock Mode:</span> Visual demonstration of subscription flow
-                </>
+            {/* Mode Explanation */}
+            <div className="text-center">
+              <p className="text-sm text-gray-400">
+                {useRealSDK ? (
+                  <>
+                    <span className="text-green-400 font-medium">Live SDK Mode:</span> Real Ouro-C integration with ICP canister + Solana contract
+                  </>
+                ) : (
+                  <>
+                    <span className="text-blue-400 font-medium">Mock UI Mode:</span> Visual demonstration of subscription interface
+                  </>
+                )}
+              </p>
+              {useRealSDK && (
+                <div className="mt-3 p-4 bg-green-900/20 border border-green-500/30 rounded-lg max-w-2xl mx-auto">
+                  <p className="text-sm text-green-300">
+                    <strong>Production Ready:</strong> This integrates with the real Ouro-C system.
+                    ICP canister handles timing, Solana contract processes USDC payments.
+                    Full cross-chain subscription management is live!
+                  </p>
+                </div>
               )}
-            </p>
-            {useRealSDK && (
-              <div className="mt-3 p-3 bg-green-900/20 border border-green-500/30 rounded-lg max-w-2xl mx-auto">
-                <p className="text-xs text-green-300">
-                  <strong>Production Ready:</strong> This integrates with the real Ouro-C system.
-                  ICP canister handles timing, Solana contract processes USDC payments.
-                  Full cross-chain subscription management is now live!
-                </p>
-              </div>
-            )}
+            </div>
           </div>
-
-          {showOuroCDemo && <OuroCShowcase />}
         </motion.div>
       </section>
 

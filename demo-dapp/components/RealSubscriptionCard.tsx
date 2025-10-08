@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Check, Star, Zap, ArrowRight, AlertCircle } from 'lucide-react'
-import { WalletMultiButton } from '@solana/wallet-adapter-react-ui'
 import { useWallet } from '@solana/wallet-adapter-react'
-import { SecureOuroCClient } from '@ouro-c/react-sdk'
+import WalletButton from './WalletButton'
+import { OuroCClient } from '@ouroc/sdk'
 
 interface Plan {
   name: string
@@ -25,27 +25,32 @@ export default function RealSubscriptionCard({ plan, onSubscribe, merchantAddres
   const [isSubscribing, setIsSubscribing] = useState(false)
   const [subscriptionError, setSubscriptionError] = useState<string | null>(null)
   const [subscriptionSuccess, setSubscriptionSuccess] = useState(false)
-  const [client, setClient] = useState<SecureOuroCClient | null>(null)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [client, setClient] = useState<OuroCClient | null>(null)
 
-  const { connected, publicKey, wallet } = useWallet()
+  const wallet = useWallet()
+  const { connected, publicKey } = wallet
 
   // Initialize client when component mounts
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        // Use production canister ID with real Solana contract integration
-        const ouroCClient = new SecureOuroCClient(
-          'rdmx6-jaaaa-aaaaa-aaadq-cai', // Production canister ID
-          'local' // Use 'ic' for mainnet
+    const initClient = async () => {
+      if (typeof window !== 'undefined') {
+        // Create OuroC client - it will handle initialization internally
+        const ouroCClient = new OuroCClient(
+          '7tbxr-naaaa-aaaao-qkrca-cai', // OuroC Timer Canister (IC mainnet)
+          'devnet', // Solana network (devnet for testing)
+          'https://ic0.app' // ICP mainnet host
         )
+
+        // Wait for initialization to complete
+        await ouroCClient.waitForInitialization()
+
+        // Set client - it's ready to use
         setClient(ouroCClient)
-      } catch (error: any) {
-        console.error('Failed to initialize Ouro-C client:', error)
-        // Don't set error immediately - let user try subscribing to see the error
-        // This makes the demo more user-friendly
+        console.log('✅ OuroC client initialized successfully')
       }
     }
+
+    initClient()
   }, [])
 
   const handleSubscribe = async () => {
@@ -59,38 +64,33 @@ export default function RealSubscriptionCard({ plan, onSubscribe, merchantAddres
     setSubscriptionError(null)
 
     try {
-      // First authenticate if not already authenticated
-      if (!isAuthenticated) {
-        console.log('Authenticating with Ouro-C...')
-        if (!wallet) {
-          throw new Error('Wallet not connected')
-        }
-        await client.authenticate(wallet.adapter)
-        setIsAuthenticated(true)
-      }
-
       // Calculate interval in seconds based on period
       const intervalSeconds = plan.period === 'month' ? 30 * 24 * 60 * 60 : 365 * 24 * 60 * 60
 
-      // Create subscription configuration with real Solana contract
+      // Generate unique subscription ID
+      const subscriptionId = `sub_${Date.now()}_${publicKey.toBase58().slice(0, 8)}`
+
+      // USDC token mint address on devnet
+      const USDC_MINT_DEVNET = 'Gh9ZwEmdLJ8DscKNTkTqPbNwLNNBjuSzaG9Vp2KGtKJr'
+
+      // Create subscription configuration matching the canister's expected format
       const subscriptionConfig = {
-        solana_payer: publicKey.toBase58(),
-        solana_receiver: merchantAddress,
-        payment_amount: BigInt(plan.price * 1_000_000), // Convert USDC to micro-units
+        subscription_id: subscriptionId,
+        reminder_days_before_payment: 3,
+        solana_contract_address: "7c1tGePFVT3ztPEESfzG7gFqYiCJUDjFa7PCeyMSYtub",
+        payment_token_mint: USDC_MINT_DEVNET,
+        start_time: [],  // Optional, empty means start now
         interval_seconds: BigInt(intervalSeconds),
-        solana_program_id: "7c1tGePFVT3ztPEESfzG7gFqYiCJUDjFa7PCeyMSYtub", // Real Ouro-C program ID
-        notification_channels: {
-          email: "demo@ouro-c.com",
-          discord_webhook: null,
-          slack_webhook: null,
-          custom_webhook: null
-        }
+        subscriber_address: publicKey.toBase58(),
+        amount: BigInt(plan.price * 1_000_000), // Convert USDC to micro-units (6 decimals)
+        merchant_address: merchantAddress,
       }
 
       console.log('Creating subscription with config:', subscriptionConfig)
 
-      // Create the subscription using the real SDK
-      const subscription = await client.createSubscription(subscriptionConfig)
+      // Create the subscription using the real SDK (with first payment)
+      // Pass the entire wallet object, not wallet.adapter (which is undefined)
+      const subscription = await client.createSubscription(subscriptionConfig, wallet)
 
       console.log('Subscription created successfully:', subscription)
 
@@ -192,7 +192,7 @@ export default function RealSubscriptionCard({ plan, onSubscribe, merchantAddres
         {!connected ? (
           <div className="text-center">
             <p className="text-sm text-gray-400 mb-4">Connect your wallet to subscribe</p>
-            <WalletMultiButton className="!w-full !rounded-xl !font-semibold" />
+            <WalletButton />
           </div>
         ) : (
           <>
@@ -264,12 +264,6 @@ export default function RealSubscriptionCard({ plan, onSubscribe, merchantAddres
               <span>Notifications:</span>
               <span className="text-green-400">7, 3, 1 days before</span>
             </div>
-            {isAuthenticated && (
-              <div className="flex justify-between">
-                <span>Auth Status:</span>
-                <span className="text-green-400">Authenticated</span>
-              </div>
-            )}
             <div className="flex justify-between">
               <span>SDK Status:</span>
               <span className={client ? "text-green-400" : "text-yellow-400"}>

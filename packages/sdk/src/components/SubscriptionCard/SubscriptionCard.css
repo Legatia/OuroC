@@ -1,0 +1,196 @@
+.OuroC-subscription-card {
+  position: relative;
+  padding: var(--OuroC-spacing-lg);
+  margin: var(--OuroC-spacing-md);
+  max-width: 320px;
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: all 0.2s ease-in-out;
+}
+
+.OuroC-subscription-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--OuroC-shadow-lg) !important;
+}
+
+.OuroC-subscription-card.popular {
+  transform: scale(1.05);
+  z-index: 1;
+}
+
+.popular-badge {
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: var(--OuroC-spacing-xs) var(--OuroC-spacing-sm);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.card-header {
+  text-align: center;
+  margin-bottom: var(--OuroC-spacing-lg);
+}
+
+.plan-name {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0 0 var(--OuroC-spacing-sm) 0;
+}
+
+.price-section {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: var(--OuroC-spacing-xs);
+}
+
+.price {
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.interval {
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.features-list {
+  list-style: none;
+  padding: 0;
+  margin: var(--OuroC-spacing-lg) 0;
+  flex-grow: 1;
+}
+
+.feature-item {
+  display: flex;
+  align-items: center;
+  padding: var(--OuroC-spacing-xs) 0;
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.checkmark {
+  margin-right: var(--OuroC-spacing-sm);
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+
+.subscribe-button {
+  width: 100%;
+  padding: var(--OuroC-spacing-md) var(--OuroC-spacing-lg);
+  font-size: 1rem;
+  font-weight: 600;
+  text-transform: none;
+  transition: all 0.2s ease-in-out;
+  margin-bottom: var(--OuroC-spacing-md);
+}
+
+.subscribe-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--OuroC-shadow-md);
+}
+
+.subscribe-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.subscribe-button.not-connected {
+  background: linear-gradient(135deg, var(--OuroC-secondary), #00b377);
+}
+
+.loading-spinner {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--OuroC-spacing-xs);
+}
+
+.loading-spinner::before {
+  content: '';
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top: 2px solid white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.payment-info {
+  text-align: center;
+  line-height: 1.4;
+}
+
+.payment-info div {
+  margin: var(--OuroC-spacing-xs) 0;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .OuroC-subscription-card {
+    max-width: 100%;
+    margin: var(--OuroC-spacing-sm) 0;
+  }
+
+  .OuroC-subscription-card.popular {
+    transform: none;
+  }
+
+  .price {
+    font-size: 1.75rem;
+  }
+
+  .plan-name {
+    font-size: 1.25rem;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .OuroC-subscription-card {
+    --OuroC-background: #1a1a1a;
+    --OuroC-surface: #2d2d2d;
+    --OuroC-text: #ffffff;
+    --OuroC-text-secondary: #a0a0a0;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .OuroC-subscription-card {
+    border-width: 2px;
+  }
+
+  .subscribe-button {
+    border: 2px solid transparent;
+  }
+
+  .subscribe-button:focus {
+    outline: 3px solid var(--OuroC-primary);
+    outline-offset: 2px;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .OuroC-subscription-card,
+  .subscribe-button,
+  .loading-spinner::before {
+    transition: none;
+    animation: none;
+  }
+
+  .OuroC-subscription-card:hover {
+    transform: none;
+  }
+}

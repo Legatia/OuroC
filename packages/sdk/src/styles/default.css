@@ -1,0 +1,143 @@
+/* OuroC Default Styles */
+:root {
+  /* Default theme variables - can be overridden by OuroCProvider */
+  --OuroC-primary: #9945ff;
+  --OuroC-secondary: #00d18c;
+  --OuroC-background: #ffffff;
+  --OuroC-surface: #f8f9fa;
+  --OuroC-text: #212529;
+  --OuroC-text-secondary: #6c757d;
+  --OuroC-success: #28a745;
+  --OuroC-warning: #ffc107;
+  --OuroC-error: #dc3545;
+
+  --OuroC-font-primary: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  --OuroC-font-monospace: 'JetBrains Mono', 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+
+  --OuroC-spacing-xs: 0.25rem;
+  --OuroC-spacing-sm: 0.5rem;
+  --OuroC-spacing-md: 1rem;
+  --OuroC-spacing-lg: 1.5rem;
+  --OuroC-spacing-xl: 2rem;
+
+  --OuroC-border-radius-sm: 0.25rem;
+  --OuroC-border-radius-md: 0.5rem;
+  --OuroC-border-radius-lg: 0.75rem;
+
+  --OuroC-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
+  --OuroC-shadow-md: 0 3px 6px rgba(0, 0, 0, 0.16), 0 3px 6px rgba(0, 0, 0, 0.23);
+  --OuroC-shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.19), 0 6px 6px rgba(0, 0, 0, 0.23);
+}
+
+/* Base reset for OuroC components */
+[class*="OuroC-"] {
+  box-sizing: border-box;
+}
+
+[class*="OuroC-"] *,
+[class*="OuroC-"] *::before,
+[class*="OuroC-"] *::after {
+  box-sizing: inherit;
+}
+
+/* Utility classes */
+.OuroC-hidden {
+  display: none !important;
+}
+
+.OuroC-sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+.OuroC-loading {
+  opacity: 0.6;
+  pointer-events: none;
+  cursor: wait;
+}
+
+.OuroC-error {
+  color: var(--OuroC-error);
+  background-color: rgba(220, 53, 69, 0.1);
+  border: 1px solid rgba(220, 53, 69, 0.2);
+  padding: var(--OuroC-spacing-sm) var(--OuroC-spacing-md);
+  border-radius: var(--OuroC-border-radius-md);
+  font-size: 0.875rem;
+  margin: var(--OuroC-spacing-sm) 0;
+}
+
+.OuroC-success {
+  color: var(--OuroC-success);
+  background-color: rgba(40, 167, 69, 0.1);
+  border: 1px solid rgba(40, 167, 69, 0.2);
+  padding: var(--OuroC-spacing-sm) var(--OuroC-spacing-md);
+  border-radius: var(--OuroC-border-radius-md);
+  font-size: 0.875rem;
+  margin: var(--OuroC-spacing-sm) 0;
+}
+
+.OuroC-warning {
+  color: var(--OuroC-warning);
+  background-color: rgba(255, 193, 7, 0.1);
+  border: 1px solid rgba(255, 193, 7, 0.2);
+  padding: var(--OuroC-spacing-sm) var(--OuroC-spacing-md);
+  border-radius: var(--OuroC-border-radius-md);
+  font-size: 0.875rem;
+  margin: var(--OuroC-spacing-sm) 0;
+}
+
+/* Focus styles for accessibility */
+.OuroC-button:focus,
+[class*="OuroC-"] button:focus,
+[class*="OuroC-"] input:focus,
+[class*="OuroC-"] select:focus,
+[class*="OuroC-"] textarea:focus {
+  outline: 2px solid var(--OuroC-primary);
+  outline-offset: 2px;
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+  :root {
+    --OuroC-primary: #7f00ff;
+    --OuroC-secondary: #008f5a;
+    --OuroC-background: #ffffff;
+    --OuroC-surface: #f0f0f0;
+    --OuroC-text: #000000;
+    --OuroC-text-secondary: #333333;
+  }
+}
+
+/* Dark mode */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --OuroC-background: #1a1a1a;
+    --OuroC-surface: #2d2d2d;
+    --OuroC-text: #ffffff;
+    --OuroC-text-secondary: #a0a0a0;
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  [class*="OuroC-"] {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* Print styles */
+@media print {
+  [class*="OuroC-"] {
+    background: white !important;
+    color: black !important;
+    box-shadow: none !important;
+  }
+}

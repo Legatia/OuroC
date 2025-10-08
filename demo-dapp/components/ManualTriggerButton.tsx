@@ -10,6 +10,7 @@ interface ManualTriggerButtonProps {
   subscriptionId: string
   subscriptionData: any
   programId: string
+  icpCanisterId?: string
   onSuccess?: () => void
   onError?: (error: string) => void
 }
@@ -29,12 +30,14 @@ export default function ManualTriggerButton({
   subscriptionId,
   subscriptionData,
   programId,
+  icpCanisterId,
   onSuccess,
   onError
 }: ManualTriggerButtonProps) {
   const [isProcessing, setIsProcessing] = useState(false)
-  const [status, setStatus] = useState<'idle' | 'processing' | 'success' | 'error' | 'disabled'>('idle')
+  const [status, setStatus] = useState<'idle' | 'pinging' | 'processing' | 'success' | 'error' | 'disabled'>('idle')
   const [errorMessage, setErrorMessage] = useState<string>('')
+  const [pingMessage, setPingMessage] = useState<string>('')
 
   const { publicKey, wallet, signTransaction } = useWallet()
 
@@ -73,6 +76,63 @@ export default function ManualTriggerButton({
     }
   }
 
+  // Ping ICP canister to check if it's responsive
+  const pingCanister = async (): Promise<boolean> => {
+    setPingMessage('Checking ICP canister status...')
+
+    try {
+      const canisterId = icpCanisterId || process.env.NEXT_PUBLIC_ICP_CANISTER_ID
+
+      if (!canisterId) {
+        setPingMessage('ICP canister ID not configured - skipping ping')
+        return false
+      }
+
+      const icpCanisterUrl = `https://ic0.app/api/v2/canister/${canisterId}/query`
+
+      // Timeout after 5 seconds
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 5000)
+
+      const response = await fetch(icpCanisterUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/cbor',
+        },
+        body: JSON.stringify({
+          request_type: 'query',
+          canister_id: canisterId,
+          method_name: 'ping',
+          arg: '4449444c0000', // Empty DIDL args
+        }),
+        signal: controller.signal,
+      })
+
+      clearTimeout(timeoutId)
+
+      if (response.ok) {
+        const data = await response.json()
+        console.log('ICP canister ping successful:', data)
+        setPingMessage('✓ ICP canister is online')
+        return true
+      }
+
+      console.warn('ICP canister ping failed with status:', response.status)
+      setPingMessage('✗ ICP canister not responding')
+      return false
+
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.warn('ICP canister ping timeout (>5s) - assuming canister is down')
+        setPingMessage('✗ ICP canister timeout (>5s)')
+      } else {
+        console.warn('ICP canister ping error:', error.message)
+        setPingMessage('✗ ICP canister unreachable')
+      }
+      return false
+    }
+  }
+
   const triggerPayment = async () => {
     if (!publicKey || !wallet) {
       setErrorMessage('Please connect your wallet')
@@ -101,8 +161,31 @@ export default function ManualTriggerButton({
     }
 
     setIsProcessing(true)
-    setStatus('processing')
     setErrorMessage('')
+    setPingMessage('')
+
+    // PRIORITY CONDITION: Ping ICP canister first
+    setStatus('pinging')
+    console.log('Step 1: Pinging ICP canister to check availability...')
+    const canisterResponsive = await pingCanister()
+
+    if (canisterResponsive) {
+      // Canister is online - should not proceed with manual trigger
+      setErrorMessage('ICP canister is online and responsive. Manual trigger blocked. Please wait for automatic payment.')
+      setStatus('error')
+      setIsProcessing(false)
+      onError?.('Canister is online')
+
+      setTimeout(() => {
+        setStatus('idle')
+        setPingMessage('')
+      }, 5000)
+      return
+    }
+
+    // Canister not found/unreachable - proceed with manual payment
+    console.log('Step 2: ICP canister unreachable - proceeding with manual payment trigger')
+    setStatus('processing')
 
     try {
       // Create provider
@@ -215,6 +298,12 @@ export default function ManualTriggerButton({
         whileHover={!isButtonDisabled ? { scale: 1.02 } : {}}
         whileTap={!isButtonDisabled ? { scale: 0.98 } : {}}
       >
+        {status === 'pinging' && (
+          <>
+            <Loader className="w-5 h-5 animate-spin" />
+            Pinging ICP Canister...
+          </>
+        )}
         {status === 'processing' && (
           <>
             <Loader className="w-5 h-5 animate-spin" />
@@ -246,6 +335,21 @@ export default function ManualTriggerButton({
           </>
         )}
       </motion.button>
+
+      {/* Ping Status Message */}
+      {pingMessage && status !== 'idle' && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={`text-sm p-3 rounded-lg ${
+            pingMessage.startsWith('✓')
+              ? 'text-green-600 bg-green-50'
+              : 'text-yellow-600 bg-yellow-50'
+          }`}
+        >
+          {pingMessage}
+        </motion.div>
+      )}
 
       {!isManualTriggerAllowed() && status === 'idle' && (
         <motion.div
