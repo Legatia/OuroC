@@ -1,6 +1,6 @@
 // Core exports
 export { OuroCClient } from './core/OuroCClient'
-export { SecureOuroCClient } from './core/SecureOuroCClient'
+// export { SecureOuroCClient } from './core/SecureOuroCClient' // Removed - incomplete implementation
 export type { CanisterHealth } from './core/OuroCClient'
 export * from './core/types'
 
@@ -16,10 +16,10 @@ export * from './hooks'
 export * from './components'
 
 // Solana utilities
-export * from './solana'
+// export * from './solana' // Removed - SolanaPayments incomplete
 
 // Services
-export { PushNotificationService } from './services/PushNotificationService'
+// export { PushNotificationService } from './services/PushNotificationService' // Removed - incomplete
 
 // Grid API Integration (Squads Protocol)
 export * from './grid'

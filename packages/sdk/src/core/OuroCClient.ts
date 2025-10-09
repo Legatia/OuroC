@@ -198,8 +198,8 @@ export class OuroCClient {
         console.log('Executing first payment with wallet adapter...')
 
         try {
-          const subscriberPubkey = new PublicKey(request.subscriber_address)
-          const merchantPubkey = new PublicKey(request.merchant_address)
+          const subscriberPubkey = new PublicKey(request.solana_payer)
+          const merchantPubkey = new PublicKey(request.solana_receiver)
           const usdcMint = new PublicKey(request.payment_token_mint)
           const amount = Number(request.amount)
 

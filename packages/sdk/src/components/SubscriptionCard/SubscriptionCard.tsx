@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { useOuroC } from '../../providers/OuroCProvider'
 import { useSubscription } from '../../hooks/useSubscription'
-import { SubscriptionCardProps, SubscriptionPlan } from '../../core/types'
+import { SubscriptionCardProps, SubscriptionPlan, TOKEN_MINTS } from '../../core/types'
 import './SubscriptionCard.css'
 
 export function SubscriptionCard({
@@ -41,9 +41,11 @@ export function SubscriptionCard({
       id: planName.toLowerCase().replace(/\s+/g, '-'),
       name: planName,
       price,
+      token: 'USDC', // Default to USDC
       interval,
       intervalSeconds: getIntervalSeconds(interval, customInterval),
-      features
+      features,
+      reminderDays: 3 // Default to 3 days before payment
     }
 
     setIsSubscribing(true)
@@ -193,11 +195,17 @@ export function createSubscriptionCard(
     const handleSubscribe = async (plan: SubscriptionPlan) => {
       try {
         const subscriptionId = await create({
+          subscription_id: `sub_${Date.now()}`,
+          solana_contract_address: '', // TODO: Set contract address
           solana_payer: '', // Will be filled by the hook
           solana_receiver: defaultReceiverAddress,
-          payment_amount: client.SOLToLamports(plan.price),
-          interval_seconds: BigInt(plan.intervalSeconds),
-          metadata: defaultMetadata || `${plan.name} subscription`
+          subscriber_usdc_account: '', // TODO: Set subscriber token account
+          merchant_usdc_account: '', // TODO: Set merchant token account
+          icp_fee_usdc_account: '', // TODO: Set ICP fee account
+          payment_token_mint: TOKEN_MINTS[plan.token],
+          amount: BigInt(Math.floor(plan.price * 1_000_000)), // Convert to micro-units
+          reminder_days_before_payment: plan.reminderDays,
+          interval_seconds: BigInt(plan.intervalSeconds)
         })
 
         console.log('Subscription created:', subscriptionId)
