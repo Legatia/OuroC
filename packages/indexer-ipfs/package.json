@@ -1,0 +1,22 @@
+{
+  "name": "@ouroc/indexer-ipfs",
+  "version": "0.1.0",
+  "description": "IPFS/Pinata storage adapter for OuroC payment history indexer",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist"
+  },
+  "keywords": ["ourocpay", "indexer", "ipfs", "pinata", "storage"],
+  "author": "OuroC",
+  "license": "MIT",
+  "dependencies": {
+    "pinata-web3": "^0.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}
