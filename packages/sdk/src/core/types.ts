@@ -33,6 +33,16 @@ export interface Subscription {
   created_at: Timestamp
   last_triggered?: Timestamp
   trigger_count: number
+  agent_metadata?: AgentMetadata // Optional: For AI agent subscriptions
+}
+
+// Agent-to-Agent (A2A) Payment Support
+export interface AgentMetadata {
+  agent_id: string // Unique identifier for the AI agent
+  owner_address: SolanaAddress // Human/entity that authorized this agent
+  agent_type: 'autonomous' | 'supervised' // Autonomy level
+  max_payment_per_interval?: bigint // Optional spending limit per interval
+  description?: string // What this agent does (e.g., "OpenAI API payment agent")
 }
 
 export interface CreateSubscriptionRequest {
@@ -48,6 +58,7 @@ export interface CreateSubscriptionRequest {
   reminder_days_before_payment: number // Days before payment to send reminder (e.g., 3 = 3 days before)
   interval_seconds: bigint
   start_time?: Timestamp
+  agent_metadata?: AgentMetadata // Optional: For AI agent subscriptions
 }
 
 // Notification system types
@@ -272,8 +283,24 @@ export interface PaymentHistory {
  * Convert token amount to micro-units (6 decimals for stablecoins)
  * @param amount - Amount in tokens (e.g., 10 for 10 USDC)
  * @returns Amount in micro-units (e.g., 10_000_000)
+ * @throws Error if amount is invalid or out of safe range
  */
 export function toMicroUnits(amount: number): bigint {
+  // Validate input
+  if (!Number.isFinite(amount) || isNaN(amount)) {
+    throw new Error('Amount must be a valid number')
+  }
+
+  if (amount < 0) {
+    throw new Error('Amount cannot be negative')
+  }
+
+  // Check for overflow - max safe integer divided by 1M to prevent overflow
+  const MAX_SAFE_AMOUNT = Number.MAX_SAFE_INTEGER / 1_000_000
+  if (amount > MAX_SAFE_AMOUNT) {
+    throw new Error(`Amount exceeds maximum safe value (${MAX_SAFE_AMOUNT.toFixed(2)} tokens)`)
+  }
+
   return BigInt(Math.floor(amount * 1_000_000))
 }
 

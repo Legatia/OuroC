@@ -62,6 +62,13 @@ id.json
 wallet.json
 **/*.env
 
+# API Keys & Credentials
+*_API_KEY*
+*api_key*
+*apikey*
+credentials.json
+secrets.json
+
 # Keep example env files
 !.env.example
 !.env.*.example
@@ -239,3 +246,33 @@ solana-contract/**/.anchor/
 
 # Demo documentation (temporary)
 MINIMAL_DEMO.md
+
+# =============================================================================
+# A2A / AI Agent Development (temporary docs & tests)
+# =============================================================================
+A2A.md
+A2A_IMPLEMENTATION_SUMMARY.md
+audit.md
+demo-dapp/TEST_A2A_DEMO.md
+demo-dapp/utils/__tests__/
+
+# =============================================================================
+# Additional Generated/Temporary Files
+# =============================================================================
+# Keep only essential documentation, ignore temp analysis files
+*_SUMMARY.md
+*_ANALYSIS.md
+*_NOTES.md
+*_DRAFT.md
+security_*.md
+performance_*.md
+
+# Backup files
+*.backup
+*.bak
+*~
+
+# Test output files
+test-output/
+test-reports/
+*.test.log

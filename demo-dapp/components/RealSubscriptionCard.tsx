@@ -78,12 +78,14 @@ export default function RealSubscriptionCard({ plan, onSubscribe, merchantAddres
         subscription_id: subscriptionId,
         reminder_days_before_payment: 3,
         solana_contract_address: "7c1tGePFVT3ztPEESfzG7gFqYiCJUDjFa7PCeyMSYtub",
+        solana_payer: publicKey.toBase58(),
+        solana_receiver: merchantAddress,
+        subscriber_usdc_account: publicKey.toBase58(), // Subscriber's token account
+        merchant_usdc_account: merchantAddress, // Merchant's USDC account
+        icp_fee_usdc_account: merchantAddress, // ICP fee collection (using merchant for demo)
         payment_token_mint: USDC_MINT_DEVNET,
-        start_time: [],  // Optional, empty means start now
-        interval_seconds: BigInt(intervalSeconds),
-        subscriber_address: publicKey.toBase58(),
         amount: BigInt(plan.price * 1_000_000), // Convert USDC to micro-units (6 decimals)
-        merchant_address: merchantAddress,
+        interval_seconds: BigInt(intervalSeconds),
       }
 
       console.log('Creating subscription with config:', subscriptionConfig)
