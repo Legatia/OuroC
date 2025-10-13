@@ -171,6 +171,7 @@ pub mod ouro_c_subscriptions {
         amount: u64,
         interval_seconds: i64,
         merchant_address: Pubkey,
+        merchant_name: String, // Merchant's app/business name for notifications (max 32 chars)
         payment_token_mint: Pubkey, // Token user will pay with (USDC/USDT/PYUSD/DAI)
         reminder_days_before_payment: u32, // Days before payment to send reminder (merchant configured)
         slippage_bps: u16, // Slippage tolerance in basis points (e.g., 100 = 1%, max 500 = 5%)
@@ -180,6 +181,7 @@ pub mod ouro_c_subscriptions {
         require!(amount > 0, ErrorCode::InvalidAmount);
         require!(interval_seconds > 0, ErrorCode::InvalidInterval);
         require!(subscription_id.len() <= 32, ErrorCode::InvalidSubscriptionId);
+        require!(merchant_name.len() > 0 && merchant_name.len() <= 32, ErrorCode::InvalidMerchantName);
         require!(reminder_days_before_payment > 0 && reminder_days_before_payment <= MAX_REMINDER_DAYS, ErrorCode::InvalidReminderDays);
         require!(slippage_bps > 0 && slippage_bps <= MAX_SLIPPAGE_BPS, ErrorCode::InvalidSlippage);
 
@@ -196,6 +198,7 @@ pub mod ouro_c_subscriptions {
         subscription.id = subscription_id.clone();
         subscription.subscriber = ctx.accounts.subscriber.key();
         subscription.merchant = merchant_address;
+        subscription.merchant_name = merchant_name.clone(); // Store merchant name for notifications
         subscription.amount = amount; // Amount merchant receives in USDC
         subscription.interval_seconds = interval_seconds;
         subscription.next_payment_time = clock.unix_timestamp + interval_seconds;
@@ -597,9 +600,10 @@ pub mod ouro_c_subscriptions {
                 // Notification: Send memo to subscriber
                 msg!("Sending notification for subscription: {}", subscription.id);
 
-                // Build notification message with subscription details
+                // Build notification message with merchant name and subscription details
                 let memo = format!(
-                    "OuroC: Payment due in {} days. Amount: {} {}",
+                    "{}: Payment due in {} days. Amount: {} {}",
+                    subscription.merchant_name,
                     subscription.reminder_days_before_payment,
                     subscription.amount,
                     subscription.payment_token_mint
@@ -1396,6 +1400,7 @@ pub struct Subscription {
     pub id: String,                      // 32 bytes max
     pub subscriber: Pubkey,              // 32 bytes
     pub merchant: Pubkey,                // 32 bytes
+    pub merchant_name: String,           // 32 bytes max - Merchant's app/business name for notifications
     pub amount: u64,                     // 8 bytes - USDC amount in micro-units (merchant always receives this in USDC)
     pub interval_seconds: i64,           // 8 bytes
     pub next_payment_time: i64,          // 8 bytes
@@ -1411,7 +1416,7 @@ pub struct Subscription {
 }
 
 impl Subscription {
-    pub const LEN: usize = 32 + 32 + 32 + 8 + 8 + 8 + 1 + 8 + 9 + 8 + 8 + 64 + 32 + 4 + 2;
+    pub const LEN: usize = 32 + 32 + 32 + 32 + 8 + 8 + 8 + 1 + 8 + 9 + 8 + 8 + 64 + 32 + 4 + 2;
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq)]
@@ -1867,6 +1872,9 @@ pub enum ErrorCode {
 
     #[msg("Invalid reminder days - must be between 1 and 30 days")]
     InvalidReminderDays,
+
+    #[msg("Invalid merchant name - must be between 1 and 32 characters")]
+    InvalidMerchantName,
 
     #[msg("Invalid opcode - must be 0 (payment) or 1 (notification)")]
     InvalidOpcode,
