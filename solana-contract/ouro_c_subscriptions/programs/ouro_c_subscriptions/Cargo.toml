@@ -25,4 +25,5 @@ anchor-debug = []
 anchor-lang = "0.31.1"
 anchor-spl = "0.31.1"
 pyth-solana-receiver-sdk = "0.2.0"
+spl-memo = { version = "5.0.0", features = ["no-entrypoint"] }
 

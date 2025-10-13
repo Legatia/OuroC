@@ -38,6 +38,14 @@ OuroC is a decentralized subscription payment protocol that combines:
 - ✅ **Cancel or pause anytime on-chain** - Full control via Grid account or wallet
 - ✅ **Optional KYC** - Grid KYC for regulated/compliant subscriptions
 
+### For AI Agents (A2A Payments)
+- ✅ **Agent Identity** - Unique keypairs with owner attribution
+- ✅ **Autonomous Payments** - No human approval needed after subscription setup
+- ✅ **Spending Limits** - Configure max payment per interval for safety
+- ✅ **Audit Trail** - Full transaction history for compliance
+- ✅ **Agent Metadata** - Track agent type, purpose, and owner address
+- ✅ **Demo Available** - See `/a2a-demo` page for live demonstration
+
 ### For Developers
 - ✅ **Grid Integration SDK** - Full TypeScript SDK for email accounts, multisig, KYC, and off-ramps
 - ✅ **Grid Flows** - Pre-built flows: `SubscriberFlow`, `MerchantFlow`, `MerchantMultisigFlow`, `MerchantKYCFlow`, `MerchantOffRampFlow`
@@ -49,8 +57,131 @@ OuroC is a decentralized subscription payment protocol that combines:
 - ✅ **Type-safe SDK** - Full TypeScript support with comprehensive types
 - ✅ **React Hooks** - `useSubscription`, `useNotifications`, `useBalance`, `useHealthMonitoring`
 - ✅ **Storage Adapters** - Pluggable architecture for payment history storage
+- ✅ **A2A Support** - Agent-to-Agent payment infrastructure for autonomous AI agents
 - ✅ **Unit Tested** - 67+ passing tests (33 core SDK + 34 Grid integration)
 - ✅ **Open Source** - Audit, fork, and contribute on GitHub
+
+---
+
+## Agent-to-Agent (A2A) Payments
+
+OuroC supports autonomous AI agent payments - the first payment rail built for Agent-to-Agent (A2A) commerce.
+
+### What is A2A?
+
+A2A (Agent-to-Agent) payments enable AI agents to make autonomous payments without human intervention after initial setup. This is critical for the emerging AI economy where agents need to:
+- Pay for API calls (OpenAI, Anthropic, etc.)
+- Purchase services from other agents
+- Subscribe to data feeds and services
+- Participate in agent marketplaces
+
+### Key Features
+
+🤖 **Agent Identity**
+- Unique keypair per agent
+- Owner attribution to human/entity
+- Agent type: `autonomous` or `supervised`
+
+⚡ **True Autonomy**
+- No human-in-the-loop after subscription setup
+- Subscription-based payment model
+- Automatic payment processing via ICP timers
+
+🔒 **Built-in Safety**
+- Spending limits per interval
+- Max payment enforcement
+- Owner can pause/cancel anytime
+
+📊 **Full Transparency**
+- Complete audit trail
+- Real-time transaction logging
+- On-chain payment history
+
+### Example: AI Agent Subscription
+
+```typescript
+import { OuroCClient, toMicroUnits } from '@ouroc/sdk';
+import { Keypair } from '@solana/web3.js';
+
+// 1. Create agent identity
+const agentKeypair = Keypair.generate();
+const agentId = `agent-${agentKeypair.publicKey.toBase58().slice(0, 8)}`;
+
+// 2. Configure agent metadata
+const agentMetadata = {
+  agent_id: agentId,
+  owner_address: ownerWallet.publicKey.toString(),
+  agent_type: 'autonomous',
+  max_payment_per_interval: toMicroUnits(10), // Max $10 per interval
+  description: 'AI Agent for OpenAI API payments'
+};
+
+// 3. Create subscription with agent metadata
+const client = new OuroCClient(canisterId, 'devnet', icpHost);
+
+await client.createSubscription({
+  subscription_id: `sub_${Date.now()}_${agentId}`,
+  solana_payer: agentKeypair.publicKey.toString(),
+  solana_receiver: merchantAddress,
+  subscriber_usdc_account: agentTokenAccount,
+  merchant_usdc_account: merchantTokenAccount,
+  icp_fee_usdc_account: feeAccount,
+  payment_token_mint: USDC_MINT,
+  amount: toMicroUnits(0.05), // $0.05 per API call
+  interval_seconds: 0, // Pay per use
+  reminder_days_before_payment: 0,
+  solana_contract_address: programId,
+  agent_metadata: agentMetadata // Add agent context
+}, wallet);
+
+// 4. Agent makes autonomous payments
+// Payments are processed automatically by ICP timer
+// No human approval needed for each transaction
+```
+
+### Live Demo
+
+See A2A payments in action at `/a2a-demo` in the demo app:
+
+```bash
+cd demo-dapp
+npm run dev
+# Navigate to http://localhost:3002/a2a-demo
+```
+
+The demo shows:
+- Agent initialization with unique identity
+- Subscription setup with spending limits
+- Autonomous API call payments
+- Real-time logging and audit trail
+
+### Use Cases
+
+🔬 **AI Services** - Agents paying for OpenAI, Anthropic, Replicate APIs
+
+🏢 **Business Automation** - RPA bots paying for cloud services autonomously
+
+🛒 **Agent Marketplaces** - AI agents buying/selling services from each other
+
+📊 **Data Services** - Research agents subscribing to real-time data feeds
+
+🎮 **Gaming** - AI NPCs paying for in-game resources
+
+🏛️ **Enterprise DAOs** - Autonomous treasury management by AI agents
+
+### A2A Configuration Parameters
+
+When creating subscriptions with agent metadata, you can configure:
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `agent_id` | string | Unique identifier (e.g., `agent-ABC12345`) |
+| `owner_address` | string | Solana address of human/entity owner |
+| `agent_type` | `'autonomous'` \| `'supervised'` | Level of autonomy |
+| `max_payment_per_interval` | bigint | Spending limit (micro-units) |
+| `description` | string | Purpose of agent (optional) |
+
+All standard subscription parameters remain available for full payment control.
 
 ---
 
@@ -224,11 +355,14 @@ OuroC/
 ├── demo-dapp/                  # Demo frontend (Next.js)
 │   ├── pages/
 │   │   ├── index.tsx           # Landing page
-│   │   └── merchant-dashboard.tsx  # Merchant payment history
+│   │   ├── merchant-dashboard.tsx  # Merchant payment history
+│   │   └── a2a-demo.tsx        # A2A payment demonstration
 │   ├── components/
-│   │   └── ManualTriggerButton.tsx # Manual payment trigger
+│   │   ├── ManualTriggerButton.tsx # Manual payment trigger
+│   │   └── AgentPaymentDemo.tsx    # A2A demo UI component
 │   └── utils/
-│       └── solanaIndexer.ts    # Event listener for payment history
+│       ├── solanaIndexer.ts    # Event listener for payment history
+│       └── ai-agent.ts         # AI agent simulation utilities
 │
 ├── packages/sdk/               # TypeScript SDK (npm package)
 │   └── src/
@@ -271,6 +405,13 @@ OuroC/
 ---
 
 ## Use Cases
+
+### AI Agents & Autonomous Systems
+- AI agents paying for API calls (OpenAI, Anthropic, Replicate)
+- Autonomous bots subscribing to data feeds
+- Agent-to-agent service marketplaces
+- AI-powered business process automation
+- Autonomous treasury management in DAOs
 
 ### SaaS & Services
 - Monthly/annual software subscriptions
@@ -364,6 +505,9 @@ Found a security issue? Email: security@ouroc.com (PGP key available)
 - ✅ **Grid UI components** - GridSubscriberLogin, GridSubscriptionModal
 - ✅ **Caching & retry logic** - 80% API call reduction, exponential backoff
 - ✅ **File validation** - Secure KYC document upload
+- ✅ **Agent-to-Agent (A2A) Payments** - AI agent payment infrastructure
+- ✅ **Agent identity & metadata** - Unique keypairs with owner attribution
+- ✅ **A2A demo page** - Interactive demonstration at `/a2a-demo`
 
 ### Q4 2025 (Current - October 2025)
 - [ ] Jupiter DEX integration (multi-token support - stub implemented)

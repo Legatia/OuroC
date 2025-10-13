@@ -5,6 +5,9 @@ use std::str::FromStr;
 mod crypto;
 use crypto::{create_payment_message, verify_icp_signature, verify_timestamp};
 
+// SPL Memo Program for wallet-visible notifications
+pub const SPL_MEMO_PROGRAM_ID: &str = "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr";
+
 mod price_oracle;
 
 mod jupiter_swap;
@@ -717,25 +720,38 @@ pub mod ouro_c_subscriptions {
             ErrorCode::UnauthorizedAccess
         );
 
-        // Transfer tiny amount of SOL (0.000001 SOL = 1000 lamports) to payer
+        // 1. Transfer tiny amount of SOL (0.000001 SOL = 1000 lamports) to subscriber
         let notification_amount = 1000u64; // 0.000001 SOL
 
-        let ix = anchor_lang::solana_program::system_instruction::transfer(
+        let transfer_ix = anchor_lang::solana_program::system_instruction::transfer(
             &ctx.accounts.notification_sender.key(),
             &subscription.subscriber,
             notification_amount,
         );
 
         anchor_lang::solana_program::program::invoke(
-            &ix,
+            &transfer_ix,
             &[
                 ctx.accounts.notification_sender.to_account_info(),
                 ctx.accounts.subscriber.to_account_info(),
             ],
         )?;
 
-        msg!("Notification sent to subscriber: {}", memo_message);
-        msg!("Memo: {}", memo_message);
+        // 2. Add SPL Memo instruction to make message visible in wallets
+        let memo_ix = spl_memo::build_memo(
+            memo_message.as_bytes(),
+            &[&ctx.accounts.notification_sender.key()],
+        );
+
+        anchor_lang::solana_program::program::invoke(
+            &memo_ix,
+            &[
+                ctx.accounts.notification_sender.to_account_info(),
+                ctx.accounts.memo_program.to_account_info(),
+            ],
+        )?;
+
+        msg!("Notification sent to subscriber with memo: {}", memo_message);
 
         Ok(())
     }
@@ -1209,6 +1225,10 @@ pub struct SendNotification<'info> {
     pub subscriber: UncheckedAccount<'info>,
 
     pub system_program: Program<'info, System>,
+
+    /// CHECK: SPL Memo Program
+    #[account(address = Pubkey::from_str(SPL_MEMO_PROGRAM_ID).unwrap())]
+    pub memo_program: UncheckedAccount<'info>,
 }
 
 #[derive(Accounts)]
@@ -1264,6 +1284,10 @@ pub struct ProcessTrigger<'info> {
 
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
+
+    /// CHECK: SPL Memo Program
+    #[account(address = Pubkey::from_str(SPL_MEMO_PROGRAM_ID).unwrap())]
+    pub memo_program: UncheckedAccount<'info>,
 }
 
 /// Extended ProcessTrigger with Jupiter swap accounts
@@ -1659,24 +1683,38 @@ fn build_jupiter_swap_instruction(in_amount: u64, min_out_amount: u64) -> Vec<u8
 fn send_notification_internal(ctx: Context<ProcessTrigger>, memo: String) -> Result<()> {
     require!(memo.len() <= 566, ErrorCode::MemoTooLong);
 
-    // Transfer tiny SOL amount with memo
-    let notification_amount = 1000u64; // 0.000001 SOL
+    // 1. Transfer tiny SOL amount (0.000001 SOL = 1000 lamports)
+    let notification_amount = 1000u64;
 
-    let ix = anchor_lang::solana_program::system_instruction::transfer(
+    let transfer_ix = anchor_lang::solana_program::system_instruction::transfer(
         &ctx.accounts.trigger_authority.key(),
         &ctx.accounts.subscriber.key(),
         notification_amount,
     );
 
     anchor_lang::solana_program::program::invoke(
-        &ix,
+        &transfer_ix,
         &[
             ctx.accounts.trigger_authority.to_account_info(),
             ctx.accounts.subscriber.to_account_info(),
         ],
     )?;
 
-    msg!("Notification: {}", memo);
+    // 2. Add SPL Memo instruction to make message visible in wallets
+    let memo_ix = spl_memo::build_memo(
+        memo.as_bytes(),
+        &[&ctx.accounts.trigger_authority.key()],
+    );
+
+    anchor_lang::solana_program::program::invoke(
+        &memo_ix,
+        &[
+            ctx.accounts.trigger_authority.to_account_info(),
+            ctx.accounts.memo_program.to_account_info(),
+        ],
+    )?;
+
+    msg!("Notification sent with memo: {}", memo);
     Ok(())
 }
 
