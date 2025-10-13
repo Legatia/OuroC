@@ -101,15 +101,25 @@ export class SubscriberFlow {
  * // 2. User enters OTP
  * const subscriberPubkey = await subscriberFlow.verifyOTP(result.gridAccount.account_id, '123456');
  *
- * // 3. Create OuroC subscription (EXISTING CODE - NO CHANGES)
+ * // 3. Create OuroC subscription (with merchant_name!)
  * await ouroCProgram.methods.createSubscription(
  *   subscriptionId,
  *   amount,
  *   interval,
  *   merchantAddress,
- *   subscriberPubkey, // ← Grid account pubkey
- *   ...
- * ).rpc();
+ *   "Netflix", // ← NEW: merchant_name for branded notifications
+ *   paymentTokenMint,
+ *   reminderDaysBeforePayment,
+ *   slippageBps,
+ *   icpSignature
+ * )
+ * .accounts({
+ *   subscription: subscriptionPda,
+ *   config: configPda,
+ *   subscriber: subscriberPubkey, // ← Grid account pubkey
+ *   systemProgram: SystemProgram.programId,
+ * })
+ * .rpc();
  *
  * // 4. User approves delegation (EXISTING CODE - NO CHANGES)
  * await ouroCProgram.methods.approveSubscriptionDelegate(
@@ -117,6 +127,16 @@ export class SubscriberFlow {
  *   amount
  * ).rpc();
  *
- * // 5. ICP triggers payments (EXISTING CODE - NO CHANGES)
- * // Everything else works exactly as before!
+ * // 5. Setup email notifications for Grid users
+ * const webhookListener = new GridWebhookListener({
+ *   connection,
+ *   gridClient,
+ *   emailService: new ResendEmailService(apiKey, fromEmail),
+ * });
+ * await webhookListener.monitorGridAccount(result.gridAccount.account_id);
+ *
+ * // 6. ICP triggers payments (EXISTING CODE - NO CHANGES)
+ * // Grid user receives notifications via:
+ * // - On-chain wallet notification (SPL Memo)
+ * // - Email to user@example.com (via GridWebhookListener)
  */
