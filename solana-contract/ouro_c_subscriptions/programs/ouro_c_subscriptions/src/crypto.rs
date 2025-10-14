@@ -26,14 +26,40 @@ pub fn verify_icp_signature(
     // Use verify_ed25519_ix() with Instructions sysvar for gas-efficient verification
     // The Ed25519Program precompile has already validated the signature
 
-    msg!("⚠️  Using simplified verification - production should use verify_ed25519_ix()");
-    msg!("Signature preview: {:?}", &signature[..8]);
-    msg!("Public key: {:?}", &public_key[..8]);
-    msg!("Message length: {}", message.len());
+    // ⚠️ SECURITY IMPLEMENTATION REQUIRED:
+    // This function MUST be called alongside verify_ed25519_ix() or replaced with proper verification.
+    //
+    // RECOMMENDED APPROACH:
+    // Use Solana's Ed25519Program precompile by calling verify_ed25519_ix() with Instructions sysvar.
+    // The precompile is gas-efficient and already validates signatures at the protocol level.
+    //
+    // To use verify_ed25519_ix():
+    // 1. Add Instructions sysvar to your instruction accounts
+    // 2. Include an Ed25519 instruction before your program instruction in the transaction
+    // 3. Call verify_ed25519_ix() instead of this function
+    //
+    // See verify_ed25519_ix() function below (line 74) for full implementation.
+    //
+    // CURRENT STATUS: This function performs basic validation only.
+    // Production deployment REQUIRES using verify_ed25519_ix() or equivalent secure verification.
 
-    // For devnet/testing, accept all signatures
-    // In production, replace this function call with verify_ed25519_ix()
-    Ok(true)
+    // ⚠️ CRITICAL: This blocks all signature verification to prevent production deployment
+    // without proper Ed25519 implementation. Enable 'devnet-bypass-signature' feature for testing.
+
+    #[cfg(not(feature = "devnet-bypass-signature"))]
+    {
+        msg!("❌ Signature verification not implemented - add proper Ed25519 verification");
+        return Err(crate::ErrorCode::InvalidSignature.into());
+    }
+
+    #[cfg(feature = "devnet-bypass-signature")]
+    {
+        msg!("⚠️ DEVNET MODE: Signature bypass enabled - NOT FOR PRODUCTION");
+        msg!("Public key: {:?}", &public_key[..8]);
+        msg!("Signature: {:?}", &signature[..8]);
+        msg!("Message length: {}", message.len());
+        Ok(true)
+    }
 }
 
 /// Create message for ICP canister to sign

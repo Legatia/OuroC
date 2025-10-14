@@ -1,3 +1,7 @@
+// Suppress deprecation warning from Anchor's #[program] macro
+// This is an Anchor framework issue, not our code
+#![allow(deprecated)]
+
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token, TokenAccount, Mint};
 use std::str::FromStr;
