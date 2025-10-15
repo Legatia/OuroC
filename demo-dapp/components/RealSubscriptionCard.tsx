@@ -71,21 +71,19 @@ export default function RealSubscriptionCard({ plan, onSubscribe, merchantAddres
       const subscriptionId = `sub_${Date.now()}_${publicKey.toBase58().slice(0, 8)}`
 
       // USDC token mint address on devnet
-      const USDC_MINT_DEVNET = 'Gh9ZwEmdLJ8DscKNTkTqPbNwLNNBjuSzaG9Vp2KGtKJr'
+      const USDC_MINT_DEVNET = '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'
 
       // Create subscription configuration matching the canister's expected format
       const subscriptionConfig = {
         subscription_id: subscriptionId,
         reminder_days_before_payment: 3,
         solana_contract_address: "7c1tGePFVT3ztPEESfzG7gFqYiCJUDjFa7PCeyMSYtub",
-        solana_payer: publicKey.toBase58(),
-        solana_receiver: merchantAddress,
-        subscriber_usdc_account: publicKey.toBase58(), // Subscriber's token account
-        merchant_usdc_account: merchantAddress, // Merchant's USDC account
-        icp_fee_usdc_account: merchantAddress, // ICP fee collection (using merchant for demo)
+        subscriber_address: publicKey.toBase58(),
+        merchant_address: merchantAddress,
         payment_token_mint: USDC_MINT_DEVNET,
         amount: BigInt(plan.price * 1_000_000), // Convert USDC to micro-units (6 decimals)
         interval_seconds: BigInt(intervalSeconds),
+        start_time: [], // Optional field - empty array means "None" (start immediately)
       }
 
       console.log('Creating subscription with config:', subscriptionConfig)

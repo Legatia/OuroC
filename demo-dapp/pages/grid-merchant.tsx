@@ -143,7 +143,7 @@ export default function GridMerchant() {
                   value={merchantData.email}
                   onChange={(e) => setMerchantData({ ...merchantData, email: e.target.value })}
                   placeholder="merchant@example.com"
-                  className="w-full px-4 py-3 bg-dark-700 border border-white/10 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-primary mb-4"
+                  className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:border-purple-primary mb-4"
                 />
 
                 <motion.button
@@ -180,7 +180,7 @@ export default function GridMerchant() {
                   value={merchantData.businessName}
                   onChange={(e) => setMerchantData({ ...merchantData, businessName: e.target.value })}
                   placeholder="Enter your business name"
-                  className="w-full px-4 py-3 bg-dark-700 border border-white/10 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-primary"
+                  className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:border-purple-primary"
                 />
               </div>
 
@@ -224,7 +224,7 @@ export default function GridMerchant() {
                       <select
                         value={merchantData.threshold}
                         onChange={(e) => setMerchantData({ ...merchantData, threshold: parseInt(e.target.value) })}
-                        className="w-full px-4 py-2 bg-dark-700 border border-white/10 rounded-lg text-white focus:outline-none focus:border-purple-primary"
+                        className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:border-purple-primary"
                       >
                         <option value={2}>2 of 3</option>
                         <option value={3}>3 of 4</option>
@@ -248,7 +248,7 @@ export default function GridMerchant() {
                             setMerchantData({ ...merchantData, signers: newSigners })
                           }}
                           placeholder="Solana wallet address"
-                          className="w-full px-4 py-2 mb-2 bg-dark-700 border border-white/10 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-primary"
+                          className="w-full px-4 py-2 mb-2 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:border-purple-primary"
                         />
                       ))}
                       <button

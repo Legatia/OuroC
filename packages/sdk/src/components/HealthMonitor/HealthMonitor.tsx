@@ -6,12 +6,13 @@ import { ManualPaymentAlert } from '../ManualPaymentAlert'
 export interface HealthMonitorProps {
   client: OuroCClient | null
   walletAdapter?: any // Solana wallet adapter
-  intervalMs?: number
+  intervalMs?: number // Default: 24 hours for merchants, 30s for admins
   autoStart?: boolean
   showStatusIndicator?: boolean
   showManualPaymentAlert?: boolean
   className?: string
   theme?: 'light' | 'dark'
+  role?: 'merchant' | 'admin' // Default: 'merchant'
   onHealthChange?: (health: CanisterHealth) => void
   onError?: (error: Error) => void
 }
@@ -19,12 +20,13 @@ export interface HealthMonitorProps {
 export const HealthMonitor: React.FC<HealthMonitorProps> = ({
   client,
   walletAdapter,
-  intervalMs = 30000,
+  intervalMs,
   autoStart = true,
   showStatusIndicator = true,
   showManualPaymentAlert = true,
   className = '',
   theme = 'dark',
+  role = 'merchant',
   onHealthChange,
   onError
 }) => {
@@ -42,6 +44,7 @@ export const HealthMonitor: React.FC<HealthMonitorProps> = ({
   } = useHealthMonitoring(client, {
     intervalMs,
     autoStart,
+    role,
     onHealthChange,
     onOverdueSubscriptions: (subscriptionIds) => {
       console.log('Overdue subscriptions requiring manual payment:', subscriptionIds)

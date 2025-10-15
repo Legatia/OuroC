@@ -9,7 +9,7 @@ crate-type = ["cdylib", "lib"]
 name = "ouro_c_subscriptions"
 
 [features]
-default = ["devnet-bypass-signature"]
+default = []
 mainnet = []
 devnet-bypass-signature = []  # ⚠️ DEVNET ONLY: Bypasses Ed25519 signature verification
 cpi = ["no-entrypoint"]

@@ -153,18 +153,18 @@ export function AgentPaymentDemo() {
       </div>
 
       {/* Demo Steps */}
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold mb-4">Demo Flow</h2>
+      <div className="glass rounded-lg border border-white/10 p-6">
+        <h2 className="text-xl font-semibold mb-4 text-white">Demo Flow</h2>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {steps.map((step) => (
             <div
               key={step.step}
               className={`p-4 rounded-lg border-2 transition-all ${
                 step.status === 'active'
-                  ? 'border-blue-500 bg-blue-50'
+                  ? 'border-blue-500 bg-blue-500/10'
                   : step.status === 'completed'
-                  ? 'border-green-500 bg-green-50'
-                  : 'border-gray-200 bg-gray-50'
+                  ? 'border-green-500 bg-green-500/10'
+                  : 'border-white/20 bg-dark-800/50'
               }`}
             >
               <div className="flex items-center space-x-2 mb-2">
@@ -179,18 +179,18 @@ export function AgentPaymentDemo() {
                 >
                   {step.status === 'completed' ? '✓' : step.step}
                 </div>
-                <h3 className="font-semibold text-sm">{step.title}</h3>
+                <h3 className="font-semibold text-sm text-white">{step.title}</h3>
               </div>
-              <p className="text-xs text-gray-600">{step.description}</p>
+              <p className="text-xs text-gray-400">{step.description}</p>
             </div>
           ))}
         </div>
       </div>
 
       {/* Control Panel */}
-      <div className="bg-white rounded-lg shadow-md p-6">
+      <div className="glass rounded-lg border border-white/10 p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold">Control Panel</h2>
+          <h2 className="text-xl font-semibold text-white">Control Panel</h2>
           <button
             onClick={runDemo}
             disabled={isRunning || !publicKey}
@@ -206,7 +206,7 @@ export function AgentPaymentDemo() {
 
         {/* Agent Info */}
         {agentId && (
-          <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+          <div className="bg-dark-800/50 border border-white/10 rounded-lg p-4 space-y-2">
             <div className="flex justify-between">
               <span className="font-medium">Agent ID:</span>
               <span className="font-mono text-sm">{agentId}</span>
@@ -224,8 +224,8 @@ export function AgentPaymentDemo() {
       </div>
 
       {/* Live Logs */}
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold mb-4">Live Activity Log</h2>
+      <div className="glass rounded-lg border border-white/10 p-6">
+        <h2 className="text-xl font-semibold mb-4 text-white">Live Activity Log</h2>
         <div className="bg-gray-900 rounded-lg p-4 h-96 overflow-y-auto font-mono text-sm">
           {logs.length === 0 ? (
             <p className="text-gray-400">Click "Run Agent Demo" to start...</p>
@@ -241,11 +241,11 @@ export function AgentPaymentDemo() {
 
       {/* API Call History */}
       {apiCalls.length > 0 && (
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold mb-4">API Call History</h2>
+        <div className="glass rounded-lg border border-white/10 p-6">
+          <h2 className="text-xl font-semibold mb-4 text-white">API Call History</h2>
           <div className="space-y-2">
             {apiCalls.map((call, index) => (
-              <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+              <div key={index} className="flex justify-between items-center p-3 bg-dark-800/50 border border-white/5 rounded-lg">
                 <div className="flex-1">
                   <p className="font-medium text-sm">{call.prompt}</p>
                   <p className="text-xs text-gray-500">
@@ -263,24 +263,24 @@ export function AgentPaymentDemo() {
       )}
 
       {/* Key Features */}
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold mb-4">🎯 Key Features Demonstrated</h2>
+      <div className="glass rounded-lg border border-white/10 p-6">
+        <h2 className="text-xl font-semibold mb-4 text-white">🎯 Key Features Demonstrated</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="p-4 bg-purple-50 rounded-lg">
-            <h3 className="font-semibold mb-2">🤖 Agent Identity</h3>
-            <p className="text-sm text-gray-600">
+          <div className="p-4 bg-purple-500/10 border border-purple-500/30 rounded-lg">
+            <h3 className="font-semibold mb-2 text-white">🤖 Agent Identity</h3>
+            <p className="text-sm text-gray-400">
               AI agent has unique keypair and identity, traceable to human owner
             </p>
           </div>
-          <div className="p-4 bg-blue-50 rounded-lg">
-            <h3 className="font-semibold mb-2">⚡ Autonomous Payments</h3>
-            <p className="text-sm text-gray-600">
+          <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+            <h3 className="font-semibold mb-2 text-white">⚡ Autonomous Payments</h3>
+            <p className="text-sm text-gray-400">
               No human approval needed for each transaction after setup
             </p>
           </div>
-          <div className="p-4 bg-green-50 rounded-lg">
-            <h3 className="font-semibold mb-2">🔒 Spending Limits</h3>
-            <p className="text-sm text-gray-600">
+          <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
+            <h3 className="font-semibold mb-2 text-white">🔒 Spending Limits</h3>
+            <p className="text-sm text-gray-400">
               Built-in safety controls with max spending per interval
             </p>
           </div>

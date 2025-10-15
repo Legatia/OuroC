@@ -119,7 +119,7 @@ export default function GridSubscriberLogin({ onSuccess, onSkip }: GridSubscribe
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 required
-                className="w-full px-4 py-3 bg-dark-700 border border-white/10 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-primary"
+                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:border-purple-primary"
               />
             </div>
 
@@ -204,7 +204,7 @@ export default function GridSubscriberLogin({ onSuccess, onSkip }: GridSubscribe
                 placeholder="Enter 6-digit code"
                 maxLength={6}
                 required
-                className="w-full px-4 py-3 bg-dark-700 border border-white/10 rounded-lg text-white text-center text-2xl tracking-wider font-mono placeholder-gray-500 focus:outline-none focus:border-purple-primary"
+                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 text-center text-2xl tracking-wider font-mono placeholder-gray-500 focus:outline-none focus:border-purple-primary"
               />
             </div>
 

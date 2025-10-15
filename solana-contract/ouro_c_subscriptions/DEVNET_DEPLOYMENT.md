@@ -58,41 +58,141 @@ solana program show 7c1tGePFVT3ztPEESfzG7gFqYiCJUDjFa7PCeyMSYtub --url devnet
 # - Authority
 ```
 
-### Step 5: Initialize Config Account
+### Step 5: Get ICP Canister Public Key
+
+Your ICP canister `7tbxr-naaaa-aaaao-qkrca-cai` uses threshold Ed25519 signatures. You need its public key to verify signatures.
+
+#### Method 1: Query via dfx
+
+```bash
+dfx canister --network ic call 7tbxr-naaaa-aaaao-qkrca-cai get_main_keypair
+```
+
+Expected output:
+```
+(variant { ok = record { public_key = blob "\XX\XX..."; derivation_path = vec {} } })
+```
+
+#### Method 2: Query via TypeScript
+
+```typescript
+import { Actor, HttpAgent } from '@dfinity/agent';
+
+async function getICPPublicKey() {
+  const canisterId = '7tbxr-naaaa-aaaao-qkrca-cai';
+  const agent = new HttpAgent({ host: 'https://ic0.app' });
+
+  const actor = Actor.createActor(idlFactory, {
+    agent,
+    canisterId,
+  });
+
+  const result = await actor.get_main_keypair();
+
+  if ('ok' in result) {
+    const publicKey = result.ok.public_key;
+    const hexKey = Buffer.from(publicKey).toString('hex');
+    console.log('ICP Public Key (hex):', hexKey);
+    console.log('ICP Public Key (32 bytes):', Array.from(publicKey));
+
+    // Verify it's valid Ed25519 (32 bytes)
+    if (publicKey.length === 32) {
+      const solanaAddr = new PublicKey(publicKey);
+      console.log('As Solana address:', solanaAddr.toBase58());
+    }
+
+    return Array.from(publicKey);
+  } else {
+    throw new Error('Failed to get public key: ' + result.err);
+  }
+}
+```
+
+#### Method 3: Check Canister Initialization Logs
+
+If the canister was recently initialized:
+
+```bash
+dfx canister --network ic logs 7tbxr-naaaa-aaaao-qkrca-cai
+```
+
+Look for: `"Derived Solana keypair with public key: blob \"...\""`
+
+**Save this 32-byte public key** - you'll need it for initialization!
+
+---
+
+### Step 6: Initialize Config Account
 
 Create a TypeScript script to initialize:
 
 ```typescript
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
+import { PublicKey } from "@solana/web3.js";
 
 const PROGRAM_ID = new PublicKey("7c1tGePFVT3ztPEESfzG7gFqYiCJUDjFa7PCeyMSYtub");
 
+// ICP canister public key from Step 5 (32 bytes)
+const ICP_PUBLIC_KEY = [
+  /* paste the 32 bytes here, e.g.:
+  123, 45, 67, 89, 12, 34, 56, 78, 90, 12, 34, 56,
+  78, 90, 12, 34, 56, 78, 90, 12, 34, 56, 78, 90,
+  12, 34, 56, 78, 90, 12, 34, 56
+  */
+];
+
 async function initializeConfig() {
-  const connection = new Connection("https://api.devnet.solana.com", "confirmed");
-  const wallet = // ... your wallet
+  const provider = anchor.AnchorProvider.env();
+  anchor.setProvider(provider);
+
+  const program = anchor.workspace.OuroCSubscriptions as Program<OuroCSubscriptions>;
 
   // Config PDA
   const [configPda] = PublicKey.findProgramAddressSync(
     [Buffer.from("config")],
-    PROGRAM_ID
+    program.programId
   );
 
-  // Initialize with Hybrid mode for devnet testing
-  const tx = new Transaction().add(
-    // Build initialization instruction manually or use generated client
-    // ...
-  );
+  console.log('Initializing with:');
+  console.log('- Program ID:', program.programId.toBase58());
+  console.log('- Config PDA:', configPda.toBase58());
+  console.log('- Authority:', provider.wallet.publicKey.toBase58());
+  console.log('- ICP Public Key:', Buffer.from(ICP_PUBLIC_KEY).toString('hex'));
 
-  const signature = await sendAndConfirmTransaction(connection, tx, [wallet]);
-  console.log("Initialized:", signature);
+  try {
+    // Option 1: devnet-bypass-signature enabled (for testing without ICP)
+    const tx = await program.methods
+      .initialize(
+        { hybrid: {} },  // or { manualOnly: {} } for testing
+        ICP_PUBLIC_KEY,  // 32-byte Ed25519 public key from ICP
+        100              // 1% fee
+      )
+      .accounts({
+        config: configPda,
+        authority: provider.wallet.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .rpc();
+
+    console.log('✅ Initialized successfully!');
+    console.log('Transaction:', tx);
+  } catch (error) {
+    console.error('❌ Initialization failed:', error);
+    throw error;
+  }
 }
+
+initializeConfig();
 ```
 
 **Initialization Parameters for Devnet:**
-- `authorization_mode`: `Hybrid` (3) - Allows both ICP and manual triggers
-- `icp_public_key`: Optional for now (can be set later when ICP canister is ready)
-- `icp_fee_collection_address`: Your ICP canister's Solana USDC ATA
+- `authorization_mode`: `{ hybrid: {} }` - Allows both ICP and manual triggers
+  - `{ icpSignature: {} }` - Only ICP canister (requires signatures)
+  - `{ manualOnly: {} }` - No ICP required (best for initial testing)
+  - `{ timeBased: {} }` - Anyone can trigger when due
+  - `{ hybrid: {} }` - ICP + manual fallback
+- `icp_public_key`: 32-byte array from Step 5 (required even for manualOnly)
 - `fee_percentage_basis_points`: 100 (1%) for testing
 
 ## 🧪 Testing Checklist

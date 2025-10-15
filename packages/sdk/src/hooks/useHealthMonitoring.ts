@@ -3,10 +3,11 @@ import { OuroCClient, CanisterHealth } from '../core/OuroCClient'
 import { SubscriptionId } from '../core/types'
 
 export interface HealthMonitoringOptions {
-  intervalMs?: number
+  intervalMs?: number // Default: 86400000 (24 hours) for merchant mode
   autoStart?: boolean
   onHealthChange?: (health: CanisterHealth) => void
   onOverdueSubscriptions?: (subscriptionIds: SubscriptionId[]) => void
+  role?: 'merchant' | 'admin' // Default: 'merchant'
 }
 
 export interface UseHealthMonitoringReturn {
@@ -76,8 +77,13 @@ export function useHealthMonitoring(
     setIsMonitoring(true)
     setError(null)
 
+    // Default to 24-hour interval for merchant role, 30 seconds for admin
+    const role = optionsRef.current.role || 'merchant'
+    const defaultInterval = role === 'admin' ? 30000 : 86400000 // 30s for admin, 24h for merchant
+    const interval = optionsRef.current.intervalMs ?? defaultInterval
+
     clientRef.current.startHealthMonitoring({
-      intervalMs: optionsRef.current.intervalMs,
+      intervalMs: interval,
       onHealthChange: handleHealthChange,
       onOverdueSubscriptions: handleOverdueSubscriptions
     })

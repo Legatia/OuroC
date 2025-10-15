@@ -48,16 +48,13 @@ export interface AgentMetadata {
 export interface CreateSubscriptionRequest {
   subscription_id: string // Must match Solana subscription ID
   solana_contract_address: SolanaAddress // Deployed Solana program address
-  solana_payer: SolanaAddress // Subscriber wallet
-  solana_receiver: SolanaAddress // Merchant wallet
-  subscriber_usdc_account: SolanaAddress // Subscriber's payment token account
-  merchant_usdc_account: SolanaAddress // Merchant's USDC token account (always USDC)
-  icp_fee_usdc_account: SolanaAddress // ICP's USDC fee collection account
+  subscriber_address: SolanaAddress // Subscriber wallet
+  merchant_address: SolanaAddress // Merchant wallet
   payment_token_mint: SolanaAddress // Token user chooses to pay with (USDC/USDT/PYUSD/DAI)
   amount: bigint // Payment amount in micro-units (e.g., 10_000_000 = 10 USDC)
   reminder_days_before_payment: number // Days before payment to send reminder (e.g., 3 = 3 days before)
   interval_seconds: bigint
-  start_time?: Timestamp
+  start_time?: [] | [Timestamp] // Optional timestamp for when subscription starts
   agent_metadata?: AgentMetadata // Optional: For AI agent subscriptions
 }
 

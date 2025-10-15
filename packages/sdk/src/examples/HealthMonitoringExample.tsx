@@ -56,7 +56,7 @@ export const HealthMonitoringExample: React.FC = () => {
     overdueSubscriptions,
     processManualPayment
   } = useHealthMonitoring(client, {
-    intervalMs: 30000, // Check every 30 seconds
+    role: 'merchant', // Default: checks every 24 hours (admins use 'admin' for 30s checks)
     autoStart: true,
     onHealthChange: handleHealthChange
   })
@@ -94,22 +94,47 @@ export const HealthMonitoringExample: React.FC = () => {
         </p>
       </div>
 
-      {/* Method 1: Using the HealthMonitor component (recommended) */}
+      {/* Method 1: Using the HealthMonitor component (recommended for merchants) */}
       <div className="space-y-4">
-        <h2 className="text-xl font-semibold text-white">Method 1: Using HealthMonitor Component</h2>
+        <h2 className="text-xl font-semibold text-white">Method 1: Merchant Mode (24-hour checks)</h2>
+        <p className="text-sm text-gray-400">
+          For merchants: Simple canister offline detection. Checks once per day.
+          Shows manual payment button only when canister is unavailable.
+        </p>
         <HealthMonitor
           client={client}
-          intervalMs={30000}
+          role="merchant"
           autoStart={true}
+          showStatusIndicator={false}
+          showManualPaymentAlert={true}
           theme="dark"
           onHealthChange={handleHealthChange}
           onError={handleError}
         />
       </div>
 
-      {/* Method 2: Using the hook directly for custom UI */}
+      {/* Method 2: Admin mode with detailed monitoring */}
       <div className="space-y-4">
-        <h2 className="text-xl font-semibold text-white">Method 2: Custom UI with useHealthMonitoring Hook</h2>
+        <h2 className="text-xl font-semibold text-white">Method 2: Admin Mode (30-second checks)</h2>
+        <p className="text-sm text-gray-400">
+          For admins only: Detailed health monitoring with cycle balance, payment failures,
+          and system metrics. Checks every 30 seconds.
+        </p>
+        <HealthMonitor
+          client={client}
+          role="admin"
+          autoStart={true}
+          showStatusIndicator={true}
+          showManualPaymentAlert={true}
+          theme="dark"
+          onHealthChange={handleHealthChange}
+          onError={handleError}
+        />
+      </div>
+
+      {/* Method 3: Using the hook directly for custom UI */}
+      <div className="space-y-4">
+        <h2 className="text-xl font-semibold text-white">Method 3: Custom UI with useHealthMonitoring Hook</h2>
         <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 space-y-4">
           <div className="flex items-center justify-between">
             <div className="text-white">
@@ -159,24 +184,32 @@ export const HealthMonitoringExample: React.FC = () => {
           <h3 className="text-white font-medium mb-3">Common Integration Patterns</h3>
           <div className="space-y-3 text-sm text-gray-300">
             <div>
-              <strong className="text-white">1. Add to your main layout component:</strong>
+              <strong className="text-white">1. Merchant integration (recommended):</strong>
               <pre className="mt-1 bg-black/50 p-2 rounded text-xs overflow-x-auto">
 {`<HealthMonitor
   client={OuroCClient}
+  role="merchant"
   autoStart={true}
-  showStatusIndicator={false} // Hide in production
-  showManualPaymentAlert={true}
+  showStatusIndicator={false} // Hide status indicator for merchants
+  showManualPaymentAlert={true} // Only show when canister is offline
 />`}
               </pre>
             </div>
             <div>
-              <strong className="text-white">2. Monitor in subscription management dashboard:</strong>
+              <strong className="text-white">2. Admin dashboard integration:</strong>
               <pre className="mt-1 bg-black/50 p-2 rounded text-xs overflow-x-auto">
-{`const { health, manualCollectionNeeded } = useHealthMonitoring(client, {
-  intervalMs: 60000, // Check every minute
-  onHealthChange: (health) => updateDashboard(health),
-  onManualCollectionRequired: (ids) => showNotification(ids)
-})`}
+{`<HealthMonitor
+  client={OuroCClient}
+  role="admin"
+  autoStart={true}
+  showStatusIndicator={true} // Show detailed health metrics
+  showManualPaymentAlert={true}
+  onHealthChange={(health) => {
+    if (health.cycle_balance < 500_000_000_000) {
+      alertAdmin('Low cycle balance!')
+    }
+  }}
+/>`}
               </pre>
             </div>
             <div>

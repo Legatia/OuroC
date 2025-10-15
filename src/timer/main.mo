@@ -12,8 +12,10 @@ import Nat8 "mo:base/Nat8";
 import Result "mo:base/Result";
 import Debug "mo:base/Debug";
 import Iter "mo:base/Iter";
+import Principal "mo:base/Principal";
 import Solana "./solana";
 import CycleManagement "./cycle_management";
+import Authorization "./authorization";
 
 persistent actor OuroCTimer {
 
@@ -80,6 +82,10 @@ persistent actor OuroCTimer {
     private transient var subscriptions = Map.HashMap<SubscriptionId, Subscription>(10, Text.equal, Text.hash);
     private transient var active_timers = Map.HashMap<SubscriptionId, Timer.TimerId>(10, Text.equal, Text.hash);
 
+    // Authorization
+    private transient let authManager = Authorization.AuthorizationManager();
+    private var auth_initialized = false;
+
     // Enhanced Solana integration with Threshold Ed25519
     // Network configuration
     public type NetworkEnvironment = {
@@ -111,6 +117,14 @@ persistent actor OuroCTimer {
     };
 
     system func postupgrade() {
+        // Initialize authorization with deployer as first admin
+        if (not auth_initialized) {
+            let deployer = Principal.fromActor(OuroCTimer);
+            authManager.initWithDeployer(deployer);
+            auth_initialized := true;
+            Debug.print("Authorization initialized. Deployer: " # Principal.toText(deployer));
+        };
+
         stable_subscriptions := [];
         for ((id, sub) in stable_subscriptions.vals()) {
             subscriptions.put(id, sub);
@@ -938,5 +952,68 @@ persistent actor OuroCTimer {
             };
         };
         true
+    };
+
+    // =============================================================================
+    // AUTHORIZATION HELPERS
+    // =============================================================================
+
+    private func requireAdmin(caller: Principal) : Result.Result<(), Text> {
+        if (authManager.isAdmin(caller)) {
+            return #ok();
+        };
+        #err("Unauthorized: Admin access required")
+    };
+
+    private func requireReadAccess(caller: Principal) : Result.Result<(), Text> {
+        if (authManager.hasReadAccess(caller)) {
+            return #ok();
+        };
+        #err("Unauthorized: Read access required")
+    };
+
+    // =============================================================================
+    // ADMIN MANAGEMENT FUNCTIONS
+    // =============================================================================
+
+    public shared(msg) func add_admin(new_admin: Principal) : async Result.Result<(), Text> {
+        authManager.addAdmin(msg.caller, new_admin)
+    };
+
+    public shared(msg) func remove_admin(admin_to_remove: Principal) : async Result.Result<(), Text> {
+        authManager.removeAdmin(msg.caller, admin_to_remove)
+    };
+
+    public shared(msg) func add_read_only_user(user: Principal) : async Result.Result<(), Text> {
+        authManager.addReadOnlyUser(msg.caller, user)
+    };
+
+    public shared(msg) func remove_read_only_user(user: Principal) : async Result.Result<(), Text> {
+        authManager.removeReadOnlyUser(msg.caller, user)
+    };
+
+    public shared query(msg) func get_admins() : async Result.Result<[Principal], Text> {
+        switch (requireAdmin(msg.caller)) {
+            case (#err(e)) { #err(e) };
+            case (#ok()) { #ok(authManager.getAdmins()) };
+        };
+    };
+
+    public shared query(msg) func get_read_only_users() : async Result.Result<[Principal], Text> {
+        switch (requireAdmin(msg.caller)) {
+            case (#err(e)) { #err(e) };
+            case (#ok()) { #ok(authManager.getReadOnlyUsers()) };
+        };
+    };
+
+    // Emergency: Initialize first admin if authManager is empty (one-time fix)
+    public shared(msg) func initialize_first_admin() : async Result.Result<(), Text> {
+        let admins = authManager.getAdmins();
+        if (admins.size() == 0) {
+            authManager.initWithDeployer(msg.caller);
+            Debug.print("First admin initialized: " # Principal.toText(msg.caller));
+            return #ok();
+        };
+        #err("Admin already initialized")
     };
 }

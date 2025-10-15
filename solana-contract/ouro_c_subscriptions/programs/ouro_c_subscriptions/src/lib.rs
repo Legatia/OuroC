@@ -7,7 +7,7 @@ use anchor_spl::token::{self, Token, TokenAccount, Mint};
 use std::str::FromStr;
 
 mod crypto;
-use crypto::{create_payment_message, verify_icp_signature, verify_timestamp};
+use crypto::{create_payment_message, verify_ed25519_ix, verify_timestamp};
 
 // SPL Memo Program for wallet-visible notifications
 pub const SPL_MEMO_PROGRAM_ID: &str = "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr";
@@ -325,6 +325,7 @@ pub mod ouro_c_subscriptions {
             ctx.program_id,
             icp_signature,
             timestamp,
+            &ctx.accounts.instructions_sysvar,
         )
     }
 
@@ -346,6 +347,7 @@ pub mod ouro_c_subscriptions {
             ctx.program_id,
             icp_signature,
             timestamp,
+            &ctx.accounts.instructions_sysvar,
         )
     }
 
@@ -500,7 +502,7 @@ pub mod ouro_c_subscriptions {
         match config.authorization_mode {
             AuthorizationMode::ICPSignature => {
                 // ICP signature required
-                let sig = icp_signature.ok_or(ErrorCode::InvalidSignature)?;
+                let _sig = icp_signature.ok_or(ErrorCode::InvalidSignature)?;
                 let icp_pubkey = config
                     .icp_public_key
                     .ok_or(ErrorCode::InvalidSignature)?;
@@ -519,11 +521,11 @@ pub mod ouro_c_subscriptions {
                     ErrorCode::TimestampExpired
                 );
 
-                // Verify Ed25519 signature
-                let is_valid = crate::crypto::verify_icp_signature(
-                    &message,
-                    &sig,
+                // Verify Ed25519 signature using precompile
+                let is_valid = verify_ed25519_ix(
+                    &ctx.accounts.instructions_sysvar,
                     &icp_pubkey,
+                    &message,
                 )?;
 
                 require!(is_valid, ErrorCode::InvalidSignature);
@@ -546,7 +548,7 @@ pub mod ouro_c_subscriptions {
             }
             AuthorizationMode::Hybrid => {
                 // Try ICP signature first, fallback to manual if overdue
-                if let Some(sig) = icp_signature {
+                if let Some(_sig) = icp_signature {
                     if let Some(icp_pubkey) = config.icp_public_key {
                         let message = crate::crypto::create_payment_message(
                             &subscription.id,
@@ -558,12 +560,14 @@ pub mod ouro_c_subscriptions {
                         let timestamp_valid = crate::crypto::verify_timestamp(timestamp, current_time, 300)?;
 
                         if timestamp_valid {
-                            if let Ok(is_valid) = crate::crypto::verify_icp_signature(&message, &sig, &icp_pubkey) {
-                                if is_valid {
-                                    // ICP signature valid, proceed
-                                } else {
-                                    return Err(ErrorCode::InvalidSignature.into());
-                                }
+                            let is_valid = verify_ed25519_ix(
+                                &ctx.accounts.instructions_sysvar,
+                                &icp_pubkey,
+                                &message,
+                            )?;
+
+                            if is_valid {
+                                // ICP signature valid, proceed
                             } else {
                                 return Err(ErrorCode::InvalidSignature.into());
                             }
@@ -644,7 +648,7 @@ pub mod ouro_c_subscriptions {
         // Verify trigger authority (same logic as process_trigger)
         match config.authorization_mode {
             AuthorizationMode::ICPSignature => {
-                let sig = icp_signature.ok_or(ErrorCode::InvalidSignature)?;
+                let _sig = icp_signature.ok_or(ErrorCode::InvalidSignature)?;
                 let icp_pubkey = config.icp_public_key.ok_or(ErrorCode::InvalidSignature)?;
 
                 let message = crate::crypto::create_payment_message(
@@ -659,7 +663,11 @@ pub mod ouro_c_subscriptions {
                     ErrorCode::TimestampExpired
                 );
 
-                let is_valid = crate::crypto::verify_icp_signature(&message, &sig, &icp_pubkey)?;
+                let is_valid = verify_ed25519_ix(
+                    &ctx.accounts.instructions_sysvar,
+                    &icp_pubkey,
+                    &message,
+                )?;
                 require!(is_valid, ErrorCode::InvalidSignature);
             }
             AuthorizationMode::ManualOnly => {
@@ -677,15 +685,18 @@ pub mod ouro_c_subscriptions {
                 );
             }
             AuthorizationMode::Hybrid => {
-                if let Some(sig) = icp_signature {
+                if let Some(_sig) = icp_signature {
                     if let Some(icp_pubkey) = config.icp_public_key {
                         let message = crate::crypto::create_payment_message(&subscription.id, timestamp, subscription.amount);
                         let current_time = Clock::get()?.unix_timestamp;
 
                         if crate::crypto::verify_timestamp(timestamp, current_time, 300)? {
-                            if let Ok(is_valid) = crate::crypto::verify_icp_signature(&message, &sig, &icp_pubkey) {
-                                require!(is_valid, ErrorCode::InvalidSignature);
-                            }
+                            let is_valid = verify_ed25519_ix(
+                                &ctx.accounts.instructions_sysvar,
+                                &icp_pubkey,
+                                &message,
+                            )?;
+                            require!(is_valid, ErrorCode::InvalidSignature);
                         }
                     }
                 } else {
@@ -782,6 +793,7 @@ mod payment_helpers {
         program_id: &Pubkey,
         icp_signature: Option<[u8; 64]>,
         timestamp: i64,
+        instructions_sysvar: &UncheckedAccount<'info>,
     ) -> Result<()> {
         require!(!config.paused, ErrorCode::ProgramPaused);
         require!(subscription.status == SubscriptionStatus::Active, ErrorCode::SubscriptionNotActive);
@@ -817,7 +829,7 @@ mod payment_helpers {
                 // Verify ICP canister signature
                 let icp_public_key = config.icp_public_key.ok_or(ErrorCode::MissingICPKey)?;
                 require!(
-                    verify_icp_signature(&message, &signature, &icp_public_key)?,
+                    verify_ed25519_ix(instructions_sysvar, &icp_public_key, &message)?,
                     ErrorCode::InvalidSignature
                 );
 
@@ -842,14 +854,14 @@ mod payment_helpers {
             },
             AuthorizationMode::Hybrid => {
                 // Multiple authorization methods
-                let is_icp_valid = if let Some(signature) = icp_signature {
+                let is_icp_valid = if let Some(_signature) = icp_signature {
                     if let Some(icp_key) = config.icp_public_key {
                         let message = create_payment_message(
                             &subscription.id,
                             timestamp,
                             subscription.amount
                         );
-                        verify_icp_signature(&message, &signature, &icp_key).unwrap_or(false)
+                        verify_ed25519_ix(instructions_sysvar, &icp_key, &message).unwrap_or(false)
                     } else { false }
                 } else { false };
 
@@ -1096,6 +1108,10 @@ pub struct ProcessPayment<'info> {
 
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
+
+    /// CHECK: Instructions sysvar for Ed25519 signature verification
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instructions_sysvar: UncheckedAccount<'info>,
 }
 
 /// Account structure for multi-token payment with swap
@@ -1167,6 +1183,10 @@ pub struct ProcessPaymentWithSwap<'info> {
 
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
+
+    /// CHECK: Instructions sysvar for Ed25519 signature verification
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instructions_sysvar: UncheckedAccount<'info>,
 
     // Remaining accounts: Jupiter routing accounts (dynamically determined by quote)
     // These are passed via ctx.remaining_accounts
@@ -1296,6 +1316,10 @@ pub struct ProcessTrigger<'info> {
     /// CHECK: SPL Memo Program
     #[account(address = Pubkey::from_str(SPL_MEMO_PROGRAM_ID).unwrap())]
     pub memo_program: UncheckedAccount<'info>,
+
+    /// CHECK: Instructions sysvar for Ed25519 signature verification
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instructions_sysvar: UncheckedAccount<'info>,
 }
 
 /// Extended ProcessTrigger with Jupiter swap accounts
@@ -1370,6 +1394,10 @@ pub struct ProcessTriggerWithSwap<'info> {
 
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
+
+    /// CHECK: Instructions sysvar for Ed25519 signature verification
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instructions_sysvar: UncheckedAccount<'info>,
 }
 
 #[account]

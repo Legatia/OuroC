@@ -198,8 +198,8 @@ export class OuroCClient {
         console.log('Executing first payment with wallet adapter...')
 
         try {
-          const subscriberPubkey = new PublicKey(request.solana_payer)
-          const merchantPubkey = new PublicKey(request.solana_receiver)
+          const subscriberPubkey = new PublicKey(request.subscriber_address)
+          const merchantPubkey = new PublicKey(request.merchant_address)
           const usdcMint = new PublicKey(request.payment_token_mint)
           const amount = Number(request.amount)
 
@@ -243,8 +243,15 @@ export class OuroCClient {
       return subscriptionId
     } catch (error) {
       if (error instanceof OuroCError) throw error
+
+      // Log the full error for debugging
+      console.error('Full error creating subscription:', error)
+      console.error('Error type:', typeof error)
+      console.error('Error message:', (error as any)?.message)
+      console.error('Error stack:', (error as any)?.stack)
+
       throw new OuroCError(
-        'Unexpected error creating subscription',
+        `Unexpected error creating subscription: ${(error as any)?.message || String(error)}`,
         'UNKNOWN_ERROR',
         error
       )

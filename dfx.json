@@ -4,6 +4,15 @@
     "OuroC_timer": {
       "type": "motoko",
       "main": "src/timer/main.mo"
+    },
+    "admin_panel": {
+      "type": "assets",
+      "source": ["src/admin-panel/dist"],
+      "dependencies": ["OuroC_timer"]
+    },
+    "internet_identity": {
+      "type": "pull",
+      "id": "rdmx6-jaaaa-aaaaa-aaadq-cai"
     }
   },
   "networks": {
