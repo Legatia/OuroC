@@ -1473,11 +1473,14 @@ fn process_direct_usdc_payment(ctx: Context<ProcessTrigger>) -> Result<()> {
 
     // Calculate fee (treasury gets X%, merchant gets rest)
     let payment_amount = subscription.amount;
-    let fee_amount = (payment_amount as u128)
+    let fee_amount_u128 = (payment_amount as u128)
         .checked_mul(config.fee_config.fee_percentage_basis_points as u128)
         .ok_or(ErrorCode::MathOverflow)?
         .checked_div(BASIS_POINTS_DIVISOR as u128)
-        .ok_or(ErrorCode::MathOverflow)? as u64;
+        .ok_or(ErrorCode::MathOverflow)?;
+    // SECURITY: Safe cast with overflow check
+    let fee_amount = u64::try_from(fee_amount_u128)
+        .map_err(|_| ErrorCode::MathOverflow)?;
     let fee_amount = fee_amount.max(config.fee_config.min_fee_amount);
     let merchant_amount = payment_amount.checked_sub(fee_amount).ok_or(ErrorCode::InsufficientAmount)?;
 
@@ -1626,11 +1629,14 @@ fn process_swap_then_split(ctx: Context<ProcessTriggerWithSwap>) -> Result<()> {
     msg!("Swapped {} tokens → {} USDC (placeholder - needs actual balance check)", payment_token_amount, usdc_output);
 
     // Step 3: Calculate fee split from swapped USDC
-    let fee_amount = (usdc_output as u128)
+    let fee_amount_u128 = (usdc_output as u128)
         .checked_mul(config.fee_config.fee_percentage_basis_points as u128)
         .ok_or(ErrorCode::MathOverflow)?
         .checked_div(BASIS_POINTS_DIVISOR as u128)
-        .ok_or(ErrorCode::MathOverflow)? as u64;
+        .ok_or(ErrorCode::MathOverflow)?;
+    // SECURITY: Safe cast with overflow check
+    let fee_amount = u64::try_from(fee_amount_u128)
+        .map_err(|_| ErrorCode::MathOverflow)?;
     let fee_amount = fee_amount.max(config.fee_config.min_fee_amount);
     let merchant_amount = usdc_output.checked_sub(fee_amount).ok_or(ErrorCode::InsufficientAmount)?;
 
