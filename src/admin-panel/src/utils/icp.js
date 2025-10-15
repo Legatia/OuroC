@@ -1,11 +1,18 @@
 import { Actor, HttpAgent } from '@dfinity/agent'
 import { AuthClient } from '@dfinity/auth-client'
 
-// IMPORTANT: Update this with your actual OuroC_timer canister ID
-export const TIMER_CANISTER_ID = 'YOUR_ACTUAL_TIMER_CANISTER_ID'
+// Detect local development environment
+const isLocal = window.location.hostname.includes('localhost') ||
+                window.location.hostname.includes('127.0.0.1') ||
+                window.location.port === '4944'
+
+// OuroC_timer canister ID (automatically switches between local and mainnet)
+export const TIMER_CANISTER_ID = isLocal
+  ? 'uxrrr-q7777-77774-qaaaq-cai'  // Local
+  : '7tbxr-naaaa-aaaao-qkrca-cai'   // Mainnet
 
 // Authentication provider URLs
-const INTERNET_IDENTITY_URL = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1')
+const INTERNET_IDENTITY_URL = isLocal
   ? `http://localhost:4944?canisterId=rdmx6-jaaaa-aaaaa-aaadq-cai`
   : 'https://identity.ic0.app'
 
@@ -162,13 +169,11 @@ export async function getTimerActor() {
 
   const agent = new HttpAgent({
     identity,
-    host: window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1')
-      ? 'http://localhost:4944'
-      : 'https://ic0.app'
+    host: isLocal ? 'http://localhost:4944' : 'https://ic0.app'
   })
 
   // Only for local development
-  if (window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1')) {
+  if (isLocal) {
     await agent.fetchRootKey()
   }
 

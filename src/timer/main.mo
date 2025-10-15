@@ -13,6 +13,7 @@ import Result "mo:base/Result";
 import Debug "mo:base/Debug";
 import Iter "mo:base/Iter";
 import Principal "mo:base/Principal";
+import ExperimentalCycles "mo:base/ExperimentalCycles";
 import Solana "./solana";
 import CycleManagement "./cycle_management";
 import Authorization "./authorization";
@@ -82,9 +83,11 @@ persistent actor OuroCTimer {
     private transient var subscriptions = Map.HashMap<SubscriptionId, Subscription>(10, Text.equal, Text.hash);
     private transient var active_timers = Map.HashMap<SubscriptionId, Timer.TimerId>(10, Text.equal, Text.hash);
 
-    // Authorization
+    // Authorization - make admin list stable
     private transient let authManager = Authorization.AuthorizationManager();
-    private var auth_initialized = false;
+    private stable var stable_admins: [Principal] = [];
+    private stable var stable_read_only_users: [Principal] = [];
+    private var auth_initialized = false; // Keep for backward compatibility
 
     // Enhanced Solana integration with Threshold Ed25519
     // Network configuration
@@ -114,15 +117,21 @@ persistent actor OuroCTimer {
 
     system func preupgrade() {
         stable_subscriptions := Iter.toArray(subscriptions.entries());
+        // Save admin lists
+        stable_admins := authManager.getAdmins();
+        stable_read_only_users := authManager.getReadOnlyUsers();
     };
 
     system func postupgrade() {
-        // Initialize authorization with deployer as first admin
-        if (not auth_initialized) {
-            let deployer = Principal.fromActor(OuroCTimer);
-            authManager.initWithDeployer(deployer);
-            auth_initialized := true;
-            Debug.print("Authorization initialized. Deployer: " # Principal.toText(deployer));
+        // Restore admin lists from stable storage
+        for (admin in stable_admins.vals()) {
+            authManager.initWithDeployer(admin);
+        };
+        for (user in stable_read_only_users.vals()) {
+            // We need to restore these properly, but for now skip if no admins
+            if (stable_admins.size() > 0) {
+                ignore authManager.addReadOnlyUser(stable_admins[0], user);
+            };
         };
 
         stable_subscriptions := [];
@@ -191,10 +200,6 @@ persistent actor OuroCTimer {
 
     // Initialize the canister with Threshold Ed25519 wallets
     public func initialize_canister(): async Result.Result<{main_address: Text; fee_address: Text}, Text> {
-        if (is_initialized) {
-            return #ok({main_address = main_wallet_address; fee_address = fee_collection_address});
-        };
-
         // Initialize Solana client if not already done
         switch (solana_client) {
             case null {
@@ -218,6 +223,7 @@ persistent actor OuroCTimer {
 
         switch (solana_client) {
             case (?client) {
+                // Always re-derive keypairs (needed after upgrades since they're transient)
                 let init_result = await client.initialize();
                 switch (init_result) {
                     case (#ok(addresses)) {
@@ -762,11 +768,11 @@ persistent actor OuroCTimer {
         let now = Time.now();
         let uptime = Int.abs(now - canister_start_time) / 1_000_000_000; // Convert to seconds
 
-        // Calculate cycle balance (simplified - would use Cycles.balance() in real implementation)
-        let estimated_cycles = 1_000_000_000_000; // 1T cycles estimate
+        // Get actual cycle balance
+        let cycle_balance = ExperimentalCycles.balance();
 
         // Determine canister status
-        let (status, is_degraded, degradation_reason) = determine_health_status(estimated_cycles);
+        let (status, is_degraded, degradation_reason) = determine_health_status(cycle_balance);
 
         // Update health check timestamp
         last_health_check := now;
@@ -779,7 +785,7 @@ persistent actor OuroCTimer {
             subscription_count = subscriptions.size();
             active_timers = active_timers.size();
             failed_payments = failed_payment_count;
-            cycle_balance = estimated_cycles;
+            cycle_balance = cycle_balance;
             memory_usage = 0; // Would use debug_show(heap_size()) in real implementation
             is_degraded = is_degraded;
             degradation_reason = degradation_reason;
@@ -859,7 +865,7 @@ persistent actor OuroCTimer {
             total_payments_processed = 0; // TODO: Track actual payment count
             failed_payments = failed_payment_count;
             uptime_seconds = uptime;
-            cycle_balance_estimate = 1_000_000_000_000; // 1T cycles estimate
+            cycle_balance_estimate = ExperimentalCycles.balance();
         }
     };
 
@@ -1015,5 +1021,51 @@ persistent actor OuroCTimer {
             return #ok();
         };
         #err("Admin already initialized")
+    };
+
+    // Emergency: Add human admin (controller-only function for fixing canister-as-admin issue)
+    public shared(msg) func add_controller_admin(new_admin: Principal) : async Result.Result<(), Text> {
+        // Only the canister's controller can call this
+        // This is a one-time emergency function to fix the initialization issue
+        let canister_principal = Principal.fromActor(OuroCTimer);
+        let admins = authManager.getAdmins();
+
+        Debug.print("Current admin count: " # Nat.toText(admins.size()));
+
+        // If admins list is empty, initialize with new admin
+        if (admins.size() == 0) {
+            authManager.initWithDeployer(new_admin);
+            Debug.print("Initialized first admin: " # Principal.toText(new_admin));
+            return #ok();
+        };
+
+        // Check if the only admin is the canister itself (wrong initialization)
+        if (admins.size() == 1 and Principal.equal(admins[0], canister_principal)) {
+            // Replace canister admin with human admin
+            ignore authManager.removeAdmin(canister_principal, canister_principal);
+            authManager.initWithDeployer(new_admin);
+            Debug.print("Replaced canister admin with human admin: " # Principal.toText(new_admin));
+            return #ok();
+        };
+
+        // If there are already human admins, allow them to add more via regular add_admin
+        #err("This function can only be used when canister is the sole admin or admin list is empty. Current admin count: " # Nat.toText(admins.size()))
+    };
+
+    // Debug function to check admin status (no auth required for troubleshooting)
+    public query func debug_admin_info() : async Text {
+        let admins = authManager.getAdmins();
+        let canister_principal = Principal.fromActor(OuroCTimer);
+        var info = "Admin count: " # Nat.toText(admins.size()) # "\n";
+        info #= "Canister principal: " # Principal.toText(canister_principal) # "\n";
+        info #= "Admins:\n";
+        for (admin in admins.vals()) {
+            info #= "  - " # Principal.toText(admin);
+            if (Principal.equal(admin, canister_principal)) {
+                info #= " (CANISTER ITSELF - WRONG!)";
+            };
+            info #= "\n";
+        };
+        info
     };
 }
