@@ -139,6 +139,41 @@ module {
         value: TokenAmount;
     };
 
+    // getTokenAccountsByOwner
+    public type GetTokenAccountsByOwnerParams = {
+        owner: Text; // Base58 encoded owner address
+        mint: ?Text; // Optional: filter by mint address
+        program_id: ?Text; // Optional: filter by token program (default SPL Token)
+        commitment: ?CommitmentLevel;
+        encoding: ?Text; // "base58", "base64", "jsonParsed"
+    };
+
+    public type TokenAccountInfo = {
+        pubkey: Text; // Token account address
+        account: {
+            data: {
+                parsed: {
+                    info: {
+                        mint: Text;
+                        owner: Text;
+                        tokenAmount: TokenAmount;
+                    };
+                    type_: Text;
+                };
+                program: Text;
+                space: Nat64;
+            };
+            executable: Bool;
+            lamports: Nat64;
+            owner: Text;
+            rentEpoch: Nat64;
+        };
+    };
+
+    public type GetTokenAccountsByOwnerResult = {
+        value: [TokenAccountInfo];
+    };
+
     // RPC Error type
     public type RpcError = {
         code: Int;
@@ -172,6 +207,7 @@ module {
 
         // Token operations
         sol_getTokenAccountBalance: shared (GetTokenAccountBalanceParams) -> async RpcResponse<GetTokenAccountBalanceResult>;
+        sol_getTokenAccountsByOwner: shared (GetTokenAccountsByOwnerParams) -> async RpcResponse<GetTokenAccountsByOwnerResult>;
     };
 
     // Helper function to create SOL RPC canister actor

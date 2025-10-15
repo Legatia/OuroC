@@ -758,6 +758,254 @@ module {
                 #err("Chain Fusion token balance check failed")
             }
         };
+
+        // Get all SPL token balances for an address
+        public func get_all_token_balances(owner_address: SolanaAddress): async Result.Result<[{mint: Text; balance: Nat64; decimals: Nat8}], Text> {
+            try {
+                let result = await (with cycles = 1_000_000_000) sol_rpc.sol_getTokenAccountsByOwner({
+                    owner = owner_address;
+                    mint = null; // Get all tokens
+                    program_id = ?("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"); // SPL Token program
+                    commitment = commitment_from_text(rpc_config.commitment);
+                    encoding = ?("jsonParsed"); // Use parsed format for easy access
+                });
+
+                switch (result) {
+                    case (#Ok(data)) {
+                        let token_balances = Buffer.Buffer<{mint: Text; balance: Nat64; decimals: Nat8}>(data.value.size());
+
+                        for (token_account in data.value.vals()) {
+                            let mint = token_account.account.data.parsed.info.mint;
+                            let token_amount = token_account.account.data.parsed.info.tokenAmount;
+
+                            // Parse amount string to Nat64
+                            switch (Nat.fromText(token_amount.amount)) {
+                                case (?nat_balance) {
+                                    token_balances.add({
+                                        mint = mint;
+                                        balance = Nat64.fromNat(nat_balance);
+                                        decimals = token_amount.decimals;
+                                    });
+                                };
+                                case null {
+                                    // Skip invalid balances
+                                    Debug.print("Warning: Invalid balance format for mint " # mint);
+                                };
+                            };
+                        };
+
+                        Debug.print("Chain Fusion: Found " # Nat.toText(token_balances.size()) # " token accounts for " # owner_address);
+                        #ok(Buffer.toArray(token_balances))
+                    };
+                    case (#Err(error)) {
+                        #err("Solana RPC error: " # error.message)
+                    };
+                }
+            } catch (_error) {
+                #err("Chain Fusion token accounts query failed")
+            }
+        };
+
+        // Withdraw SOL from canister wallet
+        public func withdraw_sol(
+            from_wallet: {#Main; #FeeCollection},
+            recipient: SolanaAddress,
+            amount_lamports: Nat64
+        ): async Result.Result<TransactionHash, Text> {
+            // Select the correct keypair
+            let keypair_option = switch (from_wallet) {
+                case (#Main) main_keypair;
+                case (#FeeCollection) fee_collection_keypair;
+            };
+
+            switch (keypair_option) {
+                case (?kp) {
+                    try {
+                        // Validate amount
+                        if (amount_lamports == 0) {
+                            return #err("Amount must be greater than 0");
+                        };
+
+                        // Get recent blockhash
+                        let recent_blockhash = await get_recent_blockhash();
+
+                        switch (recent_blockhash) {
+                            case (#ok(blockhash)) {
+                                // Create SOL transfer instruction
+                                let transfer_instruction = ThresholdEd25519.create_solana_transfer_instruction(
+                                    kp.public_key,
+                                    Text.encodeUtf8(recipient),
+                                    amount_lamports
+                                );
+
+                                // Build transaction
+                                let transaction: ThresholdEd25519.SolanaTransaction = {
+                                    recent_blockhash = blockhash;
+                                    instructions = [transfer_instruction];
+                                    fee_payer = kp.public_key;
+                                };
+
+                                // Sign and send transaction
+                                let tx_result = await sign_and_send_transaction(transaction, kp.derivation_path);
+
+                                switch (tx_result) {
+                                    case (#ok(tx_hash)) {
+                                        let wallet_name = switch (from_wallet) { case (#Main) "main"; case (#FeeCollection) "fee_collection" };
+                                        Debug.print("SOL withdrawal from " # wallet_name # " successful: " # tx_hash # " (" # Nat64.toText(amount_lamports) # " lamports to " # recipient # ")");
+                                        #ok(tx_hash)
+                                    };
+                                    case (#err(error)) {
+                                        Debug.print("SOL withdrawal failed: " # error);
+                                        #err(error)
+                                    };
+                                }
+                            };
+                            case (#err(error)) {
+                                #err("Failed to get recent blockhash: " # error)
+                            };
+                        }
+                    } catch (_error) {
+                        #err("SOL withdrawal transaction failed")
+                    }
+                };
+                case null {
+                    #err("Keypair not initialized")
+                };
+            }
+        };
+
+        // Withdraw SPL tokens from canister wallet
+        public func withdraw_token(
+            from_wallet: {#Main; #FeeCollection},
+            token_mint: Text,
+            recipient_token_account: SolanaAddress,
+            amount: Nat64
+        ): async Result.Result<TransactionHash, Text> {
+            // Select the correct keypair
+            let keypair_option = switch (from_wallet) {
+                case (#Main) main_keypair;
+                case (#FeeCollection) fee_collection_keypair;
+            };
+
+            switch (keypair_option) {
+                case (?kp) {
+                    try {
+                        // Validate amount
+                        if (amount == 0) {
+                            return #err("Amount must be greater than 0");
+                        };
+
+                        // Validate addresses
+                        if (not is_valid_solana_address(token_mint)) {
+                            return #err("Invalid token mint address");
+                        };
+                        if (not is_valid_solana_address(recipient_token_account)) {
+                            return #err("Invalid recipient token account address");
+                        };
+
+                        // Get recent blockhash
+                        let recent_blockhash = await get_recent_blockhash();
+
+                        switch (recent_blockhash) {
+                            case (#ok(blockhash)) {
+                                // Find source token account owned by the selected keypair
+                                let wallet_address = ThresholdEd25519.public_key_to_base58(kp.public_key);
+                                let token_accounts_result = await (with cycles = 1_000_000_000) sol_rpc.sol_getTokenAccountsByOwner({
+                                    owner = wallet_address;
+                                    mint = ?(token_mint);
+                                    program_id = ?("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+                                    commitment = commitment_from_text(rpc_config.commitment);
+                                    encoding = ?("jsonParsed");
+                                });
+
+                                switch (token_accounts_result) {
+                                    case (#Ok(token_data)) {
+                                        if (token_data.value.size() == 0) {
+                                            return #err("No token account found for mint " # token_mint);
+                                        };
+
+                                        let source_token_account = token_data.value[0].pubkey;
+
+                                        // Build SPL token transfer instruction
+                                        let transfer_instruction = build_token_transfer_instruction(
+                                            source_token_account,
+                                            recipient_token_account,
+                                            kp.public_key,
+                                            amount
+                                        );
+
+                                        // Build transaction
+                                        let transaction: ThresholdEd25519.SolanaTransaction = {
+                                            recent_blockhash = blockhash;
+                                            instructions = [transfer_instruction];
+                                            fee_payer = kp.public_key;
+                                        };
+
+                                        // Sign and send transaction
+                                        let tx_result = await sign_and_send_transaction(transaction, kp.derivation_path);
+
+                                        switch (tx_result) {
+                                            case (#ok(tx_hash)) {
+                                                let wallet_name = switch (from_wallet) { case (#Main) "main"; case (#FeeCollection) "fee_collection" };
+                                                Debug.print("Token withdrawal from " # wallet_name # " successful: " # tx_hash # " (" # Nat64.toText(amount) # " tokens to " # recipient_token_account # ")");
+                                                #ok(tx_hash)
+                                            };
+                                            case (#err(error)) {
+                                                Debug.print("Token withdrawal failed: " # error);
+                                                #err(error)
+                                            };
+                                        }
+                                    };
+                                    case (#Err(error)) {
+                                        #err("Failed to find source token account: " # error.message)
+                                    };
+                                }
+                            };
+                            case (#err(error)) {
+                                #err("Failed to get recent blockhash: " # error)
+                            };
+                        }
+                    } catch (_error) {
+                        #err("Token withdrawal transaction failed")
+                    }
+                };
+                case null {
+                    #err("Keypair not initialized")
+                };
+            }
+        };
+
+        // Build SPL token transfer instruction
+        private func build_token_transfer_instruction(
+            source: SolanaAddress,
+            destination: SolanaAddress,
+            owner: Blob,
+            amount: Nat64
+        ): ThresholdEd25519.SolanaInstruction {
+            // SPL Token Transfer instruction format:
+            // Instruction index: 3 (Transfer)
+            // Data: [3, amount as u64 little-endian]
+            let instruction_data = Buffer.Buffer<Nat8>(9);
+            instruction_data.add(3); // Transfer instruction
+
+            // Add amount as little-endian u64
+            let amount_bytes = nat64_to_le_bytes(amount);
+            for (byte in amount_bytes.vals()) {
+                instruction_data.add(byte);
+            };
+
+            let token_program = Text.encodeUtf8("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+
+            {
+                program_id = token_program;
+                accounts = [
+                    { pubkey = Text.encodeUtf8(source); is_signer = false; is_writable = true },
+                    { pubkey = Text.encodeUtf8(destination); is_signer = false; is_writable = true },
+                    { pubkey = owner; is_signer = true; is_writable = false },
+                ];
+                data = Blob.fromArray(Buffer.toArray(instruction_data));
+            }
+        };
     };
 
     // Helper functions for Chain Fusion integration

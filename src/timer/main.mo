@@ -596,6 +596,285 @@ persistent actor OuroCTimer {
         }
     };
 
+    // Get comprehensive wallet information including all tokens
+    public shared({caller}) func get_comprehensive_wallet_info(): async Result.Result<{
+        addresses: {main: Text; fee_collection: Text};
+        sol_balances: {main: Nat64; fee_collection: Nat64};
+        tokens: [{
+            mint: Text;
+            main_balance: Nat64;
+            fee_balance: Nat64;
+            decimals: Nat8;
+        }];
+    }, Text> {
+        // Check admin authorization
+        switch (requireAdmin(caller)) {
+            case (#err(e)) { return #err(e) };
+            case (#ok()) {};
+        };
+
+        if (not is_initialized) {
+            return #err("Canister not initialized");
+        };
+
+        switch (solana_client) {
+            case (?client) {
+                try {
+                    // Get addresses
+                    let addresses = {
+                        main = main_wallet_address;
+                        fee_collection = fee_collection_address;
+                    };
+
+                    // Get SOL balances
+                    let sol_balances_result = await client.get_wallet_balances();
+                    let sol_balances = switch (sol_balances_result) {
+                        case (#ok(balances)) balances;
+                        case (#err(error)) {
+                            return #err("Failed to get SOL balances: " # error);
+                        };
+                    };
+
+                    // Get all token balances for main wallet
+                    let main_tokens_result = await client.get_all_token_balances(main_wallet_address);
+                    let main_tokens = switch (main_tokens_result) {
+                        case (#ok(tokens)) tokens;
+                        case (#err(error)) {
+                            Debug.print("Warning: Failed to get main wallet tokens: " # error);
+                            [];
+                        };
+                    };
+
+                    // Get all token balances for fee wallet
+                    let fee_tokens_result = await client.get_all_token_balances(fee_collection_address);
+                    let fee_tokens = switch (fee_tokens_result) {
+                        case (#ok(tokens)) tokens;
+                        case (#err(error)) {
+                            Debug.print("Warning: Failed to get fee wallet tokens: " # error);
+                            [];
+                        };
+                    };
+
+                    // Merge token balances from both wallets
+                    let token_map = Map.HashMap<Text, {main: Nat64; fee: Nat64; decimals: Nat8}>(10, Text.equal, Text.hash);
+
+                    for (token in main_tokens.vals()) {
+                        token_map.put(token.mint, {
+                            main = token.balance;
+                            fee = 0;
+                            decimals = token.decimals;
+                        });
+                    };
+
+                    for (token in fee_tokens.vals()) {
+                        switch (token_map.get(token.mint)) {
+                            case (?existing) {
+                                token_map.put(token.mint, {
+                                    main = existing.main;
+                                    fee = token.balance;
+                                    decimals = token.decimals;
+                                });
+                            };
+                            case null {
+                                token_map.put(token.mint, {
+                                    main = 0;
+                                    fee = token.balance;
+                                    decimals = token.decimals;
+                                });
+                            };
+                        };
+                    };
+
+                    // Convert to array
+                    let tokens_buffer = Buffer.Buffer<{mint: Text; main_balance: Nat64; fee_balance: Nat64; decimals: Nat8}>(token_map.size());
+                    for ((mint, balances) in token_map.entries()) {
+                        tokens_buffer.add({
+                            mint = mint;
+                            main_balance = balances.main;
+                            fee_balance = balances.fee;
+                            decimals = balances.decimals;
+                        });
+                    };
+
+                    #ok({
+                        addresses = addresses;
+                        sol_balances = sol_balances;
+                        tokens = Buffer.toArray(tokens_buffer);
+                    })
+                } catch (_error) {
+                    #err("Failed to get comprehensive wallet info")
+                }
+            };
+            case null {
+                #err("Solana client not initialized")
+            };
+        }
+    };
+
+    // Withdraw SOL (admin only)
+    public shared({caller}) func admin_withdraw_sol(
+        from_wallet: {#Main; #FeeCollection},
+        recipient: Text,
+        amount_lamports: Nat64
+    ): async Result.Result<Text, Text> {
+        // Check admin authorization
+        switch (requireAdmin(caller)) {
+            case (#err(e)) { return #err(e) };
+            case (#ok()) {};
+        };
+
+        if (not is_initialized) {
+            return #err("Canister not initialized");
+        };
+
+        // Validate inputs
+        if (not Solana.is_valid_solana_address(recipient)) {
+            return #err("Invalid recipient address format");
+        };
+
+        if (amount_lamports == 0) {
+            return #err("Amount must be greater than 0");
+        };
+
+        // Minimum balance check (keep at least 0.01 SOL for fees)
+        if (amount_lamports < 5000) {
+            return #err("Amount too small (minimum 5000 lamports)");
+        };
+
+        switch (solana_client) {
+            case (?client) {
+                try {
+                    // Check balance first
+                    let balance_result = await client.get_balance(
+                        switch (from_wallet) {
+                            case (#Main) main_wallet_address;
+                            case (#FeeCollection) fee_collection_address;
+                        }
+                    );
+
+                    switch (balance_result) {
+                        case (#ok(current_balance)) {
+                            // Ensure we keep at least 10_000_000 lamports (0.01 SOL) for transaction fees
+                            if (current_balance < amount_lamports + 10_000_000) {
+                                return #err("Insufficient balance. Current: " # Nat64.toText(current_balance) # " lamports, requested: " # Nat64.toText(amount_lamports) # " lamports (+ 0.01 SOL fee reserve)");
+                            };
+
+                            // Perform withdrawal
+                            let tx_result = await client.withdraw_sol(from_wallet, recipient, amount_lamports);
+
+                            switch (tx_result) {
+                                case (#ok(tx_hash)) {
+                                    Debug.print("Admin SOL withdrawal: " # Nat64.toText(amount_lamports) # " lamports to " # recipient # " (tx: " # tx_hash # ")");
+                                    #ok(tx_hash)
+                                };
+                                case (#err(error)) {
+                                    #err("Withdrawal failed: " # error)
+                                };
+                            }
+                        };
+                        case (#err(error)) {
+                            #err("Failed to check balance: " # error)
+                        };
+                    }
+                } catch (_error) {
+                    #err("Withdrawal transaction failed")
+                }
+            };
+            case null {
+                #err("Solana client not initialized")
+            };
+        }
+    };
+
+    // Withdraw tokens (admin only)
+    public shared({caller}) func admin_withdraw_token(
+        from_wallet: {#Main; #FeeCollection},
+        token_mint: Text,
+        recipient_token_account: Text,
+        amount: Nat64
+    ): async Result.Result<Text, Text> {
+        // Check admin authorization
+        switch (requireAdmin(caller)) {
+            case (#err(e)) { return #err(e) };
+            case (#ok()) {};
+        };
+
+        if (not is_initialized) {
+            return #err("Canister not initialized");
+        };
+
+        // Validate inputs
+        if (not Solana.is_valid_solana_address(token_mint)) {
+            return #err("Invalid token mint address format");
+        };
+
+        if (not Solana.is_valid_solana_address(recipient_token_account)) {
+            return #err("Invalid recipient token account address format");
+        };
+
+        if (amount == 0) {
+            return #err("Amount must be greater than 0");
+        };
+
+        switch (solana_client) {
+            case (?client) {
+                try {
+                    // Get token balance for the selected wallet
+                    let wallet_address = switch (from_wallet) {
+                        case (#Main) main_wallet_address;
+                        case (#FeeCollection) fee_collection_address;
+                    };
+
+                    let tokens_result = await client.get_all_token_balances(wallet_address);
+
+                    switch (tokens_result) {
+                        case (#ok(tokens)) {
+                            // Find the token
+                            var found = false;
+                            var current_balance: Nat64 = 0;
+
+                            for (token in tokens.vals()) {
+                                if (token.mint == token_mint) {
+                                    found := true;
+                                    current_balance := token.balance;
+                                };
+                            };
+
+                            if (not found) {
+                                return #err("Token not found in wallet. Mint: " # token_mint);
+                            };
+
+                            if (current_balance < amount) {
+                                return #err("Insufficient token balance. Current: " # Nat64.toText(current_balance) # ", requested: " # Nat64.toText(amount));
+                            };
+
+                            // Perform withdrawal
+                            let tx_result = await client.withdraw_token(from_wallet, token_mint, recipient_token_account, amount);
+
+                            switch (tx_result) {
+                                case (#ok(tx_hash)) {
+                                    Debug.print("Admin token withdrawal: " # Nat64.toText(amount) # " of " # token_mint # " to " # recipient_token_account # " (tx: " # tx_hash # ")");
+                                    #ok(tx_hash)
+                                };
+                                case (#err(error)) {
+                                    #err("Withdrawal failed: " # error)
+                                };
+                            }
+                        };
+                        case (#err(error)) {
+                            #err("Failed to check token balance: " # error)
+                        };
+                    }
+                } catch (_error) {
+                    #err("Token withdrawal transaction failed")
+                }
+            };
+            case null {
+                #err("Solana client not initialized")
+            };
+        }
+    };
+
     public func update_fee_config(new_config: Solana.FeeConfig): async Result.Result<(), Text> {
         switch (solana_client) {
             case (?client) {
