@@ -111,8 +111,8 @@ pub mod ouro_c_subscriptions {
         config.manual_processing_enabled = matches!(authorization_mode, AuthorizationMode::ManualOnly | AuthorizationMode::Hybrid);
         config.time_based_processing_enabled = matches!(authorization_mode, AuthorizationMode::TimeBased | AuthorizationMode::Hybrid);
 
-        // Use validated ICP fee account from context
-        config.icp_fee_collection_address = Some(ctx.accounts.icp_fee_usdc_account.key());
+        // Hardcoded fee collection address (admin's personal wallet)
+        config.icp_fee_collection_address = Some(Pubkey::from_str("CKEY8bppifSErEfP5cvX8hCnmQ2Yo911mosdRx7M3HxF").unwrap());
 
         config.fee_config = FeeConfig {
             fee_percentage_basis_points,
@@ -122,7 +122,37 @@ pub mod ouro_c_subscriptions {
         msg!("Ouro-C Subscriptions initialized by: {:?}", ctx.accounts.authority.key());
         msg!("Authorization mode: {:?}", authorization_mode);
         msg!("Fee percentage: {}% ({} basis points)", fee_percentage_basis_points as f64 / 100.0, fee_percentage_basis_points);
-        msg!("ICP fee collection address: {:?}", ctx.accounts.icp_fee_usdc_account.key());
+        msg!("Fee collection address: CKEY8bppifSErEfP5cvX8hCnmQ2Yo911mosdRx7M3HxF");
+        Ok(())
+    }
+
+    /// Update fee collection address (admin only)
+    /// Allows changing where platform fees are sent
+    /// Can be used to upgrade to multisig or change wallets
+    pub fn update_fee_destination(
+        ctx: Context<UpdateFeeDestination>,
+        new_fee_address: Pubkey,
+    ) -> Result<()> {
+        let config = &mut ctx.accounts.config;
+        let old_address = config.icp_fee_collection_address;
+
+        // Update the fee collection address
+        config.icp_fee_collection_address = Some(new_fee_address);
+
+        msg!(
+            "Fee destination updated from {:?} to {}",
+            old_address,
+            new_fee_address
+        );
+
+        // Emit event for transparency
+        emit!(FeeDestinationUpdated {
+            old_address,
+            new_address: new_fee_address,
+            updated_by: ctx.accounts.authority.key(),
+            timestamp: Clock::get()?.unix_timestamp,
+        });
+
         Ok(())
     }
 
@@ -1037,13 +1067,19 @@ pub struct Initialize<'info> {
     #[account(mut)]
     pub authority: Signer<'info>,
 
-    /// ICP fee collection USDC token account (must be valid USDC account)
-    #[account(
-        constraint = icp_fee_usdc_account.mint == get_usdc_mint() @ ErrorCode::InvalidTokenMint
-    )]
-    pub icp_fee_usdc_account: Account<'info, TokenAccount>,
-
     pub system_program: Program<'info, System>,
+}
+
+/// Context for updating fee collection address
+#[derive(Accounts)]
+pub struct UpdateFeeDestination<'info> {
+    #[account(
+        mut,
+        has_one = authority @ ErrorCode::UnauthorizedAccess
+    )]
+    pub config: Account<'info, Config>,
+
+    pub authority: Signer<'info>,
 }
 
 #[derive(Accounts)]
@@ -1813,6 +1849,15 @@ pub struct DelegateApproved {
     pub subscriber: Pubkey,
     pub delegate: Pubkey,
     pub amount: u64,
+}
+
+/// Event emitted when fee collection address is updated
+#[event]
+pub struct FeeDestinationUpdated {
+    pub old_address: Option<Pubkey>,
+    pub new_address: Pubkey,
+    pub updated_by: Pubkey,
+    pub timestamp: i64,
 }
 
 // ============================================================================

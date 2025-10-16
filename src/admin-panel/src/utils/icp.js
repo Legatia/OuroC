@@ -57,31 +57,7 @@ const timerIDL = ({ IDL }) => {
   })
 
   const WalletAddresses = IDL.Record({
-    'main': IDL.Text,
-    'fee_collection': IDL.Text
-  })
-
-  const WalletBalances = IDL.Record({
-    'main': IDL.Nat64,
-    'fee_collection': IDL.Nat64
-  })
-
-  const TokenBalance = IDL.Record({
-    'mint': IDL.Text,
-    'main_balance': IDL.Nat64,
-    'fee_balance': IDL.Nat64,
-    'decimals': IDL.Nat8
-  })
-
-  const ComprehensiveWalletInfo = IDL.Record({
-    'addresses': WalletAddresses,
-    'sol_balances': WalletBalances,
-    'tokens': IDL.Vec(TokenBalance)
-  })
-
-  const WalletType = IDL.Variant({
-    'Main': IDL.Null,
-    'FeeCollection': IDL.Null
+    'main': IDL.Text
   })
 
   return IDL.Service({
@@ -90,22 +66,6 @@ const timerIDL = ({ IDL }) => {
     'get_network_config': IDL.Func([], [NetworkConfig], ['query']),
     'get_wallet_addresses': IDL.Func([], [IDL.Variant({
       'ok': WalletAddresses,
-      'err': IDL.Text
-    })], []),
-    'get_wallet_balances': IDL.Func([], [IDL.Variant({
-      'ok': WalletBalances,
-      'err': IDL.Text
-    })], []),
-    'get_comprehensive_wallet_info': IDL.Func([], [IDL.Variant({
-      'ok': ComprehensiveWalletInfo,
-      'err': IDL.Text
-    })], []),
-    'admin_withdraw_sol': IDL.Func([WalletType, IDL.Text, IDL.Nat64], [IDL.Variant({
-      'ok': IDL.Text,
-      'err': IDL.Text
-    })], []),
-    'admin_withdraw_token': IDL.Func([WalletType, IDL.Text, IDL.Text, IDL.Nat64], [IDL.Variant({
-      'ok': IDL.Text,
       'err': IDL.Text
     })], []),
     'emergency_pause_all': IDL.Func([], [IDL.Variant({
@@ -236,34 +196,9 @@ export async function getWalletAddresses() {
   return await actor.get_wallet_addresses()
 }
 
-export async function getWalletBalances() {
-  const actor = await getTimerActor()
-  return await actor.get_wallet_balances()
-}
-
 export async function emergencyPauseAll() {
   const actor = await getTimerActor()
   return await actor.emergency_pause_all()
-}
-
-// Get comprehensive wallet information (all tokens)
-export async function getComprehensiveWalletInfo() {
-  const actor = await getTimerActor()
-  return await actor.get_comprehensive_wallet_info()
-}
-
-// Withdraw SOL from canister wallet
-export async function adminWithdrawSol(fromWallet, recipient, amountLamports) {
-  const actor = await getTimerActor()
-  const wallet = fromWallet === 'main' ? { Main: null } : { FeeCollection: null }
-  return await actor.admin_withdraw_sol(wallet, recipient, BigInt(amountLamports))
-}
-
-// Withdraw tokens from canister wallet
-export async function adminWithdrawToken(fromWallet, tokenMint, recipientTokenAccount, amount) {
-  const actor = await getTimerActor()
-  const wallet = fromWallet === 'main' ? { Main: null } : { FeeCollection: null }
-  return await actor.admin_withdraw_token(wallet, tokenMint, recipientTokenAccount, BigInt(amount))
 }
 
 // Get current user's principal ID

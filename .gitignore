@@ -181,11 +181,15 @@ ICP_FUNCTION_AUDIT.md
 
 # Implementation temp docs
 *_IMPLEMENTATION.md
+*_IMPLEMENTATION_SUMMARY.md
 *_INTEGRATION.md
 JUPITER_*.md
 MULTI_TOKEN_*.md
 NOTIFICATION_*.md
 PATH_2_*.md
+ENTERPRISE_*.md
+FEE_WALLET_*.md
+PRIVACY_*.md
 
 # Changelogs (generated)
 CHANGELOG_*.md
@@ -236,6 +240,10 @@ sdk/dist/
 sdk/node_modules/
 sdk/.turbo/
 sdk/coverage/
+
+# Enterprise module build artifacts
+packages/sdk/dist/enterprise.*
+sdk/dist/enterprise.*
 
 # =============================================================================
 # Solana Contract Tests

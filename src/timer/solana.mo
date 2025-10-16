@@ -45,7 +45,8 @@ module {
     public class SolanaClient(key_name: Text, rpc_config: SolanaRpcConfig) {
         private let threshold_manager = ThresholdEd25519.ThresholdEd25519Manager(key_name);
         private var main_keypair: ?SolanaKeypair = null;
-        private var fee_collection_keypair: ?SolanaKeypair = null;
+        // Fee collection keypair removed - fee wallet is now external (not managed by ICP)
+        // private var fee_collection_keypair: ?SolanaKeypair = null;
 
         // Chain Fusion: Official SOL RPC Canister
         private let sol_rpc = SolRpcTypes.get_sol_rpc_canister();
@@ -59,24 +60,22 @@ module {
         };
 
         // Initialize keypairs (should be called after deployment)
+        // Note: Fee collection wallet is now external (not managed by ICP)
         public func initialize(): async Result.Result<{main_address: Text; fee_address: Text}, Text> {
             try {
                 let main_result = await threshold_manager.get_main_keypair();
-                let fee_result = await threshold_manager.get_fee_collection_keypair();
 
-                switch (main_result, fee_result) {
-                    case (#ok(main_kp), #ok(fee_kp)) {
+                switch (main_result) {
+                    case (#ok(main_kp)) {
                         main_keypair := ?main_kp;
-                        fee_collection_keypair := ?fee_kp;
 
                         let main_address = ThresholdEd25519.public_key_to_base58(main_kp.public_key);
-                        let fee_address = ThresholdEd25519.public_key_to_base58(fee_kp.public_key);
+                        let fee_address = "CKEY8bppifSErEfP5cvX8hCnmQ2Yo911mosdRx7M3HxF"; // External wallet
 
-                        Debug.print("Initialized Solana wallets - Main: " # main_address # ", Fee: " # fee_address);
+                        Debug.print("Initialized Solana wallet - Main: " # main_address # " | Fee (external): " # fee_address);
                         #ok({main_address = main_address; fee_address = fee_address})
                     };
-                    case (#err(main_err), _) { #err("Failed to initialize main keypair: " # main_err) };
-                    case (_, #err(fee_err)) { #err("Failed to initialize fee keypair: " # fee_err) };
+                    case (#err(main_err)) { #err("Failed to initialize main keypair: " # main_err) };
                 }
             } catch (_) {
                 #err("Initialization failed")
@@ -397,7 +396,10 @@ module {
         };
 
         // Collect fees from subscription payments
+        // NOTE: Fees are now collected directly by Solana contract to external wallet
         public func collect_subscription_fee(payer: SolanaAddress, subscription_id: Text): async Result.Result<TransactionHash, Text> {
+            return #err("Fee collection is now handled directly by the Solana contract");
+            /* Disabled - fees go directly to external wallet
             switch (fee_collection_keypair) {
                 case (?fee_kp) {
                     try {
@@ -435,15 +437,16 @@ module {
                     #err("Fee collection keypair not initialized")
                 };
             }
+            */
         };
 
         // Get balance of canister wallets
         public func get_wallet_balances(): async Result.Result<{main: Nat64; fee_collection: Nat64}, Text> {
-            switch (main_keypair, fee_collection_keypair) {
-                case (?main_kp, ?fee_kp) {
+            switch (main_keypair) {
+                case (?main_kp) {
                     try {
                         let main_address = ThresholdEd25519.public_key_to_base58(main_kp.public_key);
-                        let fee_address = ThresholdEd25519.public_key_to_base58(fee_kp.public_key);
+                        let fee_address = "CKEY8bppifSErEfP5cvX8hCnmQ2Yo911mosdRx7M3HxF"; // External wallet
 
                         let main_balance = await get_balance(main_address);
                         let fee_balance = await get_balance(fee_address);
@@ -815,7 +818,10 @@ module {
             // Select the correct keypair
             let keypair_option = switch (from_wallet) {
                 case (#Main) main_keypair;
-                case (#FeeCollection) fee_collection_keypair;
+                case (#FeeCollection) {
+                    // Fee wallet is now external (not controlled by ICP)
+                    return #err("Fee wallet is external and not controlled by this canister");
+                };
             };
 
             switch (keypair_option) {
@@ -884,7 +890,10 @@ module {
             // Select the correct keypair
             let keypair_option = switch (from_wallet) {
                 case (#Main) main_keypair;
-                case (#FeeCollection) fee_collection_keypair;
+                case (#FeeCollection) {
+                    // Fee wallet is now external (not controlled by ICP)
+                    return #err("Fee wallet is external and not controlled by this canister");
+                };
             };
 
             switch (keypair_option) {

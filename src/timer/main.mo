@@ -67,6 +67,17 @@ persistent actor OuroCTimer {
         last_error: ?Text;                      // Last error message
     };
 
+    // Encrypted metadata storage for privacy-enhanced subscriptions
+    public type EncryptedMetadata = {
+        subscription_id: SubscriptionId;
+        encrypted_data: Blob;           // Base64-encoded encrypted JSON
+        iv: Blob;                       // Initialization vector
+        data_hash: Text;                // SHA-256 hash (on-chain verification)
+        encrypted_by: Principal;        // Who encrypted it
+        created_at: Timestamp;
+        version: Nat8;                  // 1 = Web Crypto, 2 = Arcium MXE (future)
+    };
+
     public type CreateSubscriptionRequest = {
         subscription_id: Text;                  // Must match Solana subscription ID
         solana_contract_address: SolanaAddress; // Deployed Solana program address
@@ -82,6 +93,9 @@ persistent actor OuroCTimer {
     // State
     private transient var subscriptions = Map.HashMap<SubscriptionId, Subscription>(10, Text.equal, Text.hash);
     private transient var active_timers = Map.HashMap<SubscriptionId, Timer.TimerId>(10, Text.equal, Text.hash);
+
+    // Encrypted metadata storage (for privacy-enhanced subscriptions)
+    private transient var encrypted_metadata = Map.HashMap<SubscriptionId, EncryptedMetadata>(10, Text.equal, Text.hash);
 
     // Authorization - make admin list stable
     private transient let authManager = Authorization.AuthorizationManager();
@@ -108,15 +122,17 @@ persistent actor OuroCTimer {
     private var auto_cycle_refill: Bool = true;
     private var cycle_threshold: Nat = 5_000_000_000_000; // 5T cycles threshold
 
-    // Fee and wallet addresses
+    // Main wallet address (ICP-controlled)
+    // Note: Fee collection is handled by Solana contract directly to external wallet
     private var main_wallet_address: Text = "";
-    private var fee_collection_address: Text = "";
 
     // Stable storage for upgrades
     private var stable_subscriptions: [(SubscriptionId, Subscription)] = [];
+    private var stable_encrypted_metadata: [(SubscriptionId, EncryptedMetadata)] = [];
 
     system func preupgrade() {
         stable_subscriptions := Iter.toArray(subscriptions.entries());
+        stable_encrypted_metadata := Iter.toArray(encrypted_metadata.entries());
         // Save admin lists
         stable_admins := authManager.getAdmins();
         stable_read_only_users := authManager.getReadOnlyUsers();
@@ -141,6 +157,12 @@ persistent actor OuroCTimer {
                 ignore schedule_subscription_timer<system>(sub);
             };
         };
+
+        // Restore encrypted metadata
+        for ((id, metadata) in stable_encrypted_metadata.vals()) {
+            encrypted_metadata.put(id, metadata);
+        };
+        stable_encrypted_metadata := [];
         // Initialize components
         let rpc_config: Solana.SolanaRpcConfig = {
             endpoint = solana_rpc_endpoint;
@@ -228,9 +250,9 @@ persistent actor OuroCTimer {
                 switch (init_result) {
                     case (#ok(addresses)) {
                         main_wallet_address := addresses.main_address;
-                        fee_collection_address := addresses.fee_address;
+                        // Fee collection is handled by Solana contract directly
                         is_initialized := true;
-                        Debug.print("Canister initialized with wallets - Main: " # addresses.main_address # ", Fee: " # addresses.fee_address);
+                        Debug.print("Canister initialized with main wallet: " # addresses.main_address # " | Fee wallet managed by Solana contract");
                         #ok(addresses)
                     };
                     case (#err(error)) {
@@ -577,18 +599,28 @@ persistent actor OuroCTimer {
 
     // Configuration and management functions
 
-    public func get_wallet_addresses(): async Result.Result<{main: Text; fee_collection: Text}, Text> {
+    // Returns only the main wallet address (fee wallet is external, not managed by ICP)
+    public func get_wallet_addresses(): async Result.Result<{main: Text}, Text> {
         if (not is_initialized) {
             #err("Canister not initialized")
         } else {
-            #ok({main = main_wallet_address; fee_collection = fee_collection_address})
+            #ok({main = main_wallet_address})
         }
     };
 
-    public func get_wallet_balances(): async Result.Result<{main: Nat64; fee_collection: Nat64}, Text> {
+    // Get main wallet SOL balance (fee wallet is external, not managed by ICP)
+    public func get_wallet_balances(): async Result.Result<{main: Nat64}, Text> {
         switch (solana_client) {
             case (?client) {
-                await client.get_wallet_balances()
+                let balance_result = await client.get_balance(main_wallet_address);
+                switch (balance_result) {
+                    case (#ok(balance)) {
+                        #ok({main = balance})
+                    };
+                    case (#err(error)) {
+                        #err("Failed to get balance: " # error)
+                    };
+                }
             };
             case null {
                 #err("Solana client not initialized")
@@ -596,14 +628,13 @@ persistent actor OuroCTimer {
         }
     };
 
-    // Get comprehensive wallet information including all tokens
+    // Get comprehensive wallet information including all tokens (main wallet only)
     public shared({caller}) func get_comprehensive_wallet_info(): async Result.Result<{
-        addresses: {main: Text; fee_collection: Text};
-        sol_balances: {main: Nat64; fee_collection: Nat64};
+        address: Text;
+        sol_balance: Nat64;
         tokens: [{
             mint: Text;
-            main_balance: Nat64;
-            fee_balance: Nat64;
+            balance: Nat64;
             decimals: Nat8;
         }];
     }, Text> {
@@ -620,86 +651,40 @@ persistent actor OuroCTimer {
         switch (solana_client) {
             case (?client) {
                 try {
-                    // Get addresses
-                    let addresses = {
-                        main = main_wallet_address;
-                        fee_collection = fee_collection_address;
-                    };
-
-                    // Get SOL balances
-                    let sol_balances_result = await client.get_wallet_balances();
-                    let sol_balances = switch (sol_balances_result) {
-                        case (#ok(balances)) balances;
+                    // Get SOL balance
+                    let sol_balance_result = await client.get_balance(main_wallet_address);
+                    let sol_balance = switch (sol_balance_result) {
+                        case (#ok(balance)) balance;
                         case (#err(error)) {
-                            return #err("Failed to get SOL balances: " # error);
+                            return #err("Failed to get SOL balance: " # error);
                         };
                     };
 
                     // Get all token balances for main wallet
-                    let main_tokens_result = await client.get_all_token_balances(main_wallet_address);
-                    let main_tokens = switch (main_tokens_result) {
-                        case (#ok(tokens)) tokens;
+                    let tokens_result = await client.get_all_token_balances(main_wallet_address);
+                    let tokens = switch (tokens_result) {
+                        case (#ok(token_list)) {
+                            Array.map<{mint: Text; balance: Nat64; decimals: Nat8}, {mint: Text; balance: Nat64; decimals: Nat8}>(
+                                token_list,
+                                func(token) {
+                                    {
+                                        mint = token.mint;
+                                        balance = token.balance;
+                                        decimals = token.decimals;
+                                    }
+                                }
+                            )
+                        };
                         case (#err(error)) {
-                            Debug.print("Warning: Failed to get main wallet tokens: " # error);
+                            Debug.print("Warning: Failed to get token balances: " # error);
                             [];
                         };
-                    };
-
-                    // Get all token balances for fee wallet
-                    let fee_tokens_result = await client.get_all_token_balances(fee_collection_address);
-                    let fee_tokens = switch (fee_tokens_result) {
-                        case (#ok(tokens)) tokens;
-                        case (#err(error)) {
-                            Debug.print("Warning: Failed to get fee wallet tokens: " # error);
-                            [];
-                        };
-                    };
-
-                    // Merge token balances from both wallets
-                    let token_map = Map.HashMap<Text, {main: Nat64; fee: Nat64; decimals: Nat8}>(10, Text.equal, Text.hash);
-
-                    for (token in main_tokens.vals()) {
-                        token_map.put(token.mint, {
-                            main = token.balance;
-                            fee = 0;
-                            decimals = token.decimals;
-                        });
-                    };
-
-                    for (token in fee_tokens.vals()) {
-                        switch (token_map.get(token.mint)) {
-                            case (?existing) {
-                                token_map.put(token.mint, {
-                                    main = existing.main;
-                                    fee = token.balance;
-                                    decimals = token.decimals;
-                                });
-                            };
-                            case null {
-                                token_map.put(token.mint, {
-                                    main = 0;
-                                    fee = token.balance;
-                                    decimals = token.decimals;
-                                });
-                            };
-                        };
-                    };
-
-                    // Convert to array
-                    let tokens_buffer = Buffer.Buffer<{mint: Text; main_balance: Nat64; fee_balance: Nat64; decimals: Nat8}>(token_map.size());
-                    for ((mint, balances) in token_map.entries()) {
-                        tokens_buffer.add({
-                            mint = mint;
-                            main_balance = balances.main;
-                            fee_balance = balances.fee;
-                            decimals = balances.decimals;
-                        });
                     };
 
                     #ok({
-                        addresses = addresses;
-                        sol_balances = sol_balances;
-                        tokens = Buffer.toArray(tokens_buffer);
+                        address = main_wallet_address;
+                        sol_balance = sol_balance;
+                        tokens = tokens;
                     })
                 } catch (_error) {
                     #err("Failed to get comprehensive wallet info")
@@ -711,169 +696,6 @@ persistent actor OuroCTimer {
         }
     };
 
-    // Withdraw SOL (admin only)
-    public shared({caller}) func admin_withdraw_sol(
-        from_wallet: {#Main; #FeeCollection},
-        recipient: Text,
-        amount_lamports: Nat64
-    ): async Result.Result<Text, Text> {
-        // Check admin authorization
-        switch (requireAdmin(caller)) {
-            case (#err(e)) { return #err(e) };
-            case (#ok()) {};
-        };
-
-        if (not is_initialized) {
-            return #err("Canister not initialized");
-        };
-
-        // Validate inputs
-        if (not Solana.is_valid_solana_address(recipient)) {
-            return #err("Invalid recipient address format");
-        };
-
-        if (amount_lamports == 0) {
-            return #err("Amount must be greater than 0");
-        };
-
-        // Minimum balance check (keep at least 0.01 SOL for fees)
-        if (amount_lamports < 5000) {
-            return #err("Amount too small (minimum 5000 lamports)");
-        };
-
-        switch (solana_client) {
-            case (?client) {
-                try {
-                    // Check balance first
-                    let balance_result = await client.get_balance(
-                        switch (from_wallet) {
-                            case (#Main) main_wallet_address;
-                            case (#FeeCollection) fee_collection_address;
-                        }
-                    );
-
-                    switch (balance_result) {
-                        case (#ok(current_balance)) {
-                            // Ensure we keep at least 10_000_000 lamports (0.01 SOL) for transaction fees
-                            if (current_balance < amount_lamports + 10_000_000) {
-                                return #err("Insufficient balance. Current: " # Nat64.toText(current_balance) # " lamports, requested: " # Nat64.toText(amount_lamports) # " lamports (+ 0.01 SOL fee reserve)");
-                            };
-
-                            // Perform withdrawal
-                            let tx_result = await client.withdraw_sol(from_wallet, recipient, amount_lamports);
-
-                            switch (tx_result) {
-                                case (#ok(tx_hash)) {
-                                    Debug.print("Admin SOL withdrawal: " # Nat64.toText(amount_lamports) # " lamports to " # recipient # " (tx: " # tx_hash # ")");
-                                    #ok(tx_hash)
-                                };
-                                case (#err(error)) {
-                                    #err("Withdrawal failed: " # error)
-                                };
-                            }
-                        };
-                        case (#err(error)) {
-                            #err("Failed to check balance: " # error)
-                        };
-                    }
-                } catch (_error) {
-                    #err("Withdrawal transaction failed")
-                }
-            };
-            case null {
-                #err("Solana client not initialized")
-            };
-        }
-    };
-
-    // Withdraw tokens (admin only)
-    public shared({caller}) func admin_withdraw_token(
-        from_wallet: {#Main; #FeeCollection},
-        token_mint: Text,
-        recipient_token_account: Text,
-        amount: Nat64
-    ): async Result.Result<Text, Text> {
-        // Check admin authorization
-        switch (requireAdmin(caller)) {
-            case (#err(e)) { return #err(e) };
-            case (#ok()) {};
-        };
-
-        if (not is_initialized) {
-            return #err("Canister not initialized");
-        };
-
-        // Validate inputs
-        if (not Solana.is_valid_solana_address(token_mint)) {
-            return #err("Invalid token mint address format");
-        };
-
-        if (not Solana.is_valid_solana_address(recipient_token_account)) {
-            return #err("Invalid recipient token account address format");
-        };
-
-        if (amount == 0) {
-            return #err("Amount must be greater than 0");
-        };
-
-        switch (solana_client) {
-            case (?client) {
-                try {
-                    // Get token balance for the selected wallet
-                    let wallet_address = switch (from_wallet) {
-                        case (#Main) main_wallet_address;
-                        case (#FeeCollection) fee_collection_address;
-                    };
-
-                    let tokens_result = await client.get_all_token_balances(wallet_address);
-
-                    switch (tokens_result) {
-                        case (#ok(tokens)) {
-                            // Find the token
-                            var found = false;
-                            var current_balance: Nat64 = 0;
-
-                            for (token in tokens.vals()) {
-                                if (token.mint == token_mint) {
-                                    found := true;
-                                    current_balance := token.balance;
-                                };
-                            };
-
-                            if (not found) {
-                                return #err("Token not found in wallet. Mint: " # token_mint);
-                            };
-
-                            if (current_balance < amount) {
-                                return #err("Insufficient token balance. Current: " # Nat64.toText(current_balance) # ", requested: " # Nat64.toText(amount));
-                            };
-
-                            // Perform withdrawal
-                            let tx_result = await client.withdraw_token(from_wallet, token_mint, recipient_token_account, amount);
-
-                            switch (tx_result) {
-                                case (#ok(tx_hash)) {
-                                    Debug.print("Admin token withdrawal: " # Nat64.toText(amount) # " of " # token_mint # " to " # recipient_token_account # " (tx: " # tx_hash # ")");
-                                    #ok(tx_hash)
-                                };
-                                case (#err(error)) {
-                                    #err("Withdrawal failed: " # error)
-                                };
-                            }
-                        };
-                        case (#err(error)) {
-                            #err("Failed to check token balance: " # error)
-                        };
-                    }
-                } catch (_error) {
-                    #err("Token withdrawal transaction failed")
-                }
-            };
-            case null {
-                #err("Solana client not initialized")
-            };
-        }
-    };
 
     public func update_fee_config(new_config: Solana.FeeConfig): async Result.Result<(), Text> {
         switch (solana_client) {
@@ -991,7 +813,6 @@ persistent actor OuroCTimer {
         active_timers: Nat;
         is_initialized: Bool;
         main_wallet: Text;
-        fee_wallet: Text;
         ed25519_key_name: Text;
     } {
         let all_subs = Iter.toArray(subscriptions.vals());
@@ -1005,7 +826,6 @@ persistent actor OuroCTimer {
             active_timers = active_timers.size();
             is_initialized = is_initialized;
             main_wallet = main_wallet_address;
-            fee_wallet = fee_collection_address;
             ed25519_key_name = ed25519_key_name;
         }
     };
@@ -1346,5 +1166,95 @@ persistent actor OuroCTimer {
             info #= "\n";
         };
         info
+    };
+
+    // ============================================================================
+    // Encrypted Metadata Storage (Privacy-Enhanced Subscriptions)
+    // ============================================================================
+
+    /// Store encrypted metadata for a subscription
+    /// Called by SDK after encrypting sensitive data client-side
+    public shared({caller}) func store_encrypted_metadata(
+        subscription_id: SubscriptionId,
+        encrypted_data: Blob,
+        iv: Blob,
+        data_hash: Text,
+        version: Nat8
+    ): async Result.Result<(), Text> {
+        // Verify subscription exists
+        switch (subscriptions.get(subscription_id)) {
+            case (null) {
+                #err("Subscription not found: " # subscription_id)
+            };
+            case (?sub) {
+                // Create metadata record
+                let metadata: EncryptedMetadata = {
+                    subscription_id = subscription_id;
+                    encrypted_data = encrypted_data;
+                    iv = iv;
+                    data_hash = data_hash;
+                    encrypted_by = caller;
+                    created_at = Time.now();
+                    version = version;
+                };
+
+                encrypted_metadata.put(subscription_id, metadata);
+                Debug.print("Stored encrypted metadata for subscription: " # subscription_id);
+                #ok(())
+            };
+        }
+    };
+
+    /// Retrieve encrypted metadata for a subscription
+    /// Returns encrypted data that must be decrypted client-side
+    public query func get_encrypted_metadata(
+        subscription_id: SubscriptionId
+    ): async Result.Result<EncryptedMetadata, Text> {
+        switch (encrypted_metadata.get(subscription_id)) {
+            case (null) {
+                #err("No encrypted metadata found for subscription: " # subscription_id)
+            };
+            case (?metadata) {
+                #ok(metadata)
+            };
+        }
+    };
+
+    /// Delete encrypted metadata (GDPR compliance - right to erasure)
+    public shared({caller}) func delete_encrypted_metadata(
+        subscription_id: SubscriptionId
+    ): async Result.Result<(), Text> {
+        // Check authorization
+        switch (requireAdmin(caller)) {
+            case (#err(e)) { return #err(e) };
+            case (#ok()) {};
+        };
+
+        switch (encrypted_metadata.get(subscription_id)) {
+            case (null) {
+                #err("No encrypted metadata found for subscription: " # subscription_id)
+            };
+            case (?_) {
+                encrypted_metadata.delete(subscription_id);
+                Debug.print("Deleted encrypted metadata for subscription: " # subscription_id);
+                #ok(())
+            };
+        }
+    };
+
+    /// List all subscription IDs that have encrypted metadata (admin only)
+    public shared({caller}) func list_encrypted_metadata(): async Result.Result<[SubscriptionId], Text> {
+        // Check authorization
+        switch (requireAdmin(caller)) {
+            case (#err(e)) { return #err(e) };
+            case (#ok()) {};
+        };
+
+        let ids = Buffer.Buffer<SubscriptionId>(encrypted_metadata.size());
+        for ((id, _) in encrypted_metadata.entries()) {
+            ids.add(id);
+        };
+
+        #ok(Buffer.toArray(ids))
     };
 }
