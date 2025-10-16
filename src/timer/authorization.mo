@@ -3,6 +3,7 @@ import Array "mo:base/Array";
 import Buffer "mo:base/Buffer";
 import Iter "mo:base/Iter";
 import Result "mo:base/Result";
+import Debug "mo:base/Debug";
 
 module {
     public type Role = {
@@ -14,10 +15,18 @@ module {
         private var admins = Buffer.Buffer<Principal>(0);
         private var readOnlyUsers = Buffer.Buffer<Principal>(0);
 
-        // Initialize with deployer as first admin
+        // Initialize with deployer as first admin (safe checks)
         public func initWithDeployer(deployer: Principal) {
             if (admins.size() == 0) {
+                // Additional safety checks
+                if (Principal.isAnonymous(deployer)) {
+                    Debug.trap("Cannot initialize with anonymous principal");
+                };
+                if (Principal.equal(deployer, Principal.fromText("aaaaa-aa"))) {
+                    Debug.trap("Cannot initialize with management canister");
+                };
                 admins.add(deployer);
+                Debug.print("Admin initialized: " # Principal.toText(deployer));
             };
         };
 
@@ -53,12 +62,26 @@ module {
                 return #err("Unauthorized: Only admins can add other admins");
             };
 
+            // Enhanced validation for new admin
+            if (Principal.isAnonymous(newAdmin)) {
+                return #err("Cannot add anonymous principal as admin");
+            };
+            if (Principal.equal(newAdmin, Principal.fromText("aaaaa-aa"))) {
+                return #err("Cannot add management canister as admin");
+            };
+
             // Check if already admin
             if (isAdmin(newAdmin)) {
                 return #err("Principal is already an admin");
             };
 
+            // Limit admin count to prevent privilege escalation
+            if (admins.size() >= 5) {
+                return #err("Maximum number of admins reached (5)");
+            };
+
             admins.add(newAdmin);
+            Debug.print("Admin added: " # Principal.toText(caller) # " added " # Principal.toText(newAdmin));
             return #ok();
         };
 
@@ -70,6 +93,11 @@ module {
 
             if (Principal.equal(caller, adminToRemove)) {
                 return #err("Cannot remove yourself as admin");
+            };
+
+            // Prevent removing the last admin (ensure at least one admin remains)
+            if (admins.size() <= 1) {
+                return #err("Cannot remove the last admin - at least one admin must remain");
             };
 
             let newAdmins = Buffer.Buffer<Principal>(admins.size());
@@ -88,6 +116,7 @@ module {
             };
 
             admins := newAdmins;
+            Debug.print("Admin removed: " # Principal.toText(caller) # " removed " # Principal.toText(adminToRemove));
             return #ok();
         };
 

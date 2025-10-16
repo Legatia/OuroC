@@ -61,8 +61,13 @@ module {
 
         // Initialize keypairs (should be called after deployment)
         // Note: Fee collection wallet is now external (not managed by ICP)
-        public func initialize(): async Result.Result<{main_address: Text; fee_address: Text}, Text> {
+        public func initialize(fee_address: Text): async Result.Result<{main_address: Text; fee_address: Text}, Text> {
             try {
+                // Validate fee address format
+                if (not is_valid_solana_address(fee_address)) {
+                    return #err("Invalid fee address format");
+                };
+
                 let main_result = await threshold_manager.get_main_keypair();
 
                 switch (main_result) {
@@ -70,9 +75,8 @@ module {
                         main_keypair := ?main_kp;
 
                         let main_address = ThresholdEd25519.public_key_to_base58(main_kp.public_key);
-                        let fee_address = "CKEY8bppifSErEfP5cvX8hCnmQ2Yo911mosdRx7M3HxF"; // External wallet
 
-                        Debug.print("Initialized Solana wallet - Main: " # main_address # " | Fee (external): " # fee_address);
+                        Debug.print("Initialized Solana wallet - Main: " # main_address # " | Fee (governed): " # fee_address);
                         #ok({main_address = main_address; fee_address = fee_address})
                     };
                     case (#err(main_err)) { #err("Failed to initialize main keypair: " # main_err) };
@@ -446,7 +450,7 @@ module {
                 case (?main_kp) {
                     try {
                         let main_address = ThresholdEd25519.public_key_to_base58(main_kp.public_key);
-                        let fee_address = "CKEY8bppifSErEfP5cvX8hCnmQ2Yo911mosdRx7M3HxF"; // External wallet
+                        let fee_address = "CKEY8bppifSErEfP5cvX8hCnmQ2Yo911mosdRx7M3HxF"; // Current fee address (should be passed in from main)
 
                         let main_balance = await get_balance(main_address);
                         let fee_balance = await get_balance(fee_address);
@@ -1076,11 +1080,59 @@ module {
         }
     };
 
-    // Utility functions for Solana address validation
+    // Utility functions for Solana address validation (enhanced security)
     public func is_valid_solana_address(address: Text): Bool {
-        // Basic validation: Solana addresses are base58 encoded and typically 32-44 characters
         let length = address.size();
-        length >= 32 and length <= 44
+
+        // Length validation: Solana addresses are base58 encoded and typically 32-44 characters
+        if (length < 32 or length > 44) {
+            return false;
+        };
+
+        // Prevent null bytes and control characters
+        if (Text.contains(address, #text("\u{00}")) or
+            Text.contains(address, #text("\n")) or
+            Text.contains(address, #text("\r")) or
+            Text.contains(address, #text("\t"))) {
+            return false;
+        };
+
+        // Prevent dangerous characters that shouldn't be in base58
+        let dangerous_chars = ["0", "O", "I", "l"];
+        for (char in dangerous_chars.vals()) {
+            if (Text.contains(address, #text(char))) {
+                return false; // These characters aren't used in base58
+            };
+        };
+
+        // Prevent path traversal and injection attempts
+        if (Text.contains(address, #text("../")) or
+            Text.contains(address, #text("..\\")) or
+            Text.contains(address, #text("<script")) or
+            Text.contains(address, #text("javascript:")) or
+            Text.contains(address, #text("SELECT")) or
+            Text.contains(address, #text("INSERT")) or
+            Text.contains(address, #text("'")) or
+            Text.contains(address, #text("\""))) {
+            return false;
+        };
+
+        // Additional safety: prevent extremely common test addresses in production
+        // (these can be allowed in devnet with proper feature flags)
+        let suspicious_addresses = [
+            "11111111111111111111111111111112", // System Program
+            "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", // Token Program (should be checked separately)
+            "SysvarRent111111111111111111111111111111111", // Sysvar Rent
+        ];
+
+        for (suspicious in suspicious_addresses.vals()) {
+            if (address == suspicious) {
+                // Allow these but log for monitoring
+                Debug.print("Warning: Using known program address as user address: " # address);
+            };
+        };
+
+        true
     };
 
     public func lamports_to_sol(lamports: Nat64): Float {

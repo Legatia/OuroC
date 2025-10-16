@@ -284,3 +284,77 @@ performance_*.md
 test-output/
 test-reports/
 *.test.log
+
+# =============================================================================
+# Security Audit & Testing Files (Temporary)
+# =============================================================================
+# Security test scripts created during audit remediation
+test_*.sh
+*_test.sh
+security_*.sh
+*_security_test.sh
+
+# Security audit temporary files
+audit_temp/
+security_review/
+vulnerability_scan/
+penetration_test/
+
+# Test configuration files
+test_config/
+*.test.config
+*.test.conf
+test_*.json
+test_*.yaml
+test_*.yml
+
+# Temporary test results and reports
+test_results_*.md
+security_test_results_*.md
+access_control_test_*.md
+input_validation_test_*.md
+fee_governance_test_*.md
+frontend_build_test_*.md
+
+# Test data and fixtures
+test_data/
+test_fixtures/
+mock_data/
+*.test.data
+*.test.fixture
+
+# Coverage and analysis reports
+coverage_*.json
+security_coverage_*.md
+test_coverage_*.html
+analysis_report_*.md
+
+# Temporary test scripts and utilities
+utils/test_*.ts
+utils/test_*.js
+utils/__tests__/
+*_test_util.*
+temp_test_*
+
+# Security scanning outputs
+security_scan_*.xml
+security_scan_*.json
+vulnerability_report_*.md
+pen_test_results_*.md
+
+# Build verification files
+build_verification_*.md
+compilation_test_*.md
+dependency_check_*.md
+
+# Specific security audit files (keep main audit report)
+!SECURITY_AUDIT_REPORT.md
+*_AUDIT_TEMP.md
+AUDIT_WORKING_*.md
+SECURITY_ISSUES_*.md
+VULNERABILITY_*.md
+
+# Test execution logs
+test_execution_*.log
+security_test_*.log
+audit_test_*.log

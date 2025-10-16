@@ -123,8 +123,13 @@ persistent actor OuroCTimer {
     private var cycle_threshold: Nat = 5_000_000_000_000; // 5T cycles threshold
 
     // Main wallet address (ICP-controlled)
-    // Note: Fee collection is handled by Solana contract directly to external wallet
     private var main_wallet_address: Text = "";
+
+    // Fee address governance system
+    private var current_fee_address: Text = "CKEY8bppifSErEfP5cvX8hCnmQ2Yo911mosdRx7M3HxF"; // Current address
+    private var proposed_fee_address: ?Text = null;
+    private var fee_address_proposal_time: ?Int = null;
+    private var fee_address_change_delay: Int = 7 * 24 * 60 * 60 * 1_000_000_000; // 7 days in nanoseconds
 
     // Stable storage for upgrades
     private var stable_subscriptions: [(SubscriptionId, Subscription)] = [];
@@ -246,7 +251,7 @@ persistent actor OuroCTimer {
         switch (solana_client) {
             case (?client) {
                 // Always re-derive keypairs (needed after upgrades since they're transient)
-                let init_result = await client.initialize();
+                let init_result = await client.initialize(current_fee_address);
                 switch (init_result) {
                     case (#ok(addresses)) {
                         main_wallet_address := addresses.main_address;
@@ -1040,11 +1045,184 @@ persistent actor OuroCTimer {
     };
 
     // =============================================================================
+    // FEE ADDRESS GOVERNANCE
+    // =============================================================================
+
+    /// Propose a new fee collection address (admin only)
+    /// This starts a 7-day waiting period before the change can be executed
+    public shared({caller}) func propose_fee_address_change(new_address: Text) : async Result.Result<(), Text> {
+        // Check admin authorization
+        switch (requireAdmin(caller)) {
+            case (#err(e)) { return #err(e) };
+            case (#ok()) {};
+        };
+
+        // Validate the new address format
+        if (not Solana.is_valid_solana_address(new_address)) {
+            return #err("Invalid Solana address format");
+        };
+
+        // Ensure it's different from current address
+        if (new_address == current_fee_address) {
+            return #err("New address must be different from current address");
+        };
+
+        // Check if there's already a pending proposal
+        switch (proposed_fee_address, fee_address_proposal_time) {
+            case (?_, ?proposal_time) {
+                let now = Time.now();
+                if (now < proposal_time + fee_address_change_delay) {
+                    let remaining_seconds = (proposal_time + fee_address_change_delay - now) / 1_000_000_000;
+                    return #err("Already have pending proposal. Wait " # Int.toText(remaining_seconds) # " more seconds");
+                };
+            };
+            case (null, null) {}; // No pending proposal, proceed
+            case (null, ?_) {}; // No address but have time, proceed
+            case (_, null) {}; // No proposal time, proceed
+        };
+
+        // Create new proposal
+        proposed_fee_address := ?new_address;
+        fee_address_proposal_time := ?Time.now();
+
+        Debug.print("Fee address change proposed by " # Principal.toText(caller) # ": " # new_address # " (will take effect in 7 days)");
+        #ok(())
+    };
+
+    /// Execute a proposed fee address change (admin only, after 7-day delay)
+    public shared({caller}) func execute_fee_address_change() : async Result.Result<(), Text> {
+        // Check admin authorization
+        switch (requireAdmin(caller)) {
+            case (#err(e)) { return #err(e) };
+            case (#ok()) {};
+        };
+
+        switch (proposed_fee_address, fee_address_proposal_time) {
+            case (?new_address, ?proposal_time) {
+                let now = Time.now();
+                if (now < proposal_time + fee_address_change_delay) {
+                    let remaining_seconds = (proposal_time + fee_address_change_delay - now) / 1_000_000_000;
+                    return #err("Too early to execute change. Wait " # Int.toText(remaining_seconds) # " more seconds");
+                };
+
+                let old_address = current_fee_address;
+                current_fee_address := new_address;
+                proposed_fee_address := null;
+                fee_address_proposal_time := null;
+
+                Debug.print("Fee address updated by " # Principal.toText(caller) # ": " # old_address # " -> " # new_address);
+                #ok(())
+            };
+            case (null, _) {
+                return #err("No pending fee address change proposal");
+            };
+            case (_, null) {
+                return #err("No pending fee address change proposal");
+            };
+        }
+    };
+
+    /// Cancel a pending fee address change proposal (admin only)
+    public shared({caller}) func cancel_fee_address_proposal() : async Result.Result<(), Text> {
+        // Check admin authorization
+        switch (requireAdmin(caller)) {
+            case (#err(e)) { return #err(e) };
+            case (#ok()) {};
+        };
+
+        switch (proposed_fee_address) {
+            case (?address) {
+                proposed_fee_address := null;
+                fee_address_proposal_time := null;
+                Debug.print("Fee address proposal cancelled by " # Principal.toText(caller) # ": " # address);
+                #ok(())
+            };
+            case null {
+                return #err("No pending fee address change proposal");
+            };
+        }
+    };
+
+    /// Get current fee configuration and proposal status
+    public query func get_fee_governance_status() : async {
+        current_address: Text;
+        proposed_address: ?Text;
+        proposal_time: ?Int;
+        time_until_execution: ?Int;
+        is_proposal_pending: Bool;
+    } {
+        let now = Time.now();
+        let time_until = switch (fee_address_proposal_time) {
+            case (?proposal_time) ?(proposal_time + fee_address_change_delay - now);
+            case null null;
+        };
+
+        {
+            current_address = current_fee_address;
+            proposed_address = proposed_fee_address;
+            proposal_time = fee_address_proposal_time;
+            time_until_execution = time_until;
+            is_proposal_pending = proposed_fee_address != null;
+        }
+    };
+
+    /// Get current fee address (for use by Solana client)
+    public query func get_current_fee_address() : async Text {
+        current_fee_address
+    };
+
+    // =============================================================================
     // PRIVATE HELPER FUNCTIONS
     // =============================================================================
 
-    /// Validate subscription ID contains only safe characters
+    /// Validate subscription ID contains only safe characters (enhanced security)
     private func is_valid_subscription_id(id: Text): Bool {
+        let id_len = Text.size(id);
+
+        // Length validation (defense in depth)
+        if (id_len < SUBSCRIPTION_ID_MIN_LENGTH or id_len > SUBSCRIPTION_ID_MAX_LENGTH) {
+            return false;
+        };
+
+        // Prevent null bytes and control characters
+        if (Text.contains(id, #text("\u{00}")) or
+            Text.contains(id, #text("\u{01}")) or
+            Text.contains(id, #text("\u{02}")) or
+            Text.contains(id, #text("\n")) or
+            Text.contains(id, #text("\r")) or
+            Text.contains(id, #text("\t"))) {
+            return false;
+        };
+
+        // Prevent path traversal attempts
+        if (Text.contains(id, #text("../")) or
+            Text.contains(id, #text("..\\")) or
+            Text.contains(id, #text("/etc/")) or
+            Text.contains(id, #text("/usr/")) or
+            Text.contains(id, #text("%2e%2e"))) {
+            return false;
+        };
+
+        // Prevent script injection attempts
+        if (Text.contains(id, #text("<script")) or
+            Text.contains(id, #text("javascript:")) or
+            Text.contains(id, #text("data:")) or
+            Text.contains(id, #text("vbscript:"))) {
+            return false;
+        };
+
+        // Prevent SQL injection patterns
+        if (Text.contains(id, #text("SELECT")) or
+            Text.contains(id, #text("INSERT")) or
+            Text.contains(id, #text("DELETE")) or
+            Text.contains(id, #text("DROP")) or
+            Text.contains(id, #text("UNION")) or
+            Text.contains(id, #text("'")) or
+            Text.contains(id, #text("\""))) {
+            return false;
+        };
+
+        // Check allowed characters only
         let chars = Text.toArray(id);
         for (char in chars.vals()) {
             let is_alphanumeric = (char >= 'a' and char <= 'z') or
@@ -1056,6 +1234,27 @@ persistent actor OuroCTimer {
                 return false;
             };
         };
+
+        // Prevent sequential characters (prevents automated attacks)
+        var consecutive_same = 0;
+        var last_char: ?Char = null;
+        for (char in chars.vals()) {
+            switch (last_char) {
+                case (?c) {
+                    if (c == char) {
+                        consecutive_same += 1;
+                        if (consecutive_same >= 3) {
+                            return false; // No more than 3 same chars in a row
+                        };
+                    } else {
+                        consecutive_same := 0;
+                    };
+                };
+                case null {};
+            };
+            last_char := ?char;
+        };
+
         true
     };
 
