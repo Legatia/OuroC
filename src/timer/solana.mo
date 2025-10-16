@@ -401,7 +401,7 @@ module {
 
         // Collect fees from subscription payments
         // NOTE: Fees are now collected directly by Solana contract to external wallet
-        public func collect_subscription_fee(payer: SolanaAddress, subscription_id: Text): async Result.Result<TransactionHash, Text> {
+        public func collect_subscription_fee(_payer: SolanaAddress, _subscription_id: Text): async Result.Result<TransactionHash, Text> {
             return #err("Fee collection is now handled directly by the Solana contract");
             /* Disabled - fees go directly to external wallet
             switch (fee_collection_keypair) {

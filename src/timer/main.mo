@@ -27,7 +27,7 @@ persistent actor OuroCTimer {
     private let MAX_AMOUNT_USDC: Nat64 = 1_000_000_000_000; // 1M USDC (6 decimals)
     private let MIN_INTERVAL_SECONDS: Nat64 = 3600; // 1 hour minimum (prevents spam)
     private let MAX_INTERVAL_SECONDS: Nat64 = 31536000; // 1 year maximum
-    private let MAX_SUBSCRIPTIONS_PER_PRINCIPAL: Nat = 100;
+    private let _MAX_SUBSCRIPTIONS_PER_PRINCIPAL: Nat = 100;
     private let MAX_TOTAL_SUBSCRIPTIONS: Nat = 10000;
     private let SUBSCRIPTION_ID_MAX_LENGTH: Nat = 64;
     private let SUBSCRIPTION_ID_MIN_LENGTH: Nat = 4;
@@ -41,6 +41,7 @@ persistent actor OuroCTimer {
     public type SubscriptionId = Text;
     public type SolanaAddress = Text;
     public type Timestamp = Int;
+    public type TransactionHash = Text;
 
     public type SubscriptionStatus = {
         #Active;
@@ -99,9 +100,9 @@ persistent actor OuroCTimer {
 
     // Authorization - make admin list stable
     private transient let authManager = Authorization.AuthorizationManager();
-    private stable var stable_admins: [Principal] = [];
-    private stable var stable_read_only_users: [Principal] = [];
-    private var auth_initialized = false; // Keep for backward compatibility
+    private var stable_admins: [Principal] = [];
+    private var stable_read_only_users: [Principal] = [];
+    private var _auth_initialized = false; // Keep for backward compatibility
 
     // Enhanced Solana integration with Threshold Ed25519
     // Network configuration
@@ -633,8 +634,76 @@ persistent actor OuroCTimer {
         }
     };
 
-    // Get comprehensive wallet information including all tokens (main wallet only)
+    // Get comprehensive wallet information - returns detailed wallet info as expected by Candid interface
     public shared({caller}) func get_comprehensive_wallet_info(): async Result.Result<{
+        address: Text;
+        sol_balance: Nat64;
+        tokens: [{
+            balance: Nat64;
+            decimals: Nat8;
+            mint: Text;
+        }];
+    }, Text> {
+        // Check admin authorization
+        switch (requireAdmin(caller)) {
+            case (#err(e)) { return #err(e) };
+            case (#ok()) {};
+        };
+
+        if (not is_initialized) {
+            return #err("Canister not initialized");
+        };
+
+        switch (solana_client) {
+            case (?client) {
+                try {
+                    // Get SOL balance
+                    let sol_balance_result = await client.get_balance(main_wallet_address);
+                    let sol_balance = switch (sol_balance_result) {
+                        case (#ok(balance)) balance;
+                        case (#err(error)) {
+                            return #err("Failed to get SOL balance: " # error);
+                        };
+                    };
+
+                    // Get all token balances for main wallet
+                    let tokens_result = await client.get_all_token_balances(main_wallet_address);
+                    let tokens = switch (tokens_result) {
+                        case (#ok(token_list)) {
+                            Array.map<{mint: Text; balance: Nat64; decimals: Nat8}, {balance: Nat64; decimals: Nat8; mint: Text}>(
+                                token_list,
+                                func(token) {
+                                    {
+                                        balance = token.balance;
+                                        decimals = token.decimals;
+                                        mint = token.mint;
+                                    }
+                                }
+                            )
+                        };
+                        case (#err(error)) {
+                            Debug.print("Warning: Failed to get token balances: " # error);
+                            [];
+                        };
+                    };
+
+                    #ok({
+                        address = main_wallet_address;
+                        sol_balance = sol_balance;
+                        tokens = tokens;
+                    })
+                } catch (_error) {
+                    #err("Failed to get comprehensive wallet info")
+                }
+            };
+            case null {
+                #err("Solana client not initialized")
+            };
+        }
+    };
+
+    /// Alternative comprehensive wallet info method that returns detailed wallet info
+    public shared({caller}) func get_comprehensive_wallet_info_v1(): async Result.Result<{
         address: Text;
         sol_balance: Nat64;
         tokens: [{
@@ -701,6 +770,7 @@ persistent actor OuroCTimer {
         }
     };
 
+  
 
     public func update_fee_config(new_config: Solana.FeeConfig): async Result.Result<(), Text> {
         switch (solana_client) {
@@ -818,6 +888,7 @@ persistent actor OuroCTimer {
         active_timers: Nat;
         is_initialized: Bool;
         main_wallet: Text;
+        fee_wallet: Text; // Keep for compatibility - now external
         ed25519_key_name: Text;
     } {
         let all_subs = Iter.toArray(subscriptions.vals());
@@ -831,6 +902,7 @@ persistent actor OuroCTimer {
             active_timers = active_timers.size();
             is_initialized = is_initialized;
             main_wallet = main_wallet_address;
+            fee_wallet = current_fee_address; // External fee wallet address
             ed25519_key_name = ed25519_key_name;
         }
     };
@@ -1171,6 +1243,86 @@ persistent actor OuroCTimer {
         current_fee_address
     };
 
+    /// Withdraw SOL from canister wallet (admin only) - DEPRECATED but kept for compatibility
+    /// This method is deprecated because fee collection is now handled by Solana contract
+    public shared({caller}) func admin_withdraw_sol(
+        from_wallet: {#FeeCollection; #Main},
+        recipient: SolanaAddress,
+        amount_lamports: Nat64
+    ) : async Result.Result<TransactionHash, Text> {
+        // Check admin authorization
+        switch (requireAdmin(caller)) {
+            case (#err(e)) { return #err(e) };
+            case (#ok()) {};
+        };
+
+        // This function is deprecated - fee collection is now handled by Solana contract directly
+        // ICP canister only controls the main wallet, not the fee wallet
+        switch (from_wallet) {
+            case (#FeeCollection) {
+                // Fee collection wallet is now external (not controlled by ICP)
+                return #err("Fee wallet is external and not controlled by this canister");
+            };
+            case (#Main) {
+                switch (solana_client) {
+                    case (?client) {
+                        // Use the withdraw_sol function from Solana client for main wallet only
+                        let result = await client.withdraw_sol(
+                            #Main,
+                            recipient,
+                            amount_lamports
+                        );
+                        result
+                    };
+                    case null {
+                        #err("Solana client not initialized")
+                    };
+                }
+            };
+        }
+    };
+
+    /// Withdraw SPL tokens from canister wallet (admin only) - DEPRECATED but kept for compatibility
+    /// This method is deprecated because fee collection is now handled by Solana contract
+    public shared({caller}) func admin_withdraw_token(
+        from_wallet: {#FeeCollection; #Main},
+        token_mint: SolanaAddress,
+        recipient_token_account: SolanaAddress,
+        amount: Nat64
+    ) : async Result.Result<TransactionHash, Text> {
+        // Check admin authorization
+        switch (requireAdmin(caller)) {
+            case (#err(e)) { return #err(e) };
+            case (#ok()) {};
+        };
+
+        // This function is deprecated - fee collection is now handled by Solana contract directly
+        // ICP canister only controls the main wallet, not the fee wallet
+        switch (from_wallet) {
+            case (#FeeCollection) {
+                // Fee collection wallet is now external (not controlled by ICP)
+                return #err("Fee wallet is external and not controlled by this canister");
+            };
+            case (#Main) {
+                switch (solana_client) {
+                    case (?client) {
+                        // Use the withdraw_token function from Solana client for main wallet only
+                        let result = await client.withdraw_token(
+                            #Main,
+                            token_mint,
+                            recipient_token_account,
+                            amount
+                        );
+                        result
+                    };
+                    case null {
+                        #err("Solana client not initialized")
+                    };
+                }
+            };
+        }
+    };
+
     // =============================================================================
     // PRIVATE HELPER FUNCTIONS
     // =============================================================================
@@ -1269,7 +1421,7 @@ persistent actor OuroCTimer {
         #err("Unauthorized: Admin access required")
     };
 
-    private func requireReadAccess(caller: Principal) : Result.Result<(), Text> {
+    private func _requireReadAccess(caller: Principal) : Result.Result<(), Text> {
         if (authManager.hasReadAccess(caller)) {
             return #ok();
         };
@@ -1322,7 +1474,7 @@ persistent actor OuroCTimer {
     };
 
     // Emergency: Add human admin (controller-only function for fixing canister-as-admin issue)
-    public shared(msg) func add_controller_admin(new_admin: Principal) : async Result.Result<(), Text> {
+    public shared(_msg) func add_controller_admin(new_admin: Principal) : async Result.Result<(), Text> {
         // Only the canister's controller can call this
         // This is a one-time emergency function to fix the initialization issue
         let canister_principal = Principal.fromActor(OuroCTimer);
