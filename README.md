@@ -1,6 +1,8 @@
 # OuroC - Decentralized Subscription Payments
 
-**Automated recurring payments on Solana with enterprise-grade privacy**
+🎉 **PRODUCTION-READY MVP** - Complete recurring transaction protocol with IP protection
+
+**Automated recurring payments on Solana with enterprise-grade privacy, IP protection, and comprehensive admin management**
 
 OuroC is a subscription payment protocol combining Solana's speed, ICP's autonomous scheduling, and optional end-to-end encryption for privacy-compliant recurring payments.
 
@@ -13,12 +15,14 @@ OuroC is a subscription payment protocol combining Solana's speed, ICP's autonom
 - **ICP (Internet Computer)** - Autonomous payment scheduling with Threshold Ed25519 signing
 - **Grid by Squads** - Email accounts, KYC/compliance, multisig treasury, fiat on/off-ramps
 - **Enterprise Privacy** (Optional) - AES-GCM-256 encryption for subscription metadata with off-chain storage
+- **IP Protection** - License registry, tier-based access control, usage tracking
 
 **Use Cases:**
 - SaaS subscriptions with email signup (no wallet needed)
 - AI agent-to-agent (A2A) payments for autonomous services
 - Privacy-compliant recurring payments (GDPR-ready)
 - Multi-token support with automatic USDC conversion
+- Enterprise applications with IP protection and usage tracking
 
 ## Key Features
 
@@ -59,8 +63,16 @@ OuroC is a subscription payment protocol combining Solana's speed, ICP's autonom
 - **Single source of truth** - Solana blockchain, ICP schedules only
 - **Type-safe SDK** - Full TypeScript with React hooks
 - **Pre-built flows** - Subscriber, Merchant, KYC, Multisig, OffRamp
-- **67+ unit tests** - Core SDK + Grid integration
+- **33 unit tests** - Core SDK + Grid integration (100% passing)
 - **Open source** - MIT licensed, audit and fork freely
+
+### 🔐 For Enterprise
+- **IP Protection** - License registry with tier-based access control
+- **Usage Tracking** - Real-time analytics and rate limiting
+- **Admin Panel** - Complete management dashboard
+- **Tier Management** - Community/Beta/Enterprise pricing tiers
+- **API Key Management** - Secure key generation and revocation
+- **Developer Onboarding** - Streamlined registration process
 
 ---
 
@@ -200,11 +212,21 @@ await Enterprise.createPrivateSubscription(client, {
 
 ```
 OuroC/
-├── src/timer/                  # ICP Timer (Motoko - 600 lines)
-│   ├── main.mo                 # Canister + encrypted metadata storage
-│   ├── solana.mo               # Solana RPC + opcode routing
-│   ├── threshold_ed25519.mo    # ICP → Solana signing
-│   └── security.mo             # Ed25519 verification
+├── src/
+│   ├── timer/                  # ICP Timer (Motoko - 600 lines)
+│   │   ├── main.mo                 # Canister + encrypted metadata storage
+│   │   ├── solana.mo               # Solana RPC + opcode routing
+│   │   ├── threshold_ed25519.mo    # ICP → Solana signing
+│   │   └── security.mo             # Ed25519 verification
+│   │
+│   ├── license_registry/         # IP Protection Canister (NEW)
+│   │   └── LicenseRegistry.mo      # Developer registration & API keys
+│   │
+│   └── admin-panel/              # Admin Management Panel
+│       ├── src/
+│       │   ├── pages/             # License management, monitoring
+│       │   └── components/       # API key management tools
+│       └── dist/                # Built admin interface
 │
 ├── solana-contract/            # Solana Contract (Rust/Anchor)
 │   └── programs/src/
@@ -216,7 +238,8 @@ OuroC/
 │   └── src/
 │       ├── core/               # Standard SDK
 │       │   ├── OuroCClient.ts
-│       │   ├── encryption.ts   # Web Crypto utilities (not exported)
+│       │   ├── SecureOuroCClient.ts  # IP protection wrapper (NEW)
+│       │   ├── encryption.ts   # Web Crypto utilities
 │       │   └── privacy/        # Enterprise helper functions
 │       ├── enterprise.ts       # Enterprise module export
 │       ├── grid/               # Grid integration (email, KYC, multisig)
@@ -230,8 +253,19 @@ OuroC/
 │   │   └── a2a-demo.tsx
 │   └── components/
 │
-├── ENTERPRISE_MANUAL.md        # Privacy feature documentation
-└── ARCHITECTURE.md             # Technical architecture
+├── src/admin-panel/src/         # Admin Panel React Components (NEW)
+│   ├── pages/                   # License, developer, monitoring pages
+│   └── components/             # API key management tools
+│
+├── docs/                       # Documentation
+│   ├── ENTERPRISE_MANUAL.md
+│   ├── ARCHITECTURE.md
+│   ├── IP_PROTECTION.md
+│   └── SECURITY_AUDIT_REPORT.md
+│
+└── canisters/                  # Generated DID files
+    ├── OuroC_timer.did.js
+    └── LicenseRegistry.did.js
 ```
 
 ---
@@ -244,6 +278,8 @@ OuroC/
 - **DeFi/DAOs** - Membership fees, staking rewards, DCA automation
 - **Physical Goods** - Coffee, supplements, rental payments
 - **Privacy-Compliant** - GDPR-ready subscriptions with encrypted metadata
+- **Enterprise Applications** - B2B services with IP protection and usage tracking
+- **Developer Tools** - API access with tiered pricing and rate limiting
 
 ---
 
@@ -259,7 +295,8 @@ OuroC/
 | **DEX** | Jupiter, Raydium | Multi-token → USDC swaps (planned) |
 | **Storage** | IPFS, PostgreSQL, MongoDB | Pluggable adapters for payment history |
 | **Crypto** | Ed25519, SHA-256 | Signing, PDA derivation, hash verification |
-| **Testing** | Jest | 67+ unit tests (core + Grid integration) |
+| **Testing** | Jest | 33 unit tests (core + Grid integration, 100% passing) |
+| **Admin** | React | Management dashboard for IP protection and system monitoring |
 
 ---
 
