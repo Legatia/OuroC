@@ -18,6 +18,9 @@ import Solana "./solana";
 import CycleManagement "./cycle_management";
 import Authorization "./authorization";
 
+// License Registry integration for IP protection
+// LicenseRegistry canister is referenced via canister ID in dfx.json
+
 persistent actor OuroCTimer {
 
     // =============================================================================
@@ -42,6 +45,13 @@ persistent actor OuroCTimer {
     public type SolanaAddress = Text;
     public type Timestamp = Int;
     public type TransactionHash = Text;
+
+    // License tier types for IP protection
+    public type LicenseTier = {
+        #Community;
+        #Enterprise;
+        #Beta;
+    };
 
     public type SubscriptionStatus = {
         #Active;
@@ -89,6 +99,7 @@ persistent actor OuroCTimer {
         reminder_days_before_payment: Nat;      // Days before payment to send notification
         interval_seconds: Nat64;                // Payment interval in seconds
         start_time: ?Timestamp;                 // Optional start time (defaults to now + interval)
+        api_key: Text;                          // Ouro-C API key for license validation
     };
 
     // State
@@ -273,6 +284,52 @@ persistent actor OuroCTimer {
     };
 
     public func create_subscription(req: CreateSubscriptionRequest): async Result.Result<SubscriptionId, Text> {
+        // 0. License validation - IP protection middleware
+        switch (await validate_api_key(req.api_key)) {
+            case (#err(error)) {
+                Debug.print("License validation failed: " # error);
+                return #err("License validation failed: " # error);
+            };
+            case (#ok(license_info)) {
+                // Check rate limits
+                if (license_info.rate_limit_remaining == 0) {
+                    return #err("Rate limit exceeded. Please upgrade your plan or wait for reset.");
+                };
+
+                // Additional tier-based validation
+                switch (license_info.tier) {
+                    case (null) {
+                        return #err("Invalid license tier");
+                    };
+                    case (?#Community) {
+                        // Community tier: max 10 subscriptions
+                        let user_subscriptions = Array.filter<Subscription>(
+                            Iter.toArray(subscriptions.vals()),
+                            func(sub) { sub.solana_contract_address == req.solana_contract_address }
+                        );
+                        if (user_subscriptions.size() >= 10) {
+                            return #err("Community tier limit reached (10 subscriptions). Upgrade to Enterprise for unlimited access.");
+                        };
+                    };
+                    case (?#Enterprise) {
+                        // Enterprise tier: no limits
+                    };
+                    case (?#Beta) {
+                        // Beta tier: max 100 subscriptions
+                        let user_subscriptions = Array.filter<Subscription>(
+                            Iter.toArray(subscriptions.vals()),
+                            func(sub) { sub.solana_contract_address == req.solana_contract_address }
+                        );
+                        if (user_subscriptions.size() >= 100) {
+                            return #err("Beta tier limit reached (100 subscriptions).");
+                        };
+                    };
+                };
+
+                Debug.print("License validated for tier: " # debug_show(license_info.tier));
+            };
+        };
+
         // 1. Rate limiting - check total subscriptions
         if (subscriptions.size() >= MAX_TOTAL_SUBSCRIPTIONS) {
             return #err("Maximum total subscriptions reached");
@@ -360,6 +417,9 @@ persistent actor OuroCTimer {
 
         subscriptions.put(id, subscription);
         ignore schedule_subscription_timer<system>(subscription);
+
+        // Consume license usage
+        ignore await consume_license_usage(req.api_key);
 
         Debug.print("Created subscription timer: " # id # " for Solana contract: " # req.solana_contract_address);
         #ok(id)
@@ -1607,5 +1667,75 @@ persistent actor OuroCTimer {
         };
 
         #ok(Buffer.toArray(ids))
+    };
+
+    // ============================================================================
+    // LICENSE VALIDATION HELPERS (IP Protection)
+    // ============================================================================
+
+    /// Validate API key with license registry
+    private func validate_api_key(api_key: Text): async Result.Result<{
+        is_valid: Bool;
+        developer_id: ?Principal;
+        tier: ?LicenseTier;
+        rate_limit_remaining: Nat;
+        expires_at: Int;
+        message: Text;
+    }, Text> {
+        // Note: LicenseRegistry integration will be added once the canister is available
+        // For now, implement basic validation
+        if (not Text.startsWith(api_key, #text("ouro_"))) {
+            return #err("Invalid API key format");
+        };
+
+        // Mock validation for MVP - replace with actual LicenseRegistry call
+        #ok({
+            is_valid = true;
+            developer_id = null;
+            tier = ?#Community; // Default to Community tier
+            rate_limit_remaining = 10;
+            expires_at = Time.now() + (60 * 60 * 1_000_000_000);
+            message = "Valid license (mock validation)";
+        })
+    };
+
+    /// Consume license usage after successful operation
+    private func consume_license_usage(api_key: Text): async Result.Result<(), Text> {
+        // Mock consumption for MVP - replace with actual LicenseRegistry call
+        Debug.print("License usage consumed for API key: " # api_key);
+        #ok(())
+    };
+
+    /// Get developer license info for analytics
+    public shared({caller}) func get_license_info(api_key: Text): async Result.Result<{
+        is_valid: Bool;
+        tier: ?LicenseTier;
+        rate_limit_remaining: Nat;
+        expires_at: Int;
+    }, Text> {
+        // Check admin authorization or self access
+        switch (requireAdmin(caller)) {
+            case (#err(_)) {
+                // Allow developers to check their own license
+                if (not Text.startsWith(api_key, #text("ouro_"))) {
+                    return #err("Unauthorized");
+                };
+            };
+            case (#ok()) {};
+        };
+
+        switch (await validate_api_key(api_key)) {
+            case (#ok(validation)) {
+                #ok({
+                    is_valid = validation.is_valid;
+                    tier = validation.tier;
+                    rate_limit_remaining = validation.rate_limit_remaining;
+                    expires_at = validation.expires_at;
+                })
+            };
+            case (#err(error)) {
+                #err(error)
+            };
+        }
     };
 }

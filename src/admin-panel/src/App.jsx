@@ -3,6 +3,9 @@ import { useAuth } from './hooks/useAuth'
 import Login from './components/Login'
 import DashboardPage from './pages/DashboardPage'
 import WalletPage from './pages/WalletPage'
+import LicenseManagementPage from './pages/LicenseManagementPage'
+import SystemMonitoringPage from './pages/SystemMonitoringPage'
+import DeveloperManagementPage from './pages/DeveloperManagementPage'
 
 function Navigation({ onLogout }) {
   const location = useLocation()
@@ -44,6 +47,45 @@ function Navigation({ onLogout }) {
         >
           💼 Wallet
         </Link>
+        <Link
+          to="/licenses"
+          style={{
+            padding: '0.5rem 1rem',
+            borderRadius: '6px',
+            background: location.pathname === '/licenses' ? 'rgba(255,255,255,0.2)' : 'transparent',
+            color: '#fff',
+            textDecoration: 'none',
+            transition: 'all 0.2s'
+          }}
+        >
+          🔐 Licenses
+        </Link>
+        <Link
+          to="/developers"
+          style={{
+            padding: '0.5rem 1rem',
+            borderRadius: '6px',
+            background: location.pathname === '/developers' ? 'rgba(255,255,255,0.2)' : 'transparent',
+            color: '#fff',
+            textDecoration: 'none',
+            transition: 'all 0.2s'
+          }}
+        >
+          👥 Developers
+        </Link>
+        <Link
+          to="/monitoring"
+          style={{
+            padding: '0.5rem 1rem',
+            borderRadius: '6px',
+            background: location.pathname === '/monitoring' ? 'rgba(255,255,255,0.2)' : 'transparent',
+            color: '#fff',
+            textDecoration: 'none',
+            transition: 'all 0.2s'
+          }}
+        >
+          🖥️ Monitoring
+        </Link>
       </div>
       <button
         className="btn btn-secondary"
@@ -63,6 +105,9 @@ function AuthenticatedApp({ onLogout }) {
       <Routes>
         <Route path="/" element={<DashboardPage onLogout={onLogout} />} />
         <Route path="/wallet" element={<WalletPage onLogout={onLogout} />} />
+        <Route path="/licenses" element={<LicenseManagementPage />} />
+        <Route path="/developers" element={<DeveloperManagementPage />} />
+        <Route path="/monitoring" element={<SystemMonitoringPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>

@@ -20,6 +20,7 @@ export type CanisterStatus = { 'Healthy' : null } |
   { 'Degraded' : null };
 export interface CreateSubscriptionRequest {
   'subscription_id' : string,
+  'api_key' : string,
   'reminder_days_before_payment' : bigint,
   'solana_contract_address' : SolanaAddress,
   'payment_token_mint' : string,
@@ -52,6 +53,9 @@ export interface FeeConfig {
   'gas_reserve_lamports' : bigint,
   'trigger_fee_lamports' : bigint,
 }
+export type LicenseTier = { 'Enterprise' : null } |
+  { 'Beta' : null } |
+  { 'Community' : null };
 export type NetworkEnvironment = { 'Mainnet' : null } |
   { 'Testnet' : null } |
   { 'Devnet' : null };
@@ -59,7 +63,9 @@ export type Result = { 'ok' : null } |
   { 'err' : string };
 export type Result_1 = { 'ok' : bigint } |
   { 'err' : string };
-export type Result_10 = {
+export type Result_10 = { 'ok' : EncryptedMetadata } |
+  { 'err' : string };
+export type Result_11 = {
     'ok' : {
       'tokens' : Array<
         { 'decimals' : number, 'balance' : bigint, 'mint' : string }
@@ -69,9 +75,9 @@ export type Result_10 = {
     }
   } |
   { 'err' : string };
-export type Result_11 = { 'ok' : SubscriptionId } |
+export type Result_13 = { 'ok' : SubscriptionId } |
   { 'err' : string };
-export type Result_12 = { 'ok' : TransactionHash } |
+export type Result_14 = { 'ok' : TransactionHash } |
   { 'err' : string };
 export type Result_2 = { 'ok' : boolean } |
   { 'err' : string };
@@ -87,9 +93,16 @@ export type Result_6 = { 'ok' : { 'main' : string } } |
   { 'err' : string };
 export type Result_7 = { 'ok' : Array<Principal> } |
   { 'err' : string };
-export type Result_8 = { 'ok' : FeeConfig } |
+export type Result_8 = {
+    'ok' : {
+      'rate_limit_remaining' : bigint,
+      'tier' : [] | [LicenseTier],
+      'is_valid' : boolean,
+      'expires_at' : bigint,
+    }
+  } |
   { 'err' : string };
-export type Result_9 = { 'ok' : EncryptedMetadata } |
+export type Result_9 = { 'ok' : FeeConfig } |
   { 'err' : string };
 export type SolanaAddress = string;
 export interface Subscription {
@@ -122,7 +135,24 @@ export interface _SERVICE {
    * / Withdraw SOL from canister wallet (admin only) - DEPRECATED but kept for compatibility
    * / This method is deprecated because fee collection is now handled by Solana contract
    */
-  'admin_withdraw_sol' : ActorMethod<[SolanaAddress, bigint], Result_12>,
+  'admin_withdraw_sol' : ActorMethod<
+    [{ 'FeeCollection' : null } | { 'Main' : null }, SolanaAddress, bigint],
+    Result_14
+  >,
+  /**
+   * / Withdraw SPL tokens from canister wallet (admin only) - DEPRECATED but kept for compatibility
+   * / This method is deprecated because fee collection is now handled by Solana contract
+   */
+  'admin_withdraw_token' : ActorMethod<
+    [
+      { 'FeeCollection' : null } |
+        { 'Main' : null },
+      SolanaAddress,
+      SolanaAddress,
+      bigint,
+    ],
+    Result_14
+  >,
   /**
    * / Cancel a pending fee address change proposal (admin only)
    */
@@ -133,7 +163,7 @@ export interface _SERVICE {
    * / Returns the number of subscriptions cleaned up
    */
   'cleanup_old_subscriptions' : ActorMethod<[bigint], bigint>,
-  'create_subscription' : ActorMethod<[CreateSubscriptionRequest], Result_11>,
+  'create_subscription' : ActorMethod<[CreateSubscriptionRequest], Result_13>,
   'debug_admin_info' : ActorMethod<[], string>,
   /**
    * / Delete encrypted metadata (GDPR compliance - right to erasure)
@@ -153,12 +183,17 @@ export interface _SERVICE {
       'total_subscriptions' : bigint,
       'ed25519_key_name' : string,
       'active_timers' : bigint,
+      'fee_wallet' : string,
       'active_subscriptions' : bigint,
       'is_initialized' : boolean,
       'main_wallet' : string,
     }
   >,
-  'get_comprehensive_wallet_info' : ActorMethod<[], Result_10>,
+  'get_comprehensive_wallet_info' : ActorMethod<[], Result_11>,
+  /**
+   * / Alternative comprehensive wallet info method that returns detailed wallet info
+   */
+  'get_comprehensive_wallet_info_v1' : ActorMethod<[], Result_11>,
   /**
    * / Get current fee address (for use by Solana client)
    */
@@ -168,8 +203,8 @@ export interface _SERVICE {
    * / Retrieve encrypted metadata for a subscription
    * / Returns encrypted data that must be decrypted client-side
    */
-  'get_encrypted_metadata' : ActorMethod<[SubscriptionId], Result_9>,
-  'get_fee_config' : ActorMethod<[], Result_8>,
+  'get_encrypted_metadata' : ActorMethod<[SubscriptionId], Result_10>,
+  'get_fee_config' : ActorMethod<[], Result_9>,
   /**
    * / Get current fee configuration and proposal status
    */
@@ -183,6 +218,10 @@ export interface _SERVICE {
       'is_proposal_pending' : boolean,
     }
   >,
+  /**
+   * / Get developer license info for analytics
+   */
+  'get_license_info' : ActorMethod<[string], Result_8>,
   /**
    * / Get current network configuration
    */

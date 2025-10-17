@@ -5,10 +5,14 @@
       "type": "motoko",
       "main": "src/timer/main.mo"
     },
+    "LicenseRegistry": {
+      "type": "motoko",
+      "main": "src/license_registry/LicenseRegistry.mo"
+    },
     "admin_panel": {
       "type": "assets",
       "source": ["src/admin-panel/dist"],
-      "dependencies": ["OuroC_timer"]
+      "dependencies": ["OuroC_timer", "LicenseRegistry"]
     },
     "internet_identity": {
       "type": "pull",

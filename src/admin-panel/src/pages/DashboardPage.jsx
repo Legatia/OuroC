@@ -4,7 +4,6 @@ import {
   getSystemMetrics,
   getNetworkConfig,
   getWalletAddresses,
-  getWalletBalances,
   emergencyPauseAll,
   getCurrentPrincipal
 } from '../utils/icp'
@@ -17,8 +16,7 @@ export default function DashboardPage({ onLogout }) {
     health: null,
     metrics: null,
     network: null,
-    addresses: null,
-    balances: null
+    addresses: null
   })
   const [showModal, setShowModal] = useState(false)
   const [pauseLoading, setPauseLoading] = useState(false)
@@ -44,15 +42,14 @@ export default function DashboardPage({ onLogout }) {
       setLoading(true)
       setError(null)
 
-      const [health, metrics, network, addresses, balances] = await Promise.all([
+      const [health, metrics, network, addresses] = await Promise.all([
         getCanisterHealth().catch(e => ({ error: e.message })),
         getSystemMetrics().catch(e => ({ error: e.message })),
         getNetworkConfig().catch(e => ({ error: e.message })),
-        getWalletAddresses().catch(e => ({ error: e.message })),
-        getWalletBalances().catch(e => ({ error: e.message }))
+        getWalletAddresses().catch(e => ({ error: e.message }))
       ])
 
-      setData({ health, metrics, network, addresses, balances })
+      setData({ health, metrics, network, addresses })
     } catch (err) {
       console.error('Failed to load data:', err)
       setError(err.message)
@@ -131,7 +128,7 @@ export default function DashboardPage({ onLogout }) {
     )
   }
 
-  const { health, metrics, network, addresses, balances } = data
+  const { health, metrics, network, addresses } = data
 
   return (
     <div className="container">
@@ -242,34 +239,15 @@ export default function DashboardPage({ onLogout }) {
         </div>
       </div>
 
-      {/* Wallet Balances */}
+      {/* Wallet Information */}
       <div className="panel">
-        <h2>💰 Wallet Balances</h2>
+        <h2>💰 Wallet Information</h2>
         <table>
-          <thead>
-            <tr>
-              <th>Wallet</th>
-              <th>Address</th>
-              <th>USDC Balance</th>
-            </tr>
-          </thead>
           <tbody>
             <tr>
               <td>Main Wallet</td>
               <td className="wallet-address">
                 {addresses?.ok?.main || 'Loading...'}
-              </td>
-              <td>
-                {balances?.ok ? `${formatBalance(balances.ok.main)} USDC` : 'Error'}
-              </td>
-            </tr>
-            <tr>
-              <td>Fee Collection</td>
-              <td className="wallet-address">
-                {addresses?.ok?.fee_collection || 'Loading...'}
-              </td>
-              <td>
-                {balances?.ok ? `${formatBalance(balances.ok.fee_collection)} USDC` : 'Error'}
               </td>
             </tr>
           </tbody>
