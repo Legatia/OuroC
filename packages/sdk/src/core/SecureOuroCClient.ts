@@ -12,7 +12,7 @@ import {
 export interface LicenseValidation {
   is_valid: boolean;
   developer_id?: string;
-  tier?: 'Community' | 'Enterprise' | 'Beta';
+  tier?: 'Community' | 'Business' | 'Enterprise' | 'Beta';
   rate_limit_remaining: number;
   expires_at: number;
   message: string;
@@ -23,23 +23,32 @@ export interface LicenseTier {
     max_subscriptions: number;
     rate_limit_per_hour: number;
     features: string[];
+    encryption_type?: string;
+  };
+  Business: {
+    max_subscriptions: number;
+    rate_limit_per_hour: number;
+    features: string[];
+    encryption_type: string;
   };
   Enterprise: {
     max_subscriptions: number;
     rate_limit_per_hour: number;
     features: string[];
+    encryption_type: string;
   };
   Beta: {
     max_subscriptions: number;
     rate_limit_per_hour: number;
     features: string[];
+    encryption_type?: string;
   };
 }
 
 export interface LicenseConfig {
   api_key: string;
   licenseRegistryId?: string;
-  tier?: 'Community' | 'Enterprise' | 'Beta';
+  tier?: 'Community' | 'Business' | 'Enterprise' | 'Beta';
 }
 
 export interface SecureClientConfig {
@@ -173,6 +182,13 @@ export class SecureOuroCClient {
         expires_at: Date.now() + (60 * 60 * 1000),
         message: 'Valid license (mock validation)',
       },
+      Business: {
+        is_valid: true,
+        tier: 'Business',
+        rate_limit_remaining: 100,
+        expires_at: Date.now() + (60 * 60 * 1000),
+        message: 'Valid license (mock validation)',
+      },
       Enterprise: {
         is_valid: true,
         tier: 'Enterprise',
@@ -251,6 +267,7 @@ export class SecureOuroCClient {
 
     const tierLimits: Record<string, number> = {
       Community: 10,
+      Business: 1000,
       Enterprise: 10000,
       Beta: 100
     };
@@ -432,21 +449,32 @@ export class SecureOuroCClient {
         Community: {
           max_subscriptions: 10,
           rate_limit_per_hour: 10,
-          features: ['basic_subscriptions', 'public_analytics', 'community_support']
+          features: ['basic_subscriptions', 'public_analytics', 'community_support'],
+          encryption_type: 'None'
+        }
+      },
+      Business: {
+        Business: {
+          max_subscriptions: 1000,
+          rate_limit_per_hour: 100,
+          features: ['all_community_features', 'web_crypto_encryption', 'enhanced_analytics', 'priority_support', 'api_access'],
+          encryption_type: 'Web Crypto API (AES-GCM-256)'
         }
       },
       Enterprise: {
         Enterprise: {
           max_subscriptions: 10000,
           rate_limit_per_hour: 1000,
-          features: ['unlimited_subscriptions', 'private_analytics', 'priority_support', 'advanced_features', 'api_access', 'custom_integrations']
+          features: ['all_business_features', 'arcium_mxe_encryption', 'confidential_computing', 'zero_knowledge_proofs', 'enterprise_support', 'custom_integrations'],
+          encryption_type: 'Arcium MXE (Multi-Party Computation)'
         }
       },
       Beta: {
         Beta: {
           max_subscriptions: 100,
           rate_limit_per_hour: 50,
-          features: ['beta_features', 'basic_subscriptions', 'public_analytics', 'early_access']
+          features: ['basic_subscriptions', 'public_analytics', 'early_access', 'beta_features'],
+          encryption_type: 'None'
         }
       }
     };

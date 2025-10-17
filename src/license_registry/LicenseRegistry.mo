@@ -23,8 +23,8 @@ persistent actor LicenseRegistry {
     public type ApiKey = Text;
     public type LicenseTier = {
         #Community;
-        #Enterprise;
-        #Beta;
+        #Business;
+        #Enterprise; // Arcium MXE - TRUE enterprise tier
     };
 
     public type UsageStats = {
@@ -80,12 +80,14 @@ persistent actor LicenseRegistry {
 
     // Rate limits per tier (per hour)
     private transient let COMMUNITY_RATE_LIMIT: Nat = 10;
-    private transient let ENTERPRISE_RATE_LIMIT: Nat = 1000;
+    private transient let BUSINESS_RATE_LIMIT: Nat = 100; // Web Crypto API tier
+    private transient let ENTERPRISE_RATE_LIMIT: Nat = 1000; // Arcium MXE tier
     private transient let BETA_RATE_LIMIT: Nat = 50;
 
     // Maximum active subscriptions per tier
     private transient let COMMUNITY_MAX_SUBSCRIPTIONS: Nat = 10;
-    private transient let ENTERPRISE_MAX_SUBSCRIPTIONS: Nat = 10000;
+    private transient let BUSINESS_MAX_SUBSCRIPTIONS: Nat = 1000; // Business tier
+    private transient let ENTERPRISE_MAX_SUBSCRIPTIONS: Nat = 10000; // Enterprise tier
     private transient let BETA_MAX_SUBSCRIPTIONS: Nat = 100;
 
     // API key configuration
@@ -368,12 +370,14 @@ persistent actor LicenseRegistry {
         total_developers: Nat;
         active_developers: Nat;
         community_users: Nat;
+        business_users: Nat;
         enterprise_users: Nat;
         beta_users: Nat;
         total_api_keys: Nat;
         total_subscriptions: Nat;
     } {
         let community_devs = Array.filter(developers, func((_, dev): (DeveloperId, Developer)): Bool { dev.tier == #Community });
+        let business_devs = Array.filter(developers, func((_, dev): (DeveloperId, Developer)): Bool { dev.tier == #Business });
         let enterprise_devs = Array.filter(developers, func((_, dev): (DeveloperId, Developer)): Bool { dev.tier == #Enterprise });
         let beta_devs = Array.filter(developers, func((_, dev): (DeveloperId, Developer)): Bool { dev.tier == #Beta });
         let active_devs = Array.filter(developers, func((_, dev): (DeveloperId, Developer)): Bool { dev.is_active });
@@ -387,6 +391,7 @@ persistent actor LicenseRegistry {
             total_developers = developers.size();
             active_developers = active_devs.size();
             community_users = community_devs.size();
+            business_users = business_devs.size();
             enterprise_users = enterprise_devs.size();
             beta_users = beta_devs.size();
             total_api_keys = api_keys.size();
@@ -419,6 +424,7 @@ persistent actor LicenseRegistry {
     private func get_rate_limit_for_tier(tier: LicenseTier): Nat {
         switch (tier) {
             case (#Community) { COMMUNITY_RATE_LIMIT };
+            case (#Business) { BUSINESS_RATE_LIMIT };
             case (#Enterprise) { ENTERPRISE_RATE_LIMIT };
             case (#Beta) { BETA_RATE_LIMIT };
         }

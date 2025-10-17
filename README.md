@@ -1,10 +1,10 @@
 # OuroC - Decentralized Subscription Payments
 
-🎉 **PRODUCTION-READY MVP** - Complete recurring transaction protocol with IP protection
+🎉 **PRODUCTION-READY MVP** - Complete recurring transaction protocol with tiered pricing
 
-**Automated recurring payments on Solana with enterprise-grade privacy, IP protection, and comprehensive admin management**
+**Automated recurring payments on Solana with three clear tiers: Community (transaction fees) → Business (subscription) → Enterprise (licensing)**
 
-OuroC is a subscription payment protocol combining Solana's speed, ICP's autonomous scheduling, and optional end-to-end encryption for privacy-compliant recurring payments.
+OuroC is a subscription payment protocol combining Solana's speed, ICP's autonomous scheduling, and tiered privacy options for different customer segments.
 
 ---
 
@@ -14,7 +14,7 @@ OuroC is a subscription payment protocol combining Solana's speed, ICP's autonom
 - **Solana** - Fast, low-cost payment execution and immutable audit trail
 - **ICP (Internet Computer)** - Autonomous payment scheduling with Threshold Ed25519 signing
 - **Grid by Squads** - Email accounts, KYC/compliance, multisig treasury, fiat on/off-ramps
-- **Enterprise Privacy** (Optional) - AES-GCM-256 encryption for subscription metadata with off-chain storage
+- **Tiered Privacy** - Business (Web Crypto API) → Enterprise (Arcium MXE Q2 2026)
 - **IP Protection** - License registry, tier-based access control, usage tracking
 
 **Use Cases:**
@@ -50,13 +50,43 @@ OuroC is a subscription payment protocol combining Solana's speed, ICP's autonom
 - **Audit trail** - Full transaction history for compliance
 - **Live demo** - See `/a2a-demo` for interactive example
 
-### 🔐 Enterprise Privacy (Optional)
+### 💰 Pricing Tiers
+
+**🌱 Community Tier (Transaction Fees)**
+- **Cost**: Pay-per-transaction (no monthly fee)
+- **Features**: Basic subscriptions, public data, community support
+- **Limits**: 10 API calls/hour, 10 subscriptions max
+- **Privacy**: No encryption (all data public on-chain)
+- **Use**: Individual developers, open source projects
+
+**💼 Business Tier ($299/month)**
+- **Cost**: Monthly subscription with unlimited transactions
+- **Features**: Web Crypto API encryption, GDPR compliance, priority support
+- **Limits**: 100 API calls/hour, 1,000 subscriptions max
+- **Privacy**: AES-GCM-256 encryption for metadata (ICP canister storage)
+- **Use**: SMBs, startups, GDPR-compliant applications
+
+**🏢 Enterprise Tier (Custom Licensing)**
+- **Cost**: Annual license (custom pricing)
+- **Features**: Arcium MXE confidential computing, ZK proofs, dedicated support
+- **Limits**: 1,000 API calls/hour, 10,000 subscriptions max
+- **Privacy**: Multi-party computation (Q2 2026)
+- **Use**: Large enterprises, financial institutions, healthcare
+
+### 🔐 Privacy Features
+
+**Business Tier (Available Now)**
 - **AES-GCM-256 encryption** - Web Crypto API for metadata
 - **Off-chain storage** - ICP canister for encrypted data
 - **On-chain hashes** - SHA-256 verification on Solana
 - **GDPR compliance** - Right to erasure, data portability
-- **Opt-in module** - `import * as Enterprise from '@ouroc/sdk/enterprise'`
-- **Future: Arcium MXE** - Multi-party computation upgrade path
+- **Opt-in module** - `import * as Business from '@ouroc/sdk/business'`
+
+**Enterprise Tier (Coming Q2 2026)**
+- **Arcium MXE** - Multi-party confidential computing
+- **Zero-knowledge proofs** - Prove validity without revealing data
+- **Confidential amounts** - Hidden transaction values
+- **Hidden parties** - Private transaction participants
 
 ### 💻 For Developers
 - **Minimalist design** - 600-line ICP canister (70% less code)
@@ -182,19 +212,19 @@ function App() {
 }
 ```
 
-### Enterprise Privacy (Optional)
+### Business Tier Privacy
 
 ```tsx
-import * as Enterprise from '@ouroc/sdk/enterprise';
+import * as Business from '@ouroc/sdk/business';
 
 // Derive encryption key from wallet
-const key = await Enterprise.deriveEncryptionKey(
+const key = await Business.deriveEncryptionKey(
   wallet.publicKey,
   (msg) => wallet.signMessage(msg)
 );
 
 // Create private subscription
-await Enterprise.createPrivateSubscription(client, {
+await Business.createPrivateSubscription(client, {
   ...subscriptionParams,
   metadata: {
     name: 'Premium Plan',
@@ -204,7 +234,23 @@ await Enterprise.createPrivateSubscription(client, {
 });
 ```
 
-[See ENTERPRISE_MANUAL.md for full privacy documentation →](./ENTERPRISE_MANUAL.md)
+### Enterprise Tier Confidential Computing (Q2 2026)
+
+```tsx
+import { ArciumMXEClient } from '@ouroc/sdk/enterprise';
+
+// Initialize Arcium MXE for confidential transactions
+const arciumClient = await initializeEnterpriseEncryption('Enterprise');
+
+// Create confidential subscription with hidden amounts/parties
+const result = await arciumClient.createConfidentialSubscription({
+  terms: { amount: 10000000, interval: 2592000 },
+  parties: { subscriber: '...', merchant: '...' },
+  confidentiality: 'FULL'
+});
+```
+
+[See src/README.md for tier documentation →](./src/README.md)
 
 ---
 
@@ -212,61 +258,80 @@ await Enterprise.createPrivateSubscription(client, {
 
 ```
 OuroC/
-├── src/
-│   ├── timer/                  # ICP Timer (Motoko - 600 lines)
-│   │   ├── main.mo                 # Canister + encrypted metadata storage
-│   │   ├── solana.mo               # Solana RPC + opcode routing
-│   │   ├── threshold_ed25519.mo    # ICP → Solana signing
-│   │   └── security.mo             # Ed25519 verification
+├── src/                       # 🔐 Tier-organized source code
+│   ├── community/             # 🌱 Community Tier (Transaction fees)
+│   │   ├── src/examples/      # Basic subscription examples
+│   │   └── README.md          # Community tier documentation
 │   │
-│   ├── license_registry/         # IP Protection Canister (NEW)
-│   │   └── LicenseRegistry.mo      # Developer registration & API keys
+│   ├── business-privacy/      # 💼 Business Tier ($299/month)
+│   │   ├── src/
+│   │   │   ├── encryption.ts  # Web Crypto API (AES-GCM-256)
+│   │   │   ├── privacy/       # Private subscription management
+│   │   │   └── examples/      # Business use cases
+│   │   └── README.md          # Business tier documentation
 │   │
-│   └── admin-panel/              # Admin Management Panel
+│   ├── enterprise-privacy/    # 🏢 Enterprise Tier (Custom licensing)
+│   │   ├── src/
+│   │   │   ├── arcium.ts      # Arcium MXE integration (Q2 2026)
+│   │   │   └── examples/      # Enterprise use cases
+│   │   └── README.md          # Enterprise tier documentation
+│   │
+│   ├── timer/                 # ⏰ ICP Timer (Motoko - 600 lines)
+│   │   ├── main.mo                # Canister + encrypted metadata storage
+│   │   ├── solana.mo              # Solana RPC + opcode routing
+│   │   ├── threshold_ed25519.mo   # ICP → Solana signing
+│   │   └── security.mo            # Ed25519 verification
+│   │
+│   ├── license_registry/      # 📋 License Registry Canister
+│   │   └── LicenseRegistry.mo     # Developer registration & API keys
+│   │
+│   └── admin-panel/           # 🔐 Admin Management Panel
 │       ├── src/
-│       │   ├── pages/             # License management, monitoring
-│       │   └── components/       # API key management tools
-│       └── dist/                # Built admin interface
+│       │   ├── pages/            # License management, monitoring
+│       │   └── components/        # API key management tools
+│       └── dist/                 # Built admin interface
 │
-├── solana-contract/            # Solana Contract (Rust/Anchor)
+├── solana-contract/           # Solana Contract (Rust/Anchor)
 │   └── programs/src/
-│       ├── lib.rs              # Payment processor + router
-│       ├── crypto.rs           # Ed25519 verification
-│       └── errors.rs           # Error types
+│       ├── lib.rs             # Payment processor + router
+│       ├── crypto.rs          # Ed25519 verification
+│       └── errors.rs          # Error types
 │
-├── packages/sdk/               # TypeScript SDK
+├── packages/sdk/              # TypeScript SDK
 │   └── src/
-│       ├── core/               # Standard SDK
+│       ├── core/              # Standard SDK
 │       │   ├── OuroCClient.ts
-│       │   ├── SecureOuroCClient.ts  # IP protection wrapper (NEW)
+│       │   ├── SecureOuroCClient.ts  # IP protection wrapper
 │       │   ├── encryption.ts   # Web Crypto utilities
-│       │   └── privacy/        # Enterprise helper functions
-│       ├── enterprise.ts       # Enterprise module export
-│       ├── grid/               # Grid integration (email, KYC, multisig)
-│       ├── hooks/              # React hooks
-│       └── components/         # UI components
+│       │   └── privacy/        # Business tier helper functions
+│       ├── enterprise.ts      # Enterprise module export
+│       ├── tier.ts            # Tier management system
+│       ├── grid/              # Grid integration (email, KYC, multisig)
+│       ├── hooks/             # React hooks
+│       └── components/        # UI components
 │
-├── demo-dapp/                  # Demo App (Next.js)
+├── demo-dapp/                 # Demo App (Next.js)
 │   ├── pages/
 │   │   ├── index.tsx
 │   │   ├── merchant-dashboard.tsx
 │   │   └── a2a-demo.tsx
 │   └── components/
 │
-├── src/admin-panel/src/         # Admin Panel React Components (NEW)
-│   ├── pages/                   # License, developer, monitoring pages
-│   └── components/             # API key management tools
-│
-├── docs/                       # Documentation
+├── docs/                      # Documentation
 │   ├── ENTERPRISE_MANUAL.md
 │   ├── ARCHITECTURE.md
 │   ├── IP_PROTECTION.md
 │   └── SECURITY_AUDIT_REPORT.md
 │
-└── canisters/                  # Generated DID files
+└── canisters/                 # Generated DID files
     ├── OuroC_timer.did.js
     └── LicenseRegistry.did.js
 ```
+
+**📁 Clear Tier Organization:**
+- `src/community/` - Transaction fees, public data
+- `src/business-privacy/` - Web Crypto API, GDPR compliance
+- `src/enterprise-privacy/` - Arcium MXE, confidential computing (Q2 2026)
 
 ---
 
@@ -369,6 +434,10 @@ Found a security issue? Email: security@ouroc.com (PGP key available)
 - [ ] Grid on-ramp integration (USD → USDC)
 
 ### Q2 2026
+- [ ] **Arcium MXE Integration** - Enterprise tier confidential computing
+- [ ] Zero-knowledge proofs for transaction validity
+- [ ] Multi-party computation on encrypted data
+- [ ] Confidential transaction amounts and parties
 - [ ] EVM chain support (Ethereum, Polygon, etc.)
 - [ ] Cross-chain subscriptions
 - [ ] Horizontal scale up

@@ -286,6 +286,15 @@ test-reports/
 *.test.log
 
 # =============================================================================
+# HACKATHON TEMPORARY EXPOSURE (Remove after hackathon)
+# =============================================================================
+# Business and Enterprise tier packages shown for hackathon judges
+# AFTER HACKATHON: Make repo private or remove these directories
+#
+# src/business-privacy/     # Remove or make private after hackathon
+# src/enterprise-privacy/   # Remove or make private after hackathon
+
+# =============================================================================
 # Security Audit & Testing Files (Temporary)
 # =============================================================================
 # Security test scripts created during audit remediation

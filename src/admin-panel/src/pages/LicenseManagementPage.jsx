@@ -219,7 +219,8 @@ export default function LicenseManagementPage() {
                 >
                   <option value="Community">Community (10 API calls/hr, 10 subscriptions)</option>
                   <option value="Beta">Beta (50 API calls/hr, 100 subscriptions)</option>
-                  <option value="Enterprise">Enterprise (1000 API calls/hr, 10000 subscriptions)</option>
+                  <option value="Business">Business (100 API calls/hr, 1000 subscriptions) - Web Crypto</option>
+                  <option value="Enterprise">Enterprise (1000 API calls/hr, 10000 subscriptions) - Arcium MXE</option>
                 </select>
               </div>
 
@@ -377,6 +378,26 @@ export default function LicenseManagementPage() {
               padding: '1rem'
             }}>
               <div style={{ fontWeight: '600', color: '#1f2937', marginBottom: '0.5rem' }}>
+                💼 Business
+              </div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#0891b2' }}>
+                {stats.business_users}
+              </div>
+              <div style={{ fontSize: '0.875rem', color: '#64748b' }}>
+                100 API calls/hr, 1000 subscriptions max
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem' }}>
+                Web Crypto API encryption
+              </div>
+            </div>
+
+            <div style={{
+              backgroundColor: '#f8fafc',
+              border: '1px solid #e2e8f0',
+              borderRadius: '6px',
+              padding: '1rem'
+            }}>
+              <div style={{ fontWeight: '600', color: '#1f2937', marginBottom: '0.5rem' }}>
                 🏢 Enterprise
               </div>
               <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#dc2626' }}>
@@ -384,6 +405,9 @@ export default function LicenseManagementPage() {
               </div>
               <div style={{ fontSize: '0.875rem', color: '#64748b' }}>
                 1000 API calls/hr, 10000 subscriptions max
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem' }}>
+                Arcium MXE confidential computing
               </div>
             </div>
           </div>
