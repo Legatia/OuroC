@@ -19,6 +19,8 @@ export default function Navbar() {
   ]
 
   const merchantLinks = [
+    { href: '/merchant-signup', label: 'Free Sign Up' },
+    { href: '/business-signup', label: 'Business API' },
     { href: '/grid-merchant', label: 'Merchant Setup' },
     { href: '/merchant-dashboard', label: 'Dashboard' },
   ]
@@ -73,21 +75,27 @@ export default function Navbar() {
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="absolute top-full right-0 mt-2 w-48 glass rounded-lg border border-white/10 overflow-hidden"
+                  className="absolute top-full right-0 mt-2 w-64 glass rounded-lg border border-white/10 overflow-hidden"
                   onMouseLeave={() => setShowMerchantMenu(false)}
                 >
-                  {merchantLinks.map((link) => (
+                  {merchantLinks.map((link, index) => (
                     <Link
                       key={link.href}
                       href={link.href}
                       onClick={() => setShowMerchantMenu(false)}
                       className={`block px-4 py-3 text-sm transition-colors ${
-                        isActive(link.href)
+                        index === 0
+                          ? 'bg-green-primary/20 text-green-primary font-semibold border-b border-white/10'
+                          : index === 1
+                          ? 'bg-purple-primary/20 text-purple-primary font-semibold border-b border-white/10'
+                          : isActive(link.href)
                           ? 'bg-white/10 text-white'
                           : 'text-gray-300 hover:text-white hover:bg-white/5'
                       }`}
                     >
                       {link.label}
+                      {index === 0 && <span className="ml-2 text-xs bg-green-primary/30 px-2 py-0.5 rounded">FREE</span>}
+                      {index === 1 && <span className="ml-2 text-xs bg-purple-primary/30 px-2 py-0.5 rounded">API</span>}
                     </Link>
                   ))}
                 </motion.div>
@@ -152,18 +160,24 @@ export default function Navbar() {
                 <Store className="h-4 w-4" />
                 <span>MERCHANT</span>
               </div>
-              {merchantLinks.map((link) => (
+              {merchantLinks.map((link, index) => (
                 <Link
                   key={link.href}
                   href={link.href}
                   onClick={() => setIsOpen(false)}
                   className={`block px-4 py-2 rounded-lg text-sm transition-colors ${
-                    isActive(link.href)
+                    index === 0
+                      ? 'bg-green-primary/20 text-green-primary font-semibold'
+                      : index === 1
+                      ? 'bg-purple-primary/20 text-purple-primary font-semibold'
+                      : isActive(link.href)
                       ? 'bg-white/10 text-white'
                       : 'text-gray-300 hover:text-white hover:bg-white/5'
                   }`}
                 >
                   {link.label}
+                  {index === 0 && <span className="ml-2 text-xs bg-green-primary/30 px-2 py-0.5 rounded">FREE</span>}
+                  {index === 1 && <span className="ml-2 text-xs bg-purple-primary/30 px-2 py-0.5 rounded">API</span>}
                 </Link>
               ))}
             </div>

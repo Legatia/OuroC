@@ -30,8 +30,9 @@ export * from './core/privacy/getPrivateMetadata';
 export * from './core/privacy/updatePrivateMetadata';
 export * from './core/privacy/deletePrivateMetadata';
 
-// Export Arcium MXE (Enterprise Tier - Coming Q2 2026)
-export * from './enterprise/arcium';
+// Arcium MXE (Enterprise Tier - Coming Q2 2026)
+// Temporarily removed for hackathon - will be published after mainnet deploy
+// export * from './enterprise/arcium';
 
 // Export tier information and migration utilities
-export { getTierInfo, isEnterpriseTier, migrateToEnterprise } from './core/tier';
+export { getTierInfo, isEnterpriseTier } from './core/tier';

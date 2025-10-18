@@ -55,6 +55,7 @@ export interface CreateSubscriptionRequest {
   reminder_days_before_payment: number // Days before payment to send reminder (e.g., 3 = 3 days before)
   interval_seconds: bigint
   start_time?: [] | [Timestamp] // Optional timestamp for when subscription starts
+  api_key: string // Ouro-C API key for license validation
   agent_metadata?: AgentMetadata // Optional: For AI agent subscriptions
 }
 

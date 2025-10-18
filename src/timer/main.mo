@@ -30,8 +30,7 @@ persistent actor OuroCTimer {
     private let MAX_AMOUNT_USDC: Nat64 = 1_000_000_000_000; // 1M USDC (6 decimals)
     private let MIN_INTERVAL_SECONDS: Nat64 = 3600; // 1 hour minimum (prevents spam)
     private let MAX_INTERVAL_SECONDS: Nat64 = 31536000; // 1 year maximum
-    private let _MAX_SUBSCRIPTIONS_PER_PRINCIPAL: Nat = 100;
-    private let MAX_TOTAL_SUBSCRIPTIONS: Nat = 10000;
+        private let MAX_TOTAL_SUBSCRIPTIONS: Nat = 10000;
     private let SUBSCRIPTION_ID_MAX_LENGTH: Nat = 64;
     private let SUBSCRIPTION_ID_MIN_LENGTH: Nat = 4;
 
@@ -146,6 +145,11 @@ persistent actor OuroCTimer {
     // Stable storage for upgrades
     private var stable_subscriptions: [(SubscriptionId, Subscription)] = [];
     private var stable_encrypted_metadata: [(SubscriptionId, EncryptedMetadata)] = [];
+
+    // Deprecated stable variables (kept for compatibility only)
+    private var MAX_SUBSCRIPTIONS_PER_PRINCIPAL: Nat = 100;
+    private var auth_initialized: Bool = false;
+    private var fee_collection_address: Text = "CKEY8bppifSErEfP5cvX8hCnmQ2Yo911mosdRx7M3HxF";
 
     system func preupgrade() {
         stable_subscriptions := Iter.toArray(subscriptions.entries());
@@ -1682,17 +1686,28 @@ persistent actor OuroCTimer {
         expires_at: Int;
         message: Text;
     }, Text> {
-        // Note: LicenseRegistry integration will be added once the canister is available
-        // For now, implement basic validation
+        // Check for shared Community API key
+        if (api_key == "ouro_community_shared_2025_demo_key") {
+            return #ok({
+                is_valid = true;
+                developer_id = null; // Shared key - no specific developer
+                tier = ?#Community;
+                rate_limit_remaining = 10; // Community tier rate limit
+                expires_at = Time.now() + (60 * 60 * 1_000_000_000); // 1 hour
+                message = "Valid Community license (shared key)";
+            });
+        };
+
+        // Check for valid API key format (for other tiers)
         if (not Text.startsWith(api_key, #text("ouro_"))) {
             return #err("Invalid API key format");
         };
 
-        // Mock validation for MVP - replace with actual LicenseRegistry call
+        // Mock validation for other API keys - replace with actual LicenseRegistry call
         #ok({
             is_valid = true;
             developer_id = null;
-            tier = ?#Community; // Default to Community tier
+            tier = ?#Community; // Default to Community tier for unknown keys
             rate_limit_remaining = 10;
             expires_at = Time.now() + (60 * 60 * 1_000_000_000);
             message = "Valid license (mock validation)";

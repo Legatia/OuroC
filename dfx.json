@@ -9,12 +9,7 @@
       "type": "motoko",
       "main": "src/license_registry/LicenseRegistry.mo"
     },
-    "admin_panel": {
-      "type": "assets",
-      "source": ["src/admin-panel/dist"],
-      "dependencies": ["OuroC_timer", "LicenseRegistry"]
-    },
-    "internet_identity": {
+        "internet_identity": {
       "type": "pull",
       "id": "rdmx6-jaaaa-aaaaa-aaadq-cai"
     }

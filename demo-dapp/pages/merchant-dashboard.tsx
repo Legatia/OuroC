@@ -64,7 +64,8 @@ export default function MerchantDashboardPage() {
         >
           <Shield className="h-16 w-16 text-purple-primary mx-auto mb-6" />
           <h1 className="text-3xl font-bold text-white mb-4">Merchant Dashboard</h1>
-          <p className="text-gray-400 mb-8">Connect your wallet to view subscriptions and revenue</p>
+          <p className="text-gray-400 mb-4">Connect your wallet to view subscriptions and revenue</p>
+          <p className="text-gray-500 text-sm mb-8">New merchant? <a href="/merchant-signup" className="text-purple-primary hover:underline">Sign up here</a></p>
           <WalletButton />
         </motion.div>
       </div>

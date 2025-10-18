@@ -137,12 +137,47 @@ export default function Home() {
 
         </div>
 
+        {/* Merchant CTA */}
+        <div className="max-w-3xl mx-auto mb-16">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+            className="glass p-8 rounded-2xl border border-purple-primary/30"
+          >
+            <div className="text-center">
+              <h3 className="text-2xl font-semibold text-white mb-4">Are you a Merchant?</h3>
+              <p className="text-gray-400 mb-6">
+                Start accepting recurring payments with USDC on Solana. Get your API key and integrate in minutes.
+              </p>
+              <div className="flex gap-4 justify-center">
+                <motion.a
+                  href="/merchant-signup"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="px-8 py-3 bg-gradient-to-r from-purple-primary to-purple-dark text-white font-semibold rounded-lg hover:shadow-lg hover:shadow-purple-primary/25 transition-all"
+                >
+                  Get Started Free
+                </motion.a>
+                <motion.a
+                  href="/merchant-dashboard"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="px-8 py-3 bg-dark-700 text-white font-semibold rounded-lg hover:bg-dark-600 transition-all"
+                >
+                  View Dashboard
+                </motion.a>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+
         {/* How It Works */}
         <div className="max-w-3xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
+            transition={{ delay: 0.6 }}
             className="glass p-8 rounded-2xl"
           >
             <h3 className="text-xl font-semibold text-white mb-6">How It Works</h3>
@@ -152,8 +187,8 @@ export default function Home() {
                   <span className="text-purple-primary text-sm font-semibold">1</span>
                 </div>
                 <div>
-                  <p className="font-medium text-white">Sign in with Grid (Optional)</p>
-                  <p className="text-sm text-gray-400">Add your email for payment reminders and subscription updates</p>
+                  <p className="font-medium text-white">Merchant Sign Up</p>
+                  <p className="text-sm text-gray-400">Register with email and wallet to get your API key</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
@@ -161,8 +196,8 @@ export default function Home() {
                   <span className="text-purple-primary text-sm font-semibold">2</span>
                 </div>
                 <div>
-                  <p className="font-medium text-white">Connect Wallet & Subscribe</p>
-                  <p className="text-sm text-gray-400">Connect Phantom wallet and approve the first payment</p>
+                  <p className="font-medium text-white">Integrate SDK</p>
+                  <p className="text-sm text-gray-400">Add OuroC SDK to your application with your API key</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
@@ -170,8 +205,8 @@ export default function Home() {
                   <span className="text-purple-primary text-sm font-semibold">3</span>
                 </div>
                 <div>
-                  <p className="font-medium text-white">Automated Payments</p>
-                  <p className="text-sm text-gray-400">ICP timer handles recurring payments automatically</p>
+                  <p className="font-medium text-white">Accept Subscriptions</p>
+                  <p className="text-sm text-gray-400">Customers subscribe with automated USDC payments</p>
                 </div>
               </div>
             </div>

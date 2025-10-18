@@ -73,6 +73,10 @@ export default function RealSubscriptionCard({ plan, onSubscribe, merchantAddres
       // USDC token mint address on devnet
       const USDC_MINT_DEVNET = '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'
 
+      // Use shared Community API key - open for everyone
+      // Business/Enterprise tiers would have their own unique API keys
+      const apiKey = 'ouro_community_shared_2025_demo_key'
+
       // Create subscription configuration matching the canister's expected format
       const subscriptionConfig = {
         subscription_id: subscriptionId,
@@ -84,6 +88,7 @@ export default function RealSubscriptionCard({ plan, onSubscribe, merchantAddres
         amount: BigInt(plan.price * 1_000_000), // Convert USDC to micro-units (6 decimals)
         interval_seconds: BigInt(intervalSeconds),
         start_time: [], // Optional field - empty array means "None" (start immediately)
+        api_key: apiKey, // Ouro-C API key for license validation
       }
 
       console.log('Creating subscription with config:', subscriptionConfig)

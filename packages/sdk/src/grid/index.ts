@@ -10,6 +10,7 @@
 // ============================================================================
 export { GridClient } from './api/GridClient';
 export { SubscriberFlow } from './flows/SubscriberFlow';
+export { SubscriberOnRampFlow } from './flows/SubscriberOnRampFlow';
 export { MerchantFlow } from './flows/MerchantFlow';
 export { MerchantMultisigFlow } from './flows/MerchantMultisigFlow';
 export { MerchantKYCFlow } from './flows/MerchantKYCFlow';

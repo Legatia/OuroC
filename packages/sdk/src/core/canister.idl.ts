@@ -13,6 +13,7 @@ export const idlFactory = ({ IDL }: any) => {
     'subscriber_address' : SolanaAddress,
     'amount' : IDL.Nat64,
     'merchant_address' : SolanaAddress,
+    'api_key' : IDL.Text,
   });
   const Result_7 = IDL.Variant({ 'ok' : SubscriptionId, 'err' : IDL.Text });
   const Result_1 = IDL.Variant({ 'ok' : IDL.Nat, 'err' : IDL.Text });

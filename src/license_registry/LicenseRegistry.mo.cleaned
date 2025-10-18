@@ -390,40 +390,6 @@ persistent actor LicenseRegistry {
         admins
     };
 
-    // Create or get the shared Community API key
-    public shared({caller}) func ensure_community_api_key(): async Result.Result<ApiKey, Text> {
-        if (not isAdmin(caller)) {
-            return #err("Unauthorized: Admin access required");
-        };
-
-        // Check if Community API key already exists
-        for ((key, info) in api_keys.vals()) {
-            if (info.tier == #Community and Principal.equal(info.developer_id, Principal.fromText("aaaaa-aa"))) {
-                return #ok(key);
-            };
-        };
-
-        // Create shared Community API key
-        let now = Time.now();
-        let community_api_key = "ouro_community_shared_2025_demo_key";
-
-        let api_key_info: ApiKeyInfo = {
-            key = community_api_key;
-            developer_id = Principal.fromText("aaaaa-aa"); // Anonymous principal for shared key
-            tier = #Community;
-            created_at = now;
-            last_used = null;
-            usage_count = 0;
-            rate_limit_remaining = COMMUNITY_RATE_LIMIT;
-            rate_limit_reset = now + (60 * 60 * 1_000_000_000); // 1 hour from now
-        };
-
-        api_keys := Array.append(api_keys, [(community_api_key, api_key_info)]);
-
-        Debug.print("Created shared Community API key");
-        #ok(community_api_key)
-    };
-
     // =============================================================================
     // PRIVATE HELPER FUNCTIONS
     // =============================================================================

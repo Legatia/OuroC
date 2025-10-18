@@ -197,15 +197,13 @@ export function createSubscriptionCard(
         const subscriptionId = await create({
           subscription_id: `sub_${Date.now()}`,
           solana_contract_address: '', // TODO: Set contract address
-          solana_payer: '', // Will be filled by the hook
-          solana_receiver: defaultReceiverAddress,
-          subscriber_usdc_account: '', // TODO: Set subscriber token account
-          merchant_usdc_account: '', // TODO: Set merchant token account
-          icp_fee_usdc_account: '', // TODO: Set ICP fee account
+          subscriber_address: '', // Will be filled by the hook
+          merchant_address: defaultReceiverAddress,
           payment_token_mint: TOKEN_MINTS[plan.token],
           amount: BigInt(Math.floor(plan.price * 1_000_000)), // Convert to micro-units
           reminder_days_before_payment: plan.reminderDays,
-          interval_seconds: BigInt(plan.intervalSeconds)
+          interval_seconds: BigInt(plan.intervalSeconds),
+          api_key: 'ouro_community_shared_2025_demo_key' // Shared Community API key
         })
 
         console.log('Subscription created:', subscriptionId)

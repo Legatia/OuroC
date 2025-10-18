@@ -80,7 +80,7 @@ export function useSubscription(): UseSubscriptionReturn {
       // Ensure payer is the connected wallet
       const subscriptionRequest: CreateSubscriptionRequest = {
         ...request,
-        solana_payer: publicKey.toBase58()
+        subscriber_address: publicKey.toBase58()
       }
 
       const subscriptionId = await client.createSubscription(subscriptionRequest)
