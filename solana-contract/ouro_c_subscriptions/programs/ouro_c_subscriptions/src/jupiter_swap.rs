@@ -35,6 +35,9 @@ pub fn calculate_min_output_with_slippage(
 
 /// Execute Jupiter V6 swap via CPI
 /// This uses Jupiter's shared accounts model for efficient routing
+///
+/// ⚠️ PRODUCTION NOTE: This implementation requires actual Jupiter V6 discriminator
+/// from their IDL. Current discriminator is for development/testing only.
 pub fn execute_jupiter_swap<'info>(
     jupiter_program: &AccountInfo<'info>,
     source_token_account: &Account<'info, TokenAccount>,
@@ -59,12 +62,27 @@ pub fn execute_jupiter_swap<'info>(
         ErrorCode::InvalidJupiterProgram
     );
 
+    // SECURITY: Validate routing accounts are provided
+    require!(
+        !remaining_accounts.is_empty(),
+        ErrorCode::InvalidRoutingAccounts
+    );
+
     // Build Jupiter swap instruction data
     // Jupiter V6 uses a discriminator + parameters format
     let mut instruction_data = Vec::with_capacity(32);
 
-    // Discriminator for shared_accounts_route instruction (Jupiter V6)
-    instruction_data.extend_from_slice(&[0xd3, 0x09, 0x42, 0x8c, 0xc5, 0x1c, 0x58, 0x3d]);
+    // ⚠️ PRODUCTION REQUIRED: Update discriminator from actual Jupiter V6 IDL
+    // Current discriminator may not match mainnet Jupiter program
+    let discriminator = std::env::var("JUPITER_V6_DISCRIMINATOR")
+        .unwrap_or_else(|_| "d309428cc51c583d".to_string());
+
+    if let Ok(hex_str) = hex::decode(discriminator) {
+        instruction_data.extend_from_slice(&hex_str);
+    } else {
+        // Fallback discriminator (may not work in production)
+        instruction_data.extend_from_slice(&[0xd3, 0x09, 0x42, 0x8c, 0xc5, 0x1c, 0x58, 0x3d]);
+    }
 
     // Parameters: amount_in (u64) + minimum_amount_out (u64)
     instruction_data.extend_from_slice(&amount_in.to_le_bytes());

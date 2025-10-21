@@ -4,6 +4,9 @@ import { Check, Star, Zap, ArrowRight, AlertCircle } from 'lucide-react'
 import { useWallet } from '@solana/wallet-adapter-react'
 import WalletButton from './WalletButton'
 import { OuroCClient } from '@ouroc/sdk'
+import { TokenSelector } from './TokenSelector'
+import { NetworkToggle } from './NetworkToggle'
+import { SupportedToken, getTokenMint, isTokenAvailableOnDevnet } from '../utils/tokenUtils'
 
 interface Plan {
   name: string
@@ -26,6 +29,8 @@ export default function RealSubscriptionCard({ plan, onSubscribe, merchantAddres
   const [subscriptionError, setSubscriptionError] = useState<string | null>(null)
   const [subscriptionSuccess, setSubscriptionSuccess] = useState(false)
   const [client, setClient] = useState<OuroCClient | null>(null)
+  const [selectedToken, setSelectedToken] = useState<SupportedToken>('USDC')
+  const [network, setNetwork] = useState<'mainnet' | 'devnet'>('devnet')
 
   const wallet = useWallet()
   const { connected, publicKey } = wallet
@@ -70,8 +75,13 @@ export default function RealSubscriptionCard({ plan, onSubscribe, merchantAddres
       // Generate unique subscription ID
       const subscriptionId = `sub_${Date.now()}_${publicKey.toBase58().slice(0, 8)}`
 
-      // USDC token mint address on devnet
-      const USDC_MINT_DEVNET = '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'
+      // Get token mint address based on selected token and network
+      const tokenMint = getTokenMint(selectedToken, network)
+
+      if (!tokenMint) {
+        setSubscriptionError(`${selectedToken} is not available on ${network}. Please switch to mainnet or select USDC.`)
+        return
+      }
 
       // Use shared Community API key - open for everyone
       // Business/Enterprise tiers would have their own unique API keys
@@ -84,7 +94,7 @@ export default function RealSubscriptionCard({ plan, onSubscribe, merchantAddres
         solana_contract_address: "7c1tGePFVT3ztPEESfzG7gFqYiCJUDjFa7PCeyMSYtub",
         subscriber_address: publicKey.toBase58(),
         merchant_address: merchantAddress,
-        payment_token_mint: USDC_MINT_DEVNET,
+        payment_token_mint: tokenMint,
         amount: BigInt(plan.price * 1_000_000), // Convert USDC to micro-units (6 decimals)
         interval_seconds: BigInt(intervalSeconds),
         start_time: [], // Optional field - empty array means "None" (start immediately)
@@ -172,14 +182,33 @@ export default function RealSubscriptionCard({ plan, onSubscribe, merchantAddres
 
         <div className="flex items-baseline justify-center space-x-2">
           <span className="text-4xl font-bold text-white">${plan.price}</span>
-          <span className="text-lg text-gray-400 font-mono">USDC</span>
+          <span className="text-lg text-gray-400 font-mono">{selectedToken}</span>
           <span className="text-gray-400">/ {plan.period}</span>
         </div>
 
         {/* Stablecoin Info */}
         <p className="text-sm text-gray-500 mt-2">
-          Stable USD value • Powered by Circle USDC
+          Stable USD value • {selectedToken === 'USDC' ? 'Powered by Circle USDC' : `Auto-converted to USDC`}
         </p>
+      </div>
+
+      {/* Network and Token Configuration */}
+      <div className="mb-8 space-y-6">
+        <div className="max-w-xs mx-auto">
+          <NetworkToggle
+            network={network}
+            onNetworkChange={setNetwork}
+            disabled={isSubscribing || subscriptionSuccess}
+          />
+        </div>
+
+        <TokenSelector
+          selectedToken={selectedToken}
+          onTokenChange={setSelectedToken}
+          network={network}
+          disabled={isSubscribing || subscriptionSuccess}
+          className="max-w-xs mx-auto"
+        />
       </div>
 
       {/* Features */}
@@ -226,7 +255,7 @@ export default function RealSubscriptionCard({ plan, onSubscribe, merchantAddres
                 </div>
               ) : (
                 <div className="flex items-center justify-center space-x-2">
-                  <span>Subscribe for ${plan.price} USDC</span>
+                  <span>Subscribe for ${plan.price} {selectedToken}</span>
                   <ArrowRight className="h-4 w-4" />
                 </div>
               )}
@@ -255,11 +284,15 @@ export default function RealSubscriptionCard({ plan, onSubscribe, merchantAddres
           <div className="space-y-2 text-xs text-gray-400">
             <div className="flex justify-between">
               <span>Network:</span>
-              <span className="text-green-400">Solana Devnet</span>
+              <span className={network === 'mainnet' ? "text-green-600" : "text-green-400"}>
+                Solana {network === 'mainnet' ? 'Mainnet' : 'Devnet'}
+              </span>
             </div>
             <div className="flex justify-between">
               <span>Payment Method:</span>
-              <span>USDC</span>
+              <span className={(network === 'mainnet' || isTokenAvailableOnDevnet(selectedToken)) ? "text-green-400" : "text-orange-400"}>
+                {selectedToken} {network === 'devnet' && !isTokenAvailableOnDevnet(selectedToken) && "(Not Available)"}
+              </span>
             </div>
             <div className="flex justify-between">
               <span>Auto-renewal:</span>

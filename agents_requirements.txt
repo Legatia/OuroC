@@ -1,0 +1,50 @@
+# Ouro-C Agent Infrastructure Requirements
+# Python agents compiled to WebAssembly using Kybra CDK
+
+# Core Kybra CDK for ICP development
+kybra>=0.5.0
+
+# Agent communication and discovery
+uagents>=0.9.0
+openai>=1.0.0  # For AI agent integration
+
+# Async and networking
+aiohttp>=3.8.0
+aiofiles>=23.0.0
+websockets>=11.0.0
+
+# Data processing and analysis
+pandas>=2.0.0
+numpy>=1.24.0
+scipy>=1.10.0
+
+# Cryptography and security
+cryptography>=41.0.0
+ecdsa>=0.18.0
+base58>=2.1.1
+
+# Time handling
+python-dateutil>=2.8.0
+pytz>=2023.3
+
+# HTTP and API clients
+requests>=2.31.0
+httpx>=0.24.0
+
+# JSON and data serialization
+orjson>=3.9.0
+msgpack>=1.0.5
+
+# Logging and monitoring
+structlog>=23.1.0
+prometheus-client>=0.17.0
+
+# Testing
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-mock>=3.11.0
+
+# Development tools
+black>=23.0.0
+flake8>=6.0.0
+mypy>=1.5.0

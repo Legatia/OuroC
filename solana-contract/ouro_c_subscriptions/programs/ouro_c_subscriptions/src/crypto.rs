@@ -1,65 +1,21 @@
 use anchor_lang::prelude::*;
 
-/// Verify Ed25519 signature from ICP canister
-/// This validates that the payment instruction comes from the authorized ICP canister
+/// Verify Ed25519 signature from ICP canister (DEPRECATED)
+///
+/// ⚠️ DEPRECATED: This function is no longer used.
+/// Use verify_ed25519_ix() instead which leverages Solana's Ed25519Program precompile.
+///
+/// The contract now uses verify_ed25519_ix() throughout for production-ready
+/// signature verification with the Ed25519Program precompile.
+#[deprecated(since = "0.1.0", note = "Use verify_ed25519_ix() instead")]
 pub fn verify_icp_signature(
-    message: &[u8],
-    signature: &[u8; 64],
-    public_key: &[u8; 32],
+    _message: &[u8],
+    _signature: &[u8; 64],
+    _public_key: &[u8; 32],
 ) -> Result<bool> {
-    // Validate input parameters
-    require!(signature.len() == 64, crate::ErrorCode::InvalidSignature);
-    require!(public_key.len() == 32, crate::ErrorCode::InvalidSignature);
-    require!(!message.is_empty(), crate::ErrorCode::InvalidSignature);
-
-    // ✅ IMPLEMENTATION NOTE:
-    // This function is designed to work with Solana's Ed25519Program for optimal gas efficiency.
-    // For production use, call verify_ed25519_ix() instead, which leverages Solana's precompile.
-    //
-    // Alternative implementation using ed25519-dalek-bpf for off-chain verification:
-    // use ed25519_dalek_bpf::{PublicKey, Signature, Verifier};
-    // let pubkey = PublicKey::from_bytes(public_key).map_err(|_| ErrorCode::InvalidSignature)?;
-    // let sig = Signature::from_bytes(signature).map_err(|_| ErrorCode::InvalidSignature)?;
-    // pubkey.verify(message, &sig).map_err(|_| ErrorCode::InvalidSignature)?;
-    //
-    // CURRENT APPROACH (RECOMMENDED):
-    // Use verify_ed25519_ix() with Instructions sysvar for gas-efficient verification
-    // The Ed25519Program precompile has already validated the signature
-
-    // ⚠️ SECURITY IMPLEMENTATION REQUIRED:
-    // This function MUST be called alongside verify_ed25519_ix() or replaced with proper verification.
-    //
-    // RECOMMENDED APPROACH:
-    // Use Solana's Ed25519Program precompile by calling verify_ed25519_ix() with Instructions sysvar.
-    // The precompile is gas-efficient and already validates signatures at the protocol level.
-    //
-    // To use verify_ed25519_ix():
-    // 1. Add Instructions sysvar to your instruction accounts
-    // 2. Include an Ed25519 instruction before your program instruction in the transaction
-    // 3. Call verify_ed25519_ix() instead of this function
-    //
-    // See verify_ed25519_ix() function below (line 74) for full implementation.
-    //
-    // CURRENT STATUS: This function performs basic validation only.
-    // Production deployment REQUIRES using verify_ed25519_ix() or equivalent secure verification.
-
-    // ⚠️ CRITICAL: This blocks all signature verification to prevent production deployment
-    // without proper Ed25519 implementation. Enable 'devnet-bypass-signature' feature for testing.
-
-    #[cfg(not(feature = "devnet-bypass-signature"))]
-    {
-        msg!("❌ Signature verification not implemented - add proper Ed25519 verification");
-        return Err(crate::ErrorCode::InvalidSignature.into());
-    }
-
-    #[cfg(feature = "devnet-bypass-signature")]
-    {
-        msg!("⚠️ DEVNET MODE: Signature bypass enabled - NOT FOR PRODUCTION");
-        msg!("Public key: {:?}", &public_key[..8]);
-        msg!("Signature: {:?}", &signature[..8]);
-        msg!("Message length: {}", message.len());
-        Ok(true)
-    }
+    // This function is deprecated and should not be used.
+    // All signature verification now uses verify_ed25519_ix().
+    Err(crate::ErrorCode::InvalidSignature.into())
 }
 
 /// Create message for ICP canister to sign

@@ -4,6 +4,8 @@ export { ManualPaymentAlert } from './ManualPaymentAlert'
 export { HealthMonitor } from './HealthMonitor'
 // export { NotificationPermissionPrompt } from './NotificationPermissionPrompt' // Removed - directory deleted
 export { MerchantDashboard } from './MerchantDashboard'
+export { TokenSelector } from './TokenSelector'
+export { NetworkToggle } from './NetworkToggle'
 
 // Export component types
 export type { SubscriptionCardProps } from '../core/types'

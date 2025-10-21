@@ -111,13 +111,17 @@ pub mod ouro_c_subscriptions {
         config.manual_processing_enabled = matches!(authorization_mode, AuthorizationMode::ManualOnly | AuthorizationMode::Hybrid);
         config.time_based_processing_enabled = matches!(authorization_mode, AuthorizationMode::TimeBased | AuthorizationMode::Hybrid);
 
-        // Hardcoded fee collection address (admin's personal wallet)
-        config.icp_fee_collection_address = Some(Pubkey::from_str("CKEY8bppifSErEfP5cvX8hCnmQ2Yo911mosdRx7M3HxF").unwrap());
+        // SECURITY: No hardcoded fee address - must be set via update_fee_destination
+        // This prevents single point of failure and enables proper governance
+        config.icp_fee_collection_address = None; // Must be set explicitly by admin
 
         config.fee_config = FeeConfig {
             fee_percentage_basis_points,
             min_fee_amount: 1000, // 0.001 USDC minimum fee
         };
+
+        msg!("⚠️ FEE COLLECTION ADDRESS NOT SET - Admin must call update_fee_destination() to set fee destination");
+        msg!("Current authority: {:?}", ctx.accounts.authority.key());
 
         msg!("Ouro-C Subscriptions initialized by: {:?}", ctx.accounts.authority.key());
         msg!("Authorization mode: {:?}", authorization_mode);
@@ -164,9 +168,18 @@ pub mod ouro_c_subscriptions {
         subscription_id: String,
         amount: u64,
     ) -> Result<()> {
-        // Validate amount is reasonable
+        // Enhanced amount validation
         require!(amount > 0, ErrorCode::InsufficientAmount);
+        require!(amount >= 1000, ErrorCode::InsufficientAmount); // Minimum 0.001 USDC
         require!(amount <= MAX_APPROVAL_AMOUNT, ErrorCode::InvalidAmount);
+
+        // Validate subscription ID format and content
+        require!(subscription_id.len() > 0, ErrorCode::InvalidSubscriptionId);
+        require!(subscription_id.len() <= 32, ErrorCode::InvalidSubscriptionId);
+        require!(
+            subscription_id.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '-'),
+            ErrorCode::InvalidSubscriptionId
+        );
 
         // Approve the subscription PDA as delegate for the subscriber's token account
         let cpi_accounts = token::Approve {
@@ -212,12 +225,40 @@ pub mod ouro_c_subscriptions {
         icp_canister_signature: [u8; 64], // Ed25519 signature from ICP canister
     ) -> Result<()> {
         require!(!ctx.accounts.config.paused, ErrorCode::ProgramPaused);
+
+        // Enhanced input validation
         require!(amount > 0, ErrorCode::InvalidAmount);
+        require!(amount >= 1000, ErrorCode::InvalidAmount); // Minimum 0.001 USDC
+        require!(amount <= 1_000_000_000_000_000, ErrorCode::InvalidAmount); // Maximum 1B USDC
+
         require!(interval_seconds > 0, ErrorCode::InvalidInterval);
+        require!(interval_seconds >= 3600, ErrorCode::InvalidInterval); // Minimum 1 hour
+        require!(interval_seconds <= 365 * 24 * 60 * 60, ErrorCode::InvalidInterval); // Maximum 1 year
+
+        // Validate subscription ID format and content
+        require!(subscription_id.len() > 0, ErrorCode::InvalidSubscriptionId);
         require!(subscription_id.len() <= 32, ErrorCode::InvalidSubscriptionId);
+        require!(
+            subscription_id.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '-'),
+            ErrorCode::InvalidSubscriptionId
+        );
+
+        // Enhanced merchant name validation
         require!(merchant_name.len() > 0 && merchant_name.len() <= 32, ErrorCode::InvalidMerchantName);
+        require!(
+            merchant_name.chars().all(|c| c.is_alphanumeric() || c.is_whitespace() || c == '_' || c == '-' || c == '&' || c == '@' || c == '.'),
+            ErrorCode::InvalidMerchantName
+        );
+
+        // Enhanced reminder days validation
         require!(reminder_days_before_payment > 0 && reminder_days_before_payment <= MAX_REMINDER_DAYS, ErrorCode::InvalidReminderDays);
+
+        // Enhanced slippage validation
         require!(slippage_bps > 0 && slippage_bps <= MAX_SLIPPAGE_BPS, ErrorCode::InvalidSlippage);
+
+        // Additional security: Prevent unreasonable payment amounts
+        let amount_usdc = amount as f64 / 1_000_000.0;
+        require!(amount_usdc <= 1_000_000.0, ErrorCode::InvalidAmount); // Max $1M per payment
 
         // Validate payment token is supported
         let token_str = payment_token_mint.to_string();
@@ -547,7 +588,7 @@ pub mod ouro_c_subscriptions {
                 // Verify timestamp (5 minute window)
                 let current_time = Clock::get()?.unix_timestamp;
                 require!(
-                    crate::crypto::verify_timestamp(timestamp, current_time, 300)?,
+                    crate::crypto::verify_timestamp(timestamp, current_time, 60)?,
                     ErrorCode::TimestampExpired
                 );
 
@@ -587,7 +628,7 @@ pub mod ouro_c_subscriptions {
                         );
 
                         let current_time = Clock::get()?.unix_timestamp;
-                        let timestamp_valid = crate::crypto::verify_timestamp(timestamp, current_time, 300)?;
+                        let timestamp_valid = crate::crypto::verify_timestamp(timestamp, current_time, 60)?;
 
                         if timestamp_valid {
                             let is_valid = verify_ed25519_ix(
@@ -606,7 +647,7 @@ pub mod ouro_c_subscriptions {
                 } else {
                     // No signature - check if payment is overdue (5 min grace period)
                     let current_time = Clock::get()?.unix_timestamp;
-                    let grace_period = 300; // 5 minutes
+                    let grace_period = 60; // 1 minute
                     require!(
                         current_time >= subscription.next_payment_time + grace_period,
                         ErrorCode::PaymentNotDue
@@ -689,7 +730,7 @@ pub mod ouro_c_subscriptions {
 
                 let current_time = Clock::get()?.unix_timestamp;
                 require!(
-                    crate::crypto::verify_timestamp(timestamp, current_time, 300)?,
+                    crate::crypto::verify_timestamp(timestamp, current_time, 60)?,
                     ErrorCode::TimestampExpired
                 );
 
@@ -720,7 +761,7 @@ pub mod ouro_c_subscriptions {
                         let message = crate::crypto::create_payment_message(&subscription.id, timestamp, subscription.amount);
                         let current_time = Clock::get()?.unix_timestamp;
 
-                        if crate::crypto::verify_timestamp(timestamp, current_time, 300)? {
+                        if crate::crypto::verify_timestamp(timestamp, current_time, 60)? {
                             let is_valid = verify_ed25519_ix(
                                 &ctx.accounts.instructions_sysvar,
                                 &icp_pubkey,
@@ -828,6 +869,12 @@ mod payment_helpers {
         require!(!config.paused, ErrorCode::ProgramPaused);
         require!(subscription.status == SubscriptionStatus::Active, ErrorCode::SubscriptionNotActive);
 
+        // SECURITY: Validate fee collection address is set
+        require!(
+            config.icp_fee_collection_address.is_some(),
+            ErrorCode::FeeCollectionAddressNotSet
+        );
+
         let clock = Clock::get()?;
 
         // Authorization based on configured mode
@@ -843,7 +890,7 @@ mod payment_helpers {
                 );
 
                 // Verify timestamp is recent (prevent replay attacks)
-                let max_age_seconds = 300; // 5 minutes
+                let max_age_seconds = 60; // 1 minute
                 require!(
                     verify_timestamp(timestamp, clock.unix_timestamp, max_age_seconds)?,
                     ErrorCode::SignatureExpired
@@ -1658,11 +1705,21 @@ fn process_swap_then_split(ctx: Context<ProcessTriggerWithSwap>) -> Result<()> {
     msg!("Jupiter swap executed successfully");
 
     // Step 2: Get actual USDC output amount
-    // NOTE: In production, deserialize subscriber_usdc_account to get actual balance
-    // For now, use expected output from quote as placeholder
-    let usdc_output = payment_token_amount; // TODO: Read actual USDC account balance after swap
+    // SECURITY: Verify actual swap output to prevent cheating
+    let subscriber_usdc_account_after = &mut ctx.accounts.subscriber_usdc_account;
+    subscriber_usdc_account_after.reload()?;
+    let usdc_output = subscriber_usdc_account_after.amount;
 
-    msg!("Swapped {} tokens → {} USDC (placeholder - needs actual balance check)", payment_token_amount, usdc_output);
+    msg!("Swapped {} tokens → {} USDC (verified actual balance)", payment_token_amount, usdc_output);
+
+    // SECURITY: Verify we received reasonable amount (within slippage tolerance)
+    let expected_output = payment_token_amount; // For stablecoins, expect ~1:1
+    let max_slippage = expected_output.checked_mul(9500).unwrap() / 10000; // 5% max slippage
+
+    require!(
+        usdc_output >= max_slippage,
+        ErrorCode::SlippageExceeded
+    );
 
     // Step 3: Calculate fee split from swapped USDC
     let fee_amount_u128 = (usdc_output as u128)
@@ -1746,9 +1803,17 @@ fn process_swap_then_split(ctx: Context<ProcessTriggerWithSwap>) -> Result<()> {
 fn build_jupiter_swap_instruction(in_amount: u64, min_out_amount: u64) -> Vec<u8> {
     let mut data = Vec::with_capacity(24);
 
-    // Jupiter V6 swap discriminator (sighash of "global:shared_accounts_route")
-    // This is a placeholder - actual discriminator from Jupiter IDL
-    data.extend_from_slice(&[0xe4, 0x45, 0xa5, 0x2e, 0x51, 0xcb, 0x9a, 0x1d]);
+    // ⚠️ PRODUCTION REQUIRED: Get actual Jupiter V6 discriminator from IDL
+    // Current discriminator is for development only
+    let discriminator = std::env::var("JUPITER_V6_DISCRIMINATOR")
+        .unwrap_or_else(|_| "e445a52e51cb9a1d".to_string());
+
+    if let Ok(hex_str) = hex::decode(discriminator) {
+        data.extend_from_slice(&hex_str);
+    } else {
+        // Development discriminator (may not work with mainnet Jupiter)
+        data.extend_from_slice(&[0xe4, 0x45, 0xa5, 0x2e, 0x51, 0xcb, 0x9a, 0x1d]);
+    }
 
     // in_amount (8 bytes, little-endian)
     data.extend_from_slice(&in_amount.to_le_bytes());
@@ -1964,4 +2029,7 @@ pub enum ErrorCode {
 
     #[msg("Swap not yet implemented - requires DEX integration")]
     SwapNotImplemented,
+
+    #[msg("Fee collection address not set - admin must call update_fee_destination")]
+    FeeCollectionAddressNotSet,
 }
