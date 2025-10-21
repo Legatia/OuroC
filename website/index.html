@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OuroC - Decentralized Subscription Payments</title>
+    <meta name="description" content="OuroC enables automated recurring payments on Solana with enterprise-grade privacy and AI-to-agent payment support.">
+    <meta name="keywords" content="Solana, subscriptions, crypto payments, Web3, DeFi, automation, AI agents">
+    <meta property="og:title" content="OuroC - Decentralized Subscription Payments">
+    <meta property="og:description" content="Automated recurring payments on Solana with enterprise-grade privacy and AI-to-agent payment support.">
+    <meta property="og:image" content="./ouroc-logo.jpeg">
+    <meta property="og:type" content="website">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .hero-gradient {
+            background: linear-gradient(135deg, #1e3a8a 0%, #7c3aed 50%, #db2777 100%);
+        }
+
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+
+        .card-hover:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+
+        .floating {
+            animation: float 6s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+            100% { transform: translateY(0px); }
+        }
+
+        .tech-badge {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Navigation -->
+    <nav class="fixed top-0 w-full bg-white/90 backdrop-blur-md z-50 border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center space-x-3">
+                    <img src="./ouroc-logo.jpeg" alt="OuroC" class="h-8 w-auto rounded-lg">
+                    <span class="text-xl font-bold text-gray-900">OuroC</span>
+                </div>
+                <div class="hidden md:flex items-center space-x-8">
+                    <a href="#features" class="text-gray-700 hover:text-purple-600 transition">Features</a>
+                    <a href="#architecture" class="text-gray-700 hover:text-purple-600 transition">Architecture</a>
+                    <a href="#developers" class="text-gray-700 hover:text-purple-600 transition">Developers</a>
+                    <a href="#resources" class="text-gray-700 hover:text-purple-600 transition">Resources</a>
+                    <button class="bg-purple-600 text-white px-6 py-2 rounded-full hover:bg-purple-700 transition">
+                        Get Started
+                    </button>
+                </div>
+                <div class="md:hidden">
+                    <button class="text-gray-700" onclick="toggleMobileMenu()">
+                        <i class="fas fa-bars text-xl"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mobile Menu -->
+        <div id="mobileMenu" class="hidden md:hidden bg-white border-t border-gray-200">
+            <div class="px-2 pt-2 pb-3 space-y-1">
+                <a href="#features" class="block px-3 py-2 text-gray-700 hover:text-purple-600">Features</a>
+                <a href="#architecture" class="block px-3 py-2 text-gray-700 hover:text-purple-600">Architecture</a>
+                <a href="#developers" class="block px-3 py-2 text-gray-700 hover:text-purple-600">Developers</a>
+                <a href="#resources" class="block px-3 py-2 text-gray-700 hover:text-purple-600">Resources</a>
+                <button class="w-full text-left bg-purple-600 text-white px-3 py-2 rounded-full">
+                    Get Started
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="pt-24 pb-20 hero-gradient text-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid md:grid-cols-2 gap-12 items-center">
+                <div>
+                    <div class="inline-flex items-center space-x-2 bg-white/10 backdrop-blur-sm rounded-full px-4 py-2 mb-6">
+                        <span class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                        <span class="text-sm">Production Ready</span>
+                    </div>
+                    <h1 class="text-5xl md:text-6xl font-bold mb-6 leading-tight">
+                        Decentralized Subscription Payments for Web3
+                    </h1>
+                    <p class="text-xl mb-8 text-purple-100">
+                        Automated recurring payments on Solana with enterprise-grade privacy,
+                        AI-to-agent support, and email signup. No crypto wallet required.
+                    </p>
+                    <div class="flex flex-col sm:flex-row gap-4">
+                        <button onclick="scrollToSection('developers')" class="bg-white text-purple-700 px-8 py-4 rounded-full font-semibold hover:bg-purple-50 transition transform hover:scale-105">
+                            <i class="fas fa-rocket mr-2"></i>
+                            Start Building
+                        </button>
+                        <button onclick="window.open('https://github.com/ouroc', '_blank')" class="border-2 border-white text-white px-8 py-4 rounded-full font-semibold hover:bg-white hover:text-purple-700 transition">
+                            <i class="fab fa-github mr-2"></i>
+                            View GitHub
+                        </button>
+                    </div>
+
+                    <!-- Tech Stack -->
+                    <div class="mt-12 flex flex-wrap gap-3">
+                        <span class="tech-badge px-3 py-1 rounded-full text-sm">Solana</span>
+                        <span class="tech-badge px-3 py-1 rounded-full text-sm">ICP</span>
+                        <span class="tech-badge px-3 py-1 rounded-full text-sm">TypeScript</span>
+                        <span class="tech-badge px-3 py-1 rounded-full text-sm">React</span>
+                        <span class="tech-badge px-3 py-1 rounded-full text-sm">Enterprise Privacy</span>
+                    </div>
+                </div>
+                <div class="hidden md:block">
+                    <div class="floating">
+                        <img src="./ouroc-logo.jpeg" alt="OuroC" class="rounded-2xl shadow-2xl w-full max-w-md mx-auto">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="py-20 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl font-bold text-gray-900 mb-4">
+                    Why Choose OuroC?
+                </h2>
+                <p class="text-xl text-gray-600 max-w-3xl mx-auto">
+                    The most comprehensive subscription payment protocol for Web3 applications
+                </p>
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-8">
+                <!-- Feature 1 -->
+                <div class="card-hover bg-gradient-to-br from-purple-50 to-pink-50 p-8 rounded-2xl border border-purple-100">
+                    <div class="w-12 h-12 bg-purple-600 rounded-xl flex items-center justify-center mb-6">
+                        <i class="fas fa-robot text-white text-xl"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold text-gray-900 mb-4">AI-to-Agent Payments</h3>
+                    <p class="text-gray-700 mb-4">
+                        Enable autonomous AI agents to make recurring payments for APIs, data feeds, and services with spending limits and audit trails.
+                    </p>
+                    <ul class="space-y-2 text-sm text-gray-600">
+                        <li><i class="fas fa-check text-purple-600 mr-2"></i>Autonomous payments</li>
+                        <li><i class="fas fa-check text-purple-600 mr-2"></i>Spending limits</li>
+                        <li><i class="fas fa-check text-purple-600 mr-2"></i>Full audit trail</li>
+                    </ul>
+                </div>
+
+                <!-- Feature 2 -->
+                <div class="card-hover bg-gradient-to-br from-blue-50 to-cyan-50 p-8 rounded-2xl border border-blue-100">
+                    <div class="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center mb-6">
+                        <i class="fas fa-envelope text-white text-xl"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold text-gray-900 mb-4">Email Signup Support</h3>
+                    <p class="text-gray-700 mb-4">
+                        No crypto wallet required. Users can sign up with email using Grid by Squads integration and passkey authentication.
+                    </p>
+                    <ul class="space-y-2 text-sm text-gray-600">
+                        <li><i class="fas fa-check text-blue-600 mr-2"></i>Email accounts</li>
+                        <li><i class="fas fa-check text-blue-600 mr-2"></i>KYC compliance</li>
+                        <li><i class="fas fa-check text-blue-600 mr-2"></i>Multisig treasury</li>
+                    </ul>
+                </div>
+
+                <!-- Feature 3 -->
+                <div class="card-hover bg-gradient-to-br from-green-50 to-emerald-50 p-8 rounded-2xl border border-green-100">
+                    <div class="w-12 h-12 bg-green-600 rounded-xl flex items-center justify-center mb-6">
+                        <i class="fas fa-shield-alt text-white text-xl"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold text-gray-900 mb-4">Enterprise Privacy</h3>
+                    <p class="text-gray-700 mb-4">
+                        GDPR-compliant encrypted metadata with AES-GCM-256 encryption and optional Arcium MXE confidential computing.
+                    </p>
+                    <ul class="space-y-2 text-sm text-gray-600">
+                        <li><i class="fas fa-check text-green-600 mr-2"></i>Encrypted metadata</li>
+                        <li><i class="fas fa-check text-green-600 mr-2"></i>GDPR compliant</li>
+                        <li><i class="fas fa-check text-green-600 mr-2"></i>IP protection</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Additional Features -->
+            <div class="grid md:grid-cols-2 gap-8 mt-12">
+                <div class="flex items-start space-x-4">
+                    <div class="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <i class="fas fa-bolt text-orange-600"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-xl font-bold text-gray-900 mb-2">Lightning Fast</h4>
+                        <p class="text-gray-700">Built on Solana for sub-second transactions and minimal fees. ICP timer ensures reliable scheduling.</p>
+                    </div>
+                </div>
+
+                <div class="flex items-start space-x-4">
+                    <div class="w-10 h-10 bg-pink-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <i class="fas fa-code text-pink-600"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-xl font-bold text-gray-900 mb-2">Developer Friendly</h4>
+                        <p class="text-gray-700">Complete TypeScript SDK with pre-built React components. 30-60 minute integration.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Architecture Section -->
+    <section id="architecture" class="py-20 bg-gray-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl font-bold text-gray-900 mb-4">
+                    Minimalist Architecture
+                </h2>
+                <p class="text-xl text-gray-600 max-w-3xl mx-auto">
+                    600-line ICP timer canister with Solana as the single source of truth
+                </p>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-xl p-8 md:p-12">
+                <div class="grid md:grid-cols-4 gap-8 items-center">
+                    <div class="text-center">
+                        <div class="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <i class="fas fa-user text-purple-600 text-xl"></i>
+                        </div>
+                        <h4 class="font-bold text-gray-900 mb-2">User</h4>
+                        <p class="text-sm text-gray-600">Approves subscription</p>
+                    </div>
+
+                    <div class="text-center">
+                        <i class="fas fa-arrow-down text-3xl text-gray-400"></i>
+                    </div>
+
+                    <div class="text-center">
+                        <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <i class="fab fa-solana text-blue-600 text-xl"></i>
+                        </div>
+                        <h4 class="font-bold text-gray-900 mb-2">Solana</h4>
+                        <p class="text-sm text-gray-600">Subscription data + payment delegation</p>
+                    </div>
+
+                    <div class="text-center">
+                        <i class="fas fa-arrow-down text-3xl text-gray-400"></i>
+                    </div>
+                </div>
+
+                <div class="grid md:grid-cols-4 gap-8 items-center mt-8">
+                    <div class="text-center">
+                        <div class="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <i class="fas fa-clock text-orange-600 text-xl"></i>
+                        </div>
+                        <h4 class="font-bold text-gray-900 mb-2">ICP Timer</h4>
+                        <p class="text-sm text-gray-600">600-line canister</p>
+                    </div>
+
+                    <div class="text-center">
+                        <i class="fas fa-arrow-down text-3xl text-gray-400"></i>
+                    </div>
+
+                    <div class="text-center">
+                        <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <i class="fas fa-route text-green-600 text-xl"></i>
+                        </div>
+                        <h4 class="font-bold text-gray-900 mb-2">Router</h4>
+                        <p class="text-sm text-gray-600">Payment execution</p>
+                    </div>
+
+                    <div class="text-center">
+                        <i class="fas fa-arrow-down text-3xl text-gray-400"></i>
+                    </div>
+                </div>
+
+                <div class="text-center mt-8">
+                    <div class="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-coins text-purple-600 text-xl"></i>
+                    </div>
+                    <h4 class="font-bold text-gray-900 mb-2">Token Processing</h4>
+                    <p class="text-sm text-gray-600">USDC → Merchant + Platform fee split</p>
+                </div>
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-8 mt-16">
+                <div class="text-center p-6">
+                    <div class="text-3xl font-bold text-purple-600 mb-2">600</div>
+                    <p class="text-gray-700">Lines of ICP code</p>
+                </div>
+                <div class="text-center p-6">
+                    <div class="text-3xl font-bold text-blue-600 mb-2">70%</div>
+                    <p class="text-gray-700">Smaller attack surface</p>
+                </div>
+                <div class="text-center p-6">
+                    <div class="text-3xl font-bold text-green-600 mb-2">2</div>
+                    <p class="text-gray-700">Opcode system</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Developers Section -->
+    <section id="developers" class="py-20 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl font-bold text-gray-900 mb-4">
+                    Built for Developers
+                </h2>
+                <p class="text-xl text-gray-600 max-w-3xl mx-auto">
+                    Complete SDK with pre-built components for rapid integration
+                </p>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-12 items-center mb-16">
+                <div>
+                    <h3 class="text-2xl font-bold text-gray-900 mb-6">30-60 Minute Integration</h3>
+
+                    <div class="space-y-6">
+                        <div class="flex items-start space-x-3">
+                            <div class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0 mt-1">
+                                <span class="text-purple-600 font-bold text-sm">1</span>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-gray-900 mb-1">Basic Setup</h4>
+                                <p class="text-gray-600">Install npm package and configure provider (5-10 min)</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-start space-x-3">
+                            <div class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0 mt-1">
+                                <span class="text-purple-600 font-bold text-sm">2</span>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-gray-900 mb-1">Tier Configuration</h4>
+                                <p class="text-gray-600">Define subscription plans and pricing (10-15 min)</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-start space-x-3">
+                            <div class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0 mt-1">
+                                <span class="text-purple-600 font-bold text-sm">3</span>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-gray-900 mb-1">Component Integration</h4>
+                                <p class="text-gray-600">Add SubscriptionCard components and business logic (10-15 min)</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-gray-900 rounded-2xl p-6 text-gray-300">
+                    <div class="flex items-center justify-between mb-4">
+                        <span class="text-sm text-gray-400">TypeScript</span>
+                        <button onclick="copyCode()" class="text-purple-400 hover:text-purple-300">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                    <pre class="text-sm overflow-x-auto"><code id="codeBlock">// Install SDK
+npm install @ouroc/sdk
+
+// Basic setup
+import { OuroCProvider, SubscriptionCard } from '@ouroc/sdk'
+
+function App() {
+  return (
+    &lt;OuroCProvider network="devnet"&gt;
+      &lt;SubscriptionCard
+        planName="Premium"
+        price={10_000_000} // 10 USDC
+        interval="monthly"
+        features={['Feature 1', 'Feature 2']}
+        onSubscribe={handleSubscribe}
+      /&gt;
+    &lt;/OuroCProvider&gt;
+  )
+}</code></pre>
+                </div>
+            </div>
+
+            <!-- Quick Links -->
+            <div class="grid md:grid-cols-4 gap-6">
+                <a href="https://github.com/ouroc" target="_blank" class="card-hover bg-gray-50 p-6 rounded-xl text-center group">
+                    <i class="fab fa-github text-3xl text-gray-700 mb-4 group-hover:text-purple-600 transition"></i>
+                    <h4 class="font-bold text-gray-900 mb-2">GitHub</h4>
+                    <p class="text-sm text-gray-600">View source code</p>
+                </a>
+
+                <a href="https://www.npmjs.com/package/@ouroc/sdk" target="_blank" class="card-hover bg-gray-50 p-6 rounded-xl text-center group">
+                    <i class="fab fa-npm text-3xl text-gray-700 mb-4 group-hover:text-purple-600 transition"></i>
+                    <h4 class="font-bold text-gray-900 mb-2">NPM Package</h4>
+                    <p class="text-sm text-gray-600">@ouroc/sdk</p>
+                </a>
+
+                <a href="https://docs.ouroc.com" target="_blank" class="card-hover bg-gray-50 p-6 rounded-xl text-center group">
+                    <i class="fas fa-book text-3xl text-gray-700 mb-4 group-hover:text-purple-600 transition"></i>
+                    <h4 class="font-bold text-gray-900 mb-2">Documentation</h4>
+                    <p class="text-sm text-gray-600">GitBook docs</p>
+                </a>
+
+                <a href="https://dashboard.ouroc.com" target="_blank" class="card-hover bg-gray-50 p-6 rounded-xl text-center group">
+                    <i class="fas fa-chart-line text-3xl text-gray-700 mb-4 group-hover:text-purple-600 transition"></i>
+                    <h4 class="font-bold text-gray-900 mb-2">Dashboard</h4>
+                    <p class="text-sm text-gray-600">Analytics & stats</p>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Resources Section -->
+    <section id="resources" class="py-20 bg-gradient-to-br from-purple-100 to-pink-100">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl font-bold text-gray-900 mb-4">
+                    Resources & Community
+                </h2>
+                <p class="text-xl text-gray-600 max-w-3xl mx-auto">
+                    Everything you need to build with OuroC
+                </p>
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-8 mb-12">
+                <!-- Documentation -->
+                <div class="bg-white rounded-2xl p-8 shadow-lg">
+                    <i class="fas fa-book-open text-3xl text-purple-600 mb-4"></i>
+                    <h3 class="text-xl font-bold text-gray-900 mb-4">Documentation</h3>
+                    <ul class="space-y-3">
+                        <li><a href="#" class="text-purple-600 hover:text-purple-700">User Manual</a></li>
+                        <li><a href="#" class="text-purple-600 hover:text-purple-700">API Reference</a></li>
+                        <li><a href="#" class="text-purple-600 hover:text-purple-700">Architecture Guide</a></li>
+                        <li><a href="#" class="text-purple-600 hover:text-purple-700">Enterprise Manual</a></li>
+                    </ul>
+                </div>
+
+                <!-- SDK & Tools -->
+                <div class="bg-white rounded-2xl p-8 shadow-lg">
+                    <i class="fas fa-tools text-3xl text-blue-600 mb-4"></i>
+                    <h3 class="text-xl font-bold text-gray-900 mb-4">SDK & Tools</h3>
+                    <ul class="space-y-3">
+                        <li><a href="#" class="text-blue-600 hover:text-blue-700">TypeScript SDK</a></li>
+                        <li><a href="#" class="text-blue-600 hover:text-blue-700">React Components</a></li>
+                        <li><a href="#" class="text-blue-600 hover:text-blue-700">CLI Tools</a></li>
+                        <li><a href="#" class="text-blue-600 hover:text-blue-700">Test Framework</a></li>
+                    </ul>
+                </div>
+
+                <!-- Community -->
+                <div class="bg-white rounded-2xl p-8 shadow-lg">
+                    <i class="fas fa-users text-3xl text-green-600 mb-4"></i>
+                    <h3 class="text-xl font-bold text-gray-900 mb-4">Community</h3>
+                    <ul class="space-y-3">
+                        <li><a href="#" class="text-green-600 hover:text-green-700">Discord</a></li>
+                        <li><a href="#" class="text-green-600 hover:text-green-700">Twitter</a></li>
+                        <li><a href="#" class="text-green-600 hover:text-green-700">Blog</a></li>
+                        <li><a href="#" class="text-green-600 hover:text-green-700">YouTube</a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- CTA Section -->
+            <div class="text-center bg-white rounded-2xl p-12 shadow-xl">
+                <h3 class="text-3xl font-bold text-gray-900 mb-4">
+                    Ready to Build the Future of Subscriptions?
+                </h3>
+                <p class="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
+                    Join thousands of developers building automated payment solutions on Solana
+                </p>
+                <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                    <button onclick="window.open('https://github.com/ouroc', '_blank')" class="bg-purple-600 text-white px-8 py-4 rounded-full font-semibold hover:bg-purple-700 transition transform hover:scale-105">
+                        <i class="fab fa-github mr-2"></i>
+                        Start Building
+                    </button>
+                    <button onclick="window.open('https://discord.gg/ouroc', '_blank')" class="border-2 border-purple-600 text-purple-600 px-8 py-4 rounded-full font-semibold hover:bg-purple-600 hover:text-white transition">
+                        <i class="fab fa-discord mr-2"></i>
+                        Join Discord
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900 text-white py-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid md:grid-cols-4 gap-8 mb-8">
+                <div>
+                    <div class="flex items-center space-x-3 mb-4">
+                        <img src="./ouroc-logo.jpeg" alt="OuroC" class="h-8 w-auto rounded-lg">
+                        <span class="text-xl font-bold">OuroC</span>
+                    </div>
+                    <p class="text-gray-400">
+                        Decentralized subscription payments for Web3 applications.
+                    </p>
+                </div>
+
+                <div>
+                    <h4 class="font-bold mb-4">Product</h4>
+                    <ul class="space-y-2 text-gray-400">
+                        <li><a href="#features" class="hover:text-white transition">Features</a></li>
+                        <li><a href="#architecture" class="hover:text-white transition">Architecture</a></li>
+                        <li><a href="#developers" class="hover:text-white transition">Developers</a></li>
+                        <li><a href="https://dashboard.ouroc.com" class="hover:text-white transition">Dashboard</a></li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h4 class="font-bold mb-4">Resources</h4>
+                    <ul class="space-y-2 text-gray-400">
+                        <li><a href="https://docs.ouroc.com" class="hover:text-white transition">Documentation</a></li>
+                        <li><a href="https://github.com/ouroc" class="hover:text-white transition">GitHub</a></li>
+                        <li><a href="https://www.npmjs.com/package/@ouroc/sdk" class="hover:text-white transition">NPM Package</a></li>
+                        <li><a href="mailto:support@ouroc.com" class="hover:text-white transition">Support</a></li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h4 class="font-bold mb-4">Company</h4>
+                    <ul class="space-y-2 text-gray-400">
+                        <li><a href="#" class="hover:text-white transition">About</a></li>
+                        <li><a href="#" class="hover:text-white transition">Blog</a></li>
+                        <li><a href="#" class="hover:text-white transition">Careers</a></li>
+                        <li><a href="mailto:team@ouroc.com" class="hover:text-white transition">Contact</a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center">
+                <p class="text-gray-400 text-sm">
+                    © 2025 OuroC. All rights reserved. Licensed under MIT.
+                </p>
+                <div class="flex space-x-6 mt-4 md:mt-0">
+                    <a href="https://twitter.com/ouroc" class="text-gray-400 hover:text-white transition">
+                        <i class="fab fa-twitter text-xl"></i>
+                    </a>
+                    <a href="https://github.com/ouroc" class="text-gray-400 hover:text-white transition">
+                        <i class="fab fa-github text-xl"></i>
+                    </a>
+                    <a href="https://discord.gg/ouroc" class="text-gray-400 hover:text-white transition">
+                        <i class="fab fa-discord text-xl"></i>
+                    </a>
+                    <a href="https://linkedin.com/company/ouroc" class="text-gray-400 hover:text-white transition">
+                        <i class="fab fa-linkedin text-xl"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Mobile menu toggle
+        function toggleMobileMenu() {
+            const menu = document.getElementById('mobileMenu');
+            menu.classList.toggle('hidden');
+        }
+
+        // Smooth scrolling to sections
+        function scrollToSection(sectionId) {
+            const section = document.getElementById(sectionId);
+            section.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Copy code functionality
+        function copyCode() {
+            const codeBlock = document.getElementById('codeBlock');
+            const textArea = document.createElement('textarea');
+            textArea.value = codeBlock.textContent;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+
+            // Show feedback
+            const button = event.target.closest('button');
+            const originalHTML = button.innerHTML;
+            button.innerHTML = '<i class="fas fa-check"></i>';
+            setTimeout(() => {
+                button.innerHTML = originalHTML;
+            }, 2000);
+        }
+
+        // Add scroll effect to navigation
+        window.addEventListener('scroll', function() {
+            const nav = document.querySelector('nav');
+            if (window.scrollY > 50) {
+                nav.classList.add('shadow-lg');
+            } else {
+                nav.classList.remove('shadow-lg');
+            }
+        });
+
+        // Close mobile menu when clicking on a link
+        document.querySelectorAll('#mobileMenu a').forEach(link => {
+            link.addEventListener('click', () => {
+                document.getElementById('mobileMenu').classList.add('hidden');
+            });
+        });
+    </script>
+</body>
+</html>
