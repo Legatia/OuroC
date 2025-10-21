@@ -50,9 +50,11 @@ OuroC is a **decentralized subscription payment protocol** that enables automate
 
 ---
 
-## Getting Started
+## Getting Started with providing your clients OuroC functionalities
 
 ### Installation
+
+Run installation in your front-end project folder:
 
 ```bash
 npm install @ouroc/sdk
@@ -163,7 +165,7 @@ User → Solana Contract (subscription data + payment delegation)
 
 ---
 
-## For Subscribers
+## What to include in your front-end so that subscribers can pay you with USDC
 
 ### Creating Your First Subscription
 
@@ -339,7 +341,7 @@ function NotificationSettings() {
 
 ---
 
-## For Merchants
+## What to include in your front-end so that you can see OuroC's influence on your business
 
 ### Accepting Subscriptions
 
@@ -547,7 +549,7 @@ function FiatWithdrawal() {
 
 ---
 
-## For AI Agents
+## What to include in your front-end so that AI Agents can connect with OuroC
 
 ### Setting Up Agent Payments
 

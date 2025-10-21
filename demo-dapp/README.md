@@ -2,9 +2,13 @@
 
 A Next.js demonstration application showcasing the OuroC subscription payment protocol on Solana with ICP integration.
 
+This document will take you through the steps of running the demo of an front-end application using OuroC for managing it's subscriptions.
+
+If you have your front-end application where you would like to add OuroC, refer to the [User_Manual](../USER_MANUAL.md)
+
 ## Features
 
-- 🔐 Wallet connection (Phantom, Solflare)
+- 🔐 Wallet connection
 - 💳 Subscription creation and management
 - 📊 Merchant dashboard with analytics
 - 🤖 AI-to-AI (A2A) payment demonstration
@@ -16,7 +20,7 @@ A Next.js demonstration application showcasing the OuroC subscription payment pr
 ### Prerequisites
 
 - Node.js 18+ and npm
-- A Solana wallet (Phantom or Solflare)
+- A Solana wallet
 - Devnet SOL tokens
 
 ### Installation
