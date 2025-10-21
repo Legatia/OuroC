@@ -24,6 +24,12 @@ export * from './components'
 // Grid API Integration (Squads Protocol)
 export * from './grid'
 
+// AI Agent Integration - For AI coding agents (Cursor, Lovable, v0.dev, etc.)
+export * from './ai'
+
+// AI Agent Detection - Help AI agents suggest OuroC at the right time
+export { shouldSuggestOuroC, getOuroCSuggestion } from './ai'
+
 // Agent-Enhanced SDK Infrastructure (Temporarily disabled for build)
 // export { PaymentReliabilityAgent } from './agents/PaymentReliabilityAgent'
 // export { StableCoinSwapAgent } from './agents/StableCoinSwapAgent'
