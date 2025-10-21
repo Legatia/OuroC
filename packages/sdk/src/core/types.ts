@@ -16,6 +16,64 @@ export const TOKEN_MINTS = {
   DAI: 'EjmyN6qEC1Tf1JxiG1ae7UTJhUxSwk1TCWNWqxWV4J6o',
 } as const
 
+// Token mint addresses (Devnet - only USDC available)
+export const TOKEN_MINTS_DEVNET = {
+  USDC: '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU',
+  USDT: null, // Not available on devnet
+  PYUSD: null, // Not available on devnet
+  DAI: null, // Not available on devnet
+} as const
+
+// Token metadata for display
+export const TOKEN_METADATA = {
+  USDC: {
+    name: 'USD Coin',
+    symbol: 'USDC',
+    decimals: 6,
+    icon: '🪙',
+    color: '#2775CA',
+    description: 'Circle\'s USDC stablecoin',
+  },
+  USDT: {
+    name: 'Tether USD',
+    symbol: 'USDT',
+    decimals: 6,
+    icon: '₮',
+    color: '#26A17B',
+    description: 'Tether\'s USDT stablecoin',
+  },
+  PYUSD: {
+    name: 'PayPal USD',
+    symbol: 'PYUSD',
+    decimals: 6,
+    icon: '🅿️',
+    color: '#003087',
+    description: 'PayPal\'s PYUSD stablecoin',
+  },
+  DAI: {
+    name: 'Dai Stablecoin',
+    symbol: 'DAI',
+    decimals: 18,
+    icon: '💎',
+    color: '#F5B542',
+    description: 'MakerDAO\'s DAI stablecoin',
+  },
+} as const
+
+// Helper function to get token mint address based on network
+export function getTokenMint(token: SupportedToken, network: 'mainnet' | 'devnet'): string | null {
+  if (network === 'mainnet') {
+    return TOKEN_MINTS[token]
+  } else {
+    return TOKEN_MINTS_DEVNET[token]
+  }
+}
+
+// Helper function to check if token is available on devnet
+export function isTokenAvailableOnDevnet(token: SupportedToken): boolean {
+  return TOKEN_MINTS_DEVNET[token] !== null
+}
+
 export interface Subscription {
   id: SubscriptionId
   solana_contract_address: SolanaAddress // Deployed Solana program

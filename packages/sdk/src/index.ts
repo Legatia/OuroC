@@ -24,5 +24,48 @@ export * from './components'
 // Grid API Integration (Squads Protocol)
 export * from './grid'
 
+// Agent-Enhanced SDK Infrastructure (Temporarily disabled for build)
+// export { PaymentReliabilityAgent } from './agents/PaymentReliabilityAgent'
+// export { StableCoinSwapAgent } from './agents/StableCoinSwapAgent'
+// export { EscrowBatchingAgent } from './agents/EscrowBatchingAgent'
+// export { APISubscriptionAgent } from './agents/APISubscriptionAgent'
+// export { EnterpriseWorkflowAgent } from './agents/EnterpriseWorkflowAgent'
+
+// export type {
+//   PaymentMetrics,
+//   FailureAnalysis,
+//   RecoveryStrategy,
+//   RevenueProtectionMetrics
+// } from './agents/PaymentReliabilityAgent'
+
+// export type {
+//   StableCoinInfo,
+//   SwapRequest,
+//   SwapRoute,
+//   SwapMetrics
+// } from './agents/StableCoinSwapAgent'
+
+// export type {
+//   MerchantConfig,
+//   BatchPayment,
+//   Batch,
+//   EscrowPDA,
+//   BatchingMetrics
+// } from './agents/EscrowBatchingAgent'
+
+// export type {
+//   APIProvider,
+//   APISubscriptionConfig,
+//   UsageAnalytics
+// } from './agents/APISubscriptionAgent'
+
+// export type {
+//   EnterpriseWorkflow,
+//   WorkflowStep,
+//   ProcurementRequest,
+//   SupplierInfo,
+//   ComplianceRule
+// } from './agents/EnterpriseWorkflowAgent'
+
 // CSS imports for default styling
 import './styles/default.css'

@@ -2,7 +2,7 @@
 
 **Version**: 1.0.0
 **Status**: Production Ready
-**Last Updated**: 2025-10-17
+**Last Updated**: 2025-10-21
 
 ---
 
@@ -91,17 +91,25 @@ import { OuroCClient } from '@ouroc/sdk';
 
 const client = new OuroCClient({ wallet });
 
-// Create a subscription
+// Create a subscription with enhanced validation
 const subscription = await client.createSubscription({
   solana_payer: wallet.publicKey.toString(),
   solana_receiver: "MERCHANT_WALLET_ADDRESS",
-  amount: 10_000000, // 10 USDC
-  interval_seconds: 2592000, // 30 days
-  token: "USDC"
+  amount: 10_000000, // 10 USDC (minimum 1,000 micro-USDC)
+  interval_seconds: 2592000, // 30 days (minimum 3,600s)
+  token: "USDC",
+  subscription_id: "premium-plan-001", // Alphanumeric + underscores/hyphens only
+  merchant_name: "Premium Service" // 1-50 characters, printable ASCII only
 });
 
 console.log('Subscription created:', subscription.id);
 ```
+
+**Security Notes:**
+- ✅ **Enhanced validation** - All inputs are validated on-chain
+- ✅ **Replay protection** - 60-second timestamp validation window
+- ✅ **Amount limits** - Min 0.001 USDC, Max 1B USDC
+- ✅ **Interval limits** - Min 1 hour, Max 1 year
 
 ---
 
@@ -792,6 +800,85 @@ await Enterprise.deletePrivateMetadata(client, subscriptionId);
 
 ## Developer Guide
 
+### React SDK Integration
+
+#### Complete Setup Process (30-60 minutes)
+
+**Phase 1: Basic Setup (5-10 minutes)**
+
+```typescript
+import { OuroCProvider } from '@ouroc/sdk'
+
+function App() {
+  return (
+    <OuroCProvider
+      network="devnet"  // or "mainnet-beta"
+      rpcUrl="https://api.devnet.solana.com"  // Custom RPC if needed
+    >
+      <YourApp />
+    </OuroCProvider>
+  )
+}
+```
+
+**Phase 2: Subscription Tier Configuration (10-15 minutes)**
+
+```typescript
+export const subscriptionTiers = [
+  {
+    planName: "Basic",
+    price: 5_000_000,        // 5 USDC (micro-units)
+    interval: "monthly",
+    features: ["Basic features", "Email support"],
+    reminderDays: 3
+  },
+  {
+    planName: "Premium",
+    price: 15_000_000,       // 15 USDC
+    interval: "monthly",
+    features: ["Advanced features", "Priority support"],
+    reminderDays: 5
+  }
+]
+```
+
+**Phase 3: Component Implementation (10-15 minutes)**
+
+```typescript
+import { SubscriptionCard, useSubscription } from '@ouroc/sdk';
+
+function SubscriptionPage() {
+  const { createSubscription } = useSubscription();
+
+  const handleSubscribe = async (plan) => {
+    await createSubscription({
+      solana_payer: wallet.publicKey.toString(),
+      solana_receiver: "YOUR_MERCHANT_WALLET_ADDRESS",
+      amount: plan.price,
+      interval_seconds: getIntervalSeconds(plan.interval),
+      subscription_id: `${plan.planName.toLowerCase()}-${Date.now()}`,
+      merchant_name: "Your Company Name"
+    });
+  };
+
+  return (
+    <div>
+      {subscriptionTiers.map((tier) => (
+        <SubscriptionCard
+          key={tier.planName}
+          planName={tier.planName}
+          price={tier.price}
+          interval={tier.interval}
+          features={tier.features}
+          reminderDays={tier.reminderDays}
+          onSubscribe={handleSubscribe}
+        />
+      ))}
+    </div>
+  );
+}
+```
+
 ### React Hooks Reference
 
 #### useSubscription
@@ -944,6 +1031,10 @@ const client = new OuroCClient({
 6. **Monitor subscription status** regularly
 7. **Implement proper error handling**
 8. **Use enterprise encryption** for sensitive metadata
+9. **Validate subscription IDs** - Use alphanumeric + underscores/hyphens only
+10. **Check amount limits** - Min 1,000 micro-USDC, Max 1B USDC
+11. **Verify intervals** - Min 3,600s (1 hour), Max 365 days
+12. **Use replay protection** - 60-second timestamp validation window
 
 ### ❌ DON'T
 
@@ -953,6 +1044,9 @@ const client = new OuroCClient({
 4. **Never ignore error messages**
 5. **Never use deprecated API methods**
 6. **Never expose sensitive data** in logs
+7. **Never use special characters** in subscription IDs (@, #, $, etc.)
+8. **Never exceed validation limits** for amounts and intervals
+9. **Never assume inputs are safe** - always validate on-chain
 
 ### Secure Implementation Example
 
@@ -990,12 +1084,20 @@ async function createSecureSubscription(params) {
 }
 
 function validateSubscriptionParams(params) {
+  // Enhanced validation matching on-chain checks
+  const validSubscriptionId = /^[a-zA-Z0-9_-]+$/.test(params.subscription_id);
+  const validMerchantName = /^[\x20-\x7E]{1,50}$/.test(params.merchant_name);
+
   return (
     params.solana_payer &&
     params.solana_receiver &&
-    params.amount > 0 &&
+    params.amount >= 1000 && // Min 1,000 micro-USDC (0.001 USDC)
+    params.amount <= 1_000_000_000_000_000 && // Max 1B USDC
     params.interval_seconds >= 3600 && // Min 1 hour
+    params.interval_seconds <= 365 * 24 * 60 * 60 && // Max 1 year
     params.token &&
+    validSubscriptionId &&
+    validMerchantName &&
     validatePublicKey(params.solana_payer) &&
     validatePublicKey(params.solana_receiver)
   );

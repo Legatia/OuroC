@@ -1,0 +1,28 @@
+{
+  "version": "1.0.0",
+  "canisters": {
+    "agent_factory": {
+      "type": "custom",
+      "candid": "agent_factory.did",
+      "wasm": "agent_factory.wasm",
+      "build": "python -m kybra compile agent_factory.py -o agent_factory.wasm",
+      "source": ["agent_factory.py"]
+    }
+  },
+  "defaults": {
+    "build": {
+      "packtool": "moc",
+      "args": ["--stable-type-check"]
+    }
+  },
+  "networks": {
+    "local": {
+      "bind": "127.0.0.1:8000",
+      "type": "ephemeral"
+    },
+    "ic": {
+      "providers": ["https://mainnet.dfinity.network"],
+      "type": "persistent"
+    }
+  }
+}

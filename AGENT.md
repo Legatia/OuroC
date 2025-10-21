@@ -700,3 +700,230 @@ def prepare_asi_demo():
 4. **WIN ASI TRACK** 🏆 - Launch with the world's first AI-enhanced subscription SDK
 
 **The future of subscription payments is intelligent agents = enhanced SDK infrastructure, and we're building it first.**
+
+---
+
+## 🔐 **Option 3: Multi-Signature Retry Architecture (Future Implementation)**
+
+### **🎯 Problem with Shared Key Approach**
+The shared key method (discussed earlier) has significant security risks:
+- **Single point of failure**: Compromise of one canister = compromise of both
+- **Key sharing nightmare**: Rotation requires coordinated updates
+- **Audit trail issues**: Impossible to distinguish which canister signed transactions
+- **Race conditions**: Double spending risk with concurrent processing
+- **Compliance nightmare**: Regulatory tracking becomes impossible
+
+### **🏗️ Multi-Signature Architecture: Superior Security Solution**
+
+**Architecture Overview:**
+```
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│   Main Canister │    │  Retry Agent     │    │   Solana        │
+│   (Key_A)       │◄──►│   (Key_B)        │◄──►│   Contract      │
+│                 │    │                  │    │                 │
+└─────────────────┘    └──────────────────┘    └─────────────────┘
+        │                       │                       │
+        └───────────────────────┼───────────────────────┘
+                                │
+                   Both keys authorized in contract
+```
+
+### **🔧 Implementation Requirements**
+
+#### **1. Solana Contract Updates**
+```rust
+// Update Config struct in lib.rs
+pub struct Config {
+    pub authority: Pubkey,
+    pub total_subscriptions: u64,
+    pub paused: bool,
+    pub authorization_mode: AuthorizationMode,
+    pub icp_public_key: Option<[u8; 32]>, // DEPRECATED - REMOVE
+    pub authorized_public_keys: Vec<[u8; 32]>, // NEW: Multiple authorized keys
+    pub manual_processing_enabled: bool,
+    pub time_based_processing_enabled: bool,
+    pub fee_config: FeeConfig,
+    pub icp_fee_collection_address: Option<Pubkey>,
+}
+
+impl Config {
+    // Update space calculation for multiple keys
+    pub const LEN: usize = 32 + 8 + 1 + 1 + 1 + (33 * 10) + 1 + 1 + FeeConfig::LEN + 33; // Max 10 keys
+}
+
+// Update signature verification function
+pub fn verify_any_authorized_signature(
+    signature: &[u8; 64],
+    message: &[u8],
+    authorized_keys: &[[u8; 32]]
+) -> Result<bool> {
+    for public_key in authorized_keys {
+        if verify_ed25519_signature(signature, message, public_key)? {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+// Update authorization logic
+AuthorizationMode::ICPSignature => {
+    require!(icp_signature.is_some(), ErrorCode::MissingSignature);
+    let signature = icp_signature.unwrap();
+
+    require!(
+        verify_any_authorized_signature(&signature, &message, &config.authorized_public_keys)?,
+        ErrorCode::InvalidSignature
+    );
+}
+```
+
+#### **2. Dual Key Management**
+```rust
+// Main Canister Configuration
+#[derive(CandidType, Deserialize)]
+struct MainCanisterConfig {
+    ed25519_private_key: String, // 64-char hex - Key_A
+    authorized_canisters: Vec<String>, // List of retry agent canister IDs
+    solana_program_id: String,
+}
+
+// Retry Agent Configuration
+#[derive(CandidType, Deserialize)]
+struct RetryAgentConfig {
+    ed25519_private_key: String, // 64-char hex - Key_B (DIFFERENT from Main)
+    main_canister_id: String,
+    solana_program_id: String,
+}
+
+// Deployment with separate keys
+dfx deploy main_canister --argument '(
+  record {
+    ed25519_private_key = "key_A_64_byte_hex_here";
+    authorized_canisters = vec["rrkeh-fiaaa-aaaab-qactq-cai"];
+    solana_program_id = "7c1tGePFVT3ztPEESfzG7gFqYiCJUDjFa7PCeyMSYtub";
+  }
+)'
+
+dfx deploy retry_agent --argument '(
+  record {
+    ed25519_private_key = "key_B_64_byte_hex_here"; // DIFFERENT KEY
+    main_canister_id = "be2us-4iaaa-aaaab-qacqq-cai";
+    solana_program_id = "7c1tGePFVT3ztPEESfzG7gFqYiCJUDjFa7PCeyMSYtub";
+  }
+)'
+```
+
+#### **3. Enhanced Security Features**
+```rust
+// Key rotation without service interruption
+#[update]
+async fn rotate_authorized_key(old_key: [u8; 32], new_key: [u8; 32]) -> Result<(), String> {
+    // 1. Add new key to authorized list
+    // 2. Allow transition period
+    // 3. Remove old key after transition
+    // 4. Both canisters remain operational
+}
+
+// Canister health monitoring with signature attribution
+#[query]
+fn get_signature_audit_trail(subscription_id: String) -> Vec<SignatureRecord> {
+    // Return detailed log showing which canister signed each transaction
+    // Critical for compliance and debugging
+}
+
+struct SignatureRecord {
+    timestamp: u64,
+    subscription_id: String,
+    signature: [u8; 64],
+    signer_canister_id: String, // Clear attribution
+    transaction_hash: String,
+    success: bool,
+}
+```
+
+### **🚀 Deployment Strategy**
+
+#### **Phase 1: Contract Update (1 week)**
+1. **Add multi-key support** to existing Solana contract
+2. **Maintain backward compatibility** with current single-key deployments
+3. **Test signature verification** with multiple authorized keys
+4. **Deploy to devnet** for comprehensive testing
+
+#### **Phase 2: Dual Canister Deployment (1 week)**
+1. **Generate separate Ed25519 keys** for main and retry canisters
+2. **Update Solana contract** with both public keys
+3. **Deploy retry agent** with independent key
+4. **Test failover scenarios** with real transactions
+
+#### **Phase 3: Migration & Monitoring (1 week)**
+1. **Gradual traffic shift** from single-key to dual-key mode
+2. **Monitor for signature issues** and attribution accuracy
+3. **Implement audit logging** for compliance
+4. **Performance validation** under load
+
+### **✅ Advantages Over Shared Key Approach**
+
+#### **Security Benefits:**
+- **Isolation**: Compromise of one canister doesn't expose the other
+- **Clear Attribution**: Every signature is traceable to specific canister
+- **Independent Rotation**: Keys can be rotated independently
+- **Selective Revocation**: Compromised keys can be revoked individually
+- **Audit Compliance**: Full transaction provenance for regulators
+
+#### **Operational Benefits:**
+- **No Race Conditions**: Clear authorization prevents double processing
+- **Better Debugging**: Issues traceable to specific canister
+- **Independent Scaling**: Each canister can be scaled separately
+- **Zero Downtime Maintenance**: Key rotation without service interruption
+- **Compliance Ready**: Built for enterprise security requirements
+
+#### **Business Benefits:**
+- **Risk Mitigation**: Reduces single point of failure by 50%
+- **Insurance Ready**: Meets enterprise security standards
+- **Regulatory Compliance**: Meets financial industry audit requirements
+- **Customer Trust**: Demonstrates robust security architecture
+
+### **⚠️ Implementation Considerations**
+
+#### **Increased Complexity:**
+- **Contract Updates**: Requires Solana contract modification and redeployment
+- **Key Management**: Need to manage and secure multiple keys
+- **Testing**: More comprehensive test scenarios needed
+- **Deployment**: More complex deployment process
+
+#### **Gas Cost Impact:**
+- **Storage**: Additional public keys increase contract storage costs
+- **Computation**: Multi-key verification costs slightly more gas
+- **Mitigation**: Batch key updates, efficient verification algorithms
+
+### **🎯 When to Implement**
+
+**Immediate Need:**
+- **Production systems** handling significant transaction volume
+- **Regulated environments** requiring audit trails
+- **Enterprise customers** with security compliance requirements
+
+**Future Planning:**
+- **Scale preparations** for high-volume payment processing
+- **Security hardening** as the platform grows
+- **Enterprise market entry** requiring compliance certifications
+
+### **📊 Cost-Benefit Analysis**
+
+**Implementation Costs:**
+- Development: 2-3 weeks engineering effort
+- Contract deployment: ~5 SOL for mainnet deployment
+- Testing & validation: ~10 SOL for comprehensive testing
+- **Total One-Time Cost**: ~15 SOL + development time
+
+**Risk Reduction Value:**
+- **Security incidents**: Potential savings of $100K-$1M+ per incident
+- **Compliance violations**: Potential savings of $50K-$500K per violation
+- **Customer churn**: Retention improvements from enhanced security
+- **Insurance premiums**: Lower costs with improved security posture
+
+**ROI Timeline:** 3-6 months break-even for medium-to-large scale operations
+
+---
+
+**Recommendation:** Implement multi-signature architecture **before** handling significant transaction volume or serving enterprise customers. The security benefits and compliance advantages far outweigh the implementation complexity.

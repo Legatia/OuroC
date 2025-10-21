@@ -9,7 +9,19 @@
       "type": "motoko",
       "main": "src/license_registry/LicenseRegistry.mo"
     },
-        "internet_identity": {
+    "SolanaMonitoringAgent": {
+      "type": "custom",
+      "candid": "src/agents/solana_monitoring_agent.did",
+      "wasm": "target/wasm32-unknown-unknown/release/solana_monitoring_agent.wasm",
+      "build": "python -m kybra compile src/agents/solana_monitoring_agent.py -o target/wasm32-unknown-unknown/release/solana_monitoring_agent.wasm"
+    },
+    "ContractMonitoringAgent": {
+      "type": "custom",
+      "candid": "src/agents/contract_monitoring_agent.did",
+      "wasm": "target/wasm32-unknown-unknown/release/contract_monitoring_agent.wasm",
+      "build": "python -m kybra compile src/agents/contract_monitoring_agent.py -o target/wasm32-unknown-unknown/release/contract_monitoring_agent.wasm"
+    },
+    "internet_identity": {
       "type": "pull",
       "id": "rdmx6-jaaaa-aaaaa-aaadq-cai"
     }

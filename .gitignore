@@ -303,6 +303,19 @@ test_*.sh
 security_*.sh
 *_security_test.sh
 
+# Specific test shell scripts
+test_frontend_build.sh
+test_input_validation.sh
+test_access_controls.sh
+test_timer.sh
+test_fee_governance.sh
+
+# Test agent and factory files
+src/agents/test_agent_factory.py
+*_test_agent.*
+agent_test_*.
+test_agents/
+
 # Security audit temporary files
 audit_temp/
 security_review/
@@ -367,3 +380,66 @@ VULNERABILITY_*.md
 test_execution_*.log
 security_test_*.log
 audit_test_*.log
+
+# Anchor program logs and test outputs
+**/.anchor/program-logs/
+*.ouro_c_subscriptions.log
+anchor-test-*.log
+program-*.log
+
+# Test configuration and data files
+test_data/
+test_fixtures/
+mock_data/
+*.test.data
+*.test.fixture
+test_*.json
+test_*.yaml
+test_*.yml
+test_*.toml
+
+# ICP canister test files
+canister_test_*.did
+test_canisters/
+dfx_test_*.json
+
+# Rust/Anchor test fingerprint files
+**/target/debug/.fingerprint/**/test-*
+**/target/**/.fingerprint/**/test-*.json
+test-lib-*.json
+
+# Coverage and test reports
+coverage/
+coverage-*.json
+coverage-final.json
+*.coverage
+coverage-*.html
+.nyc_output/
+.jest/
+
+# Test execution artifacts (but keep source test files)
+test-results/
+test-reports/
+*.test.log
+test_execution_*.log
+coverage_reports/
+
+# Development and debugging files
+debug/
+*.debug
+debug_*.log
+development_*.log
+dev_*.json
+
+# Temporary canister and wallet files
+temp_canisters/
+dev_canisters/
+test-wallets/
+*.test-wallet
+dev-wallet.json
+
+# Local development scripts
+dev_*.sh
+local_*.sh
+run_*.sh
+deploy_*.sh
