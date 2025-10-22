@@ -299,7 +299,7 @@ export class SubscriberOnRampFlow {
       GLOBAL: ['card', 'apple_pay', 'google_pay'],
     };
 
-    return methodsByRegion[region];
+    return methodsByRegion[region] as PaymentMethod['type'][];
   }
 }
 

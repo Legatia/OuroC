@@ -113,13 +113,15 @@ export const builtInInstructions: AIInstructions = {
       'Build subscription system for React app',
       'Add payment system with monthly billing',
       'Implement SaaS payments with crypto',
-      'Create subscription management system'
+      'Create subscription management system',
+      'Use OuroC community tier with 7-input configuration'
     ],
     advanced: [
-      'Implement OuroC with Grid by Squads integration',
-      'Create enterprise-grade subscription system with privacy features',
-      'Add AI-to-agent payment capabilities',
-      'Build complete subscription management dashboard'
+      'Implement OuroC with Grid by Squads integration for KYC',
+      'Create enterprise-grade subscription system with Web Crypto API',
+      'Add Grid on-ramp for fiat-to-crypto conversion',
+      'Build subscription management dashboard with email notifications',
+      'Implement OuroC with regulatory compliance features'
     ],
     troubleshooting: [
       'Fix OuroC subscription payment not working',
@@ -131,13 +133,15 @@ export const builtInInstructions: AIInstructions = {
       'Resolve payment gateway problems',
       'Fix SaaS billing system',
       'Debug payment processing errors',
-      'Troubleshoot subscription management'
+      'Troubleshoot subscription management',
+      'Fix OuroC lamports vs whole dollars confusion',
+      'Resolve ICP timer canister connection issues'
     ]
   },
   quickStart: {
     install: 'npm install @ouroc/sdk',
     basicSetup: `<OuroCProvider><YourApp /></OuroCProvider>`,
-    firstExample: `<SubscriptionCard planName="Pro" price={29} interval="monthly" features={["Feature 1", "Feature 2"]} onSubscribe={handleSubscribe} />`
+    firstExample: `<SubscriptionCard planName="Pro" price={29000000} interval="monthly" features={["Feature 1", "Feature 2"]} onSubscribe={handleSubscribe} />`
   },
   currentAPI: {
     components: [
@@ -172,7 +176,7 @@ export const builtInInstructions: AIInstructions = {
         description: 'Hook for managing subscription operations',
         returns: '{ createSubscription, pauseSubscription, cancelSubscription, resumeSubscription, subscriptions, loading, error }',
         example: 'const { createSubscription, loading } = useSubscription();',
-        aiNotes: 'createSubscription requires complex parameters: subscription_id, amount (lamports), intervalSeconds, plan_name, solana_contract_address, api_key, and token_mint. Returns SubscriptionId as string.'
+        aiNotes: 'createSubscription requires: subscription_id, solana_contract_address, subscriber_address, merchant_address, payment_token_mint, amount (lamports), interval_seconds, reminder_days_before_payment, and api_key. Use utility functions for helper conversions.'
       },
       {
         name: 'useOuroC',
@@ -445,7 +449,7 @@ export async function fetchGitHubInstructions(): Promise<AIInstructions | null> 
 
     return instructions;
   } catch (error) {
-    console.warn('Failed to fetch instructions from GitHub:', error.message);
+    console.warn('Failed to fetch instructions from GitHub:', error instanceof Error ? error.message : 'Unknown error');
     return null;
   }
 }
@@ -469,7 +473,7 @@ export async function fetchNPMInstructions(): Promise<AIInstructions | null> {
 
     return instructions;
   } catch (error) {
-    console.warn('Failed to fetch instructions from NPM:', error.message);
+    console.warn('Failed to fetch instructions from NPM:', error instanceof Error ? error.message : 'Unknown error');
     return null;
   }
 }

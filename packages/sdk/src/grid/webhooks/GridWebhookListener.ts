@@ -93,7 +93,7 @@ export class GridWebhookListener {
           console.log(`[GridWebhook] Notification detected:`, notificationData);
 
           // Send email to Grid user
-          await this.sendNotificationEmail(userEmail, notificationData);
+          await this.sendNotificationEmail(userEmail || '', notificationData);
         }
       },
       'confirmed'
@@ -139,7 +139,8 @@ export class GridWebhookListener {
       if ('parsed' in instruction) continue; // Skip parsed instructions
 
       // Check if this is the memo program
-      const programId = accountKeys[instruction.programIdIndex].pubkey.toString();
+      const programIdIndex = (instruction as any).programIdIndex || 0;
+      const programId = accountKeys[programIdIndex]?.pubkey?.toString() || '';
 
       if (programId === this.spl_memo_program_id) {
         // Decode memo data

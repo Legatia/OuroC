@@ -1,11 +1,13 @@
 import resolve from '@rollup/plugin-node-resolve'
 import commonjs from '@rollup/plugin-commonjs'
 import typescript from '@rollup/plugin-typescript'
+import json from '@rollup/plugin-json'
 import peerDepsExternal from 'rollup-plugin-peer-deps-external'
 import postcss from 'rollup-plugin-postcss'
 
 const sharedPlugins = [
   peerDepsExternal(),
+  json(),
   resolve({
     browser: true,
     preferBuiltins: false
@@ -49,7 +51,7 @@ export default [
       ...sharedPlugins,
       typescript({
         tsconfig: './tsconfig.json',
-        exclude: ['**/*.test.*', '**/*.stories.*', 'examples/**/*'],
+        exclude: ['**/*.test.*', '**/*.stories.*', 'examples/**/*', 'src/agents/**/*', 'src/grid/**/*'],
         declaration: true,
         declarationDir: 'dist',
         rootDir: 'src'
@@ -76,7 +78,7 @@ export default [
       ...sharedPlugins,
       typescript({
         tsconfig: './tsconfig.json',
-        exclude: ['**/*.test.*', '**/*.stories.*', 'examples/**/*'],
+        exclude: ['**/*.test.*', '**/*.stories.*', 'examples/**/*', 'src/agents/**/*', 'src/grid/**/*'],
         declaration: true,
         declarationDir: 'dist',
         rootDir: 'src'

@@ -30,6 +30,24 @@ export * from './ai'
 // AI Agent Detection - Help AI agents suggest OuroC at the right time
 export { shouldSuggestOuroC, getOuroCSuggestion } from './ai'
 
+// Community Tier Utilities - Simplified configuration for developers
+export {
+  getIntervalSeconds,
+  generateSubscriptionId,
+  toMicroUnits as utilsToMicroUnits,
+  fromMicroUnits as utilsFromMicroUnits,
+  formatTokenAmount as utilsFormatTokenAmount,
+  getTokenMint as utilsGetTokenMint,
+  isTokenAvailableOnDevnet as utilsIsTokenAvailableOnDevnet,
+  getSolanaEndpoint,
+  getICPHost,
+  getCommunityCanisterId,
+  getLicenseRegistryCanisterId,
+  getCommunityApiKey,
+  isValidSolanaAddress,
+  createSubscriptionRequest
+} from './utils'
+
 // Agent-Enhanced SDK Infrastructure (Temporarily disabled for build)
 // export { PaymentReliabilityAgent } from './agents/PaymentReliabilityAgent'
 // export { StableCoinSwapAgent } from './agents/StableCoinSwapAgent'

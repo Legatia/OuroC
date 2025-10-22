@@ -31,6 +31,12 @@
   "exclude": [
     "node_modules",
     "dist",
-    "examples"
+    "examples",
+    "src/agents_disabled",
+    "src/agents",
+    "src/core/privacy_disabled",
+    "src/core/SecureOuroCClient_disabled.ts",
+    "src/grid/**/__tests__",
+    "src/grid/**/test.ts"
   ]
 }
