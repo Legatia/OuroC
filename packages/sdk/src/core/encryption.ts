@@ -70,7 +70,7 @@ export async function deriveEncryptionKey(
   const signature = await signMessage(message);
 
   // Derive key material using SHA-256
-  const keyMaterial = await crypto.subtle.digest('SHA-256', signature);
+  const keyMaterial = await crypto.subtle.digest('SHA-256', new Uint8Array(signature));
 
   // Import as AES-GCM key
   return crypto.subtle.importKey(

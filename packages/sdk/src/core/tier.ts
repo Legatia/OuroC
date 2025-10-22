@@ -351,7 +351,7 @@ export function getTierComparison(): {
     subscriptions: number;
     rateLimit: number;
     encryption: string;
-    features: string[];
+    features: string;
     pricing: string;
   }>;
 } {

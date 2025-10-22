@@ -1,218 +1,298 @@
-# @OuroC/react-sdk
+# OuroC SDK
 
-🚀 **The easiest way to add Solana subscriptions to your React dApp**
+🚀 **First Fully Decentralized Recurring Transactions on Solana**
 
-OuroC React SDK provides plug-and-play components and hooks for integrating automatic SOL subscriptions into any Solana dApp. Built on ICP (Internet Computer Protocol) for reliable timer execution and multi-channel notifications.
+OuroC SDK provides complete subscription infrastructure for Solana dApps with ICP-powered timer canisters, AI agent optimization, and Grid integration for regulatory compliance.
 
-## Features
+## ✨ Key Features
 
-- ⚡ **5-minute integration** - Add subscriptions to any React app
-- 🎨 **Fully customizable** - Match your brand perfectly
-- 🔔 **Smart notifications** - Email, Discord, Slack, webhooks
-- 💰 **Automatic payments** - Reliable recurring SOL transactions
-- 🔒 **Secure & trustless** - Powered by ICP and Solana
-- 📱 **Mobile responsive** - Works on all devices
-- ♿ **Accessible** - WCAG compliant components
+- 🔄 **Fully Decentralized** - No centralized payment processors or custodians
+- 🤖 **AI Agent Optimized** - Automatic detection and implementation for Cursor, Lovable, v0.dev, Bolt, Claude Code
+- 🏛️ **Grid Integration** - KYC, compliance, and regulatory features
+- 💎 **Zero Downtime** - ICP timer canisters ensure perfect execution
+- 🎯 **Community Tier** - 7-input configuration for rapid integration
+- 🔒 **Privacy Ready** - Web Crypto API + Arcium MXE support
+- 📱 **Multi-Channel** - Email, webhook, and on-chain notifications
+- ⚡ **TypeScript First** - Complete type safety throughout
 
-## Quick Start
+## 🚀 Quick Start
 
 ### Installation
 
 ```bash
-npm install @OuroC/react-sdk @solana/wallet-adapter-react @solana/wallet-adapter-react-ui
+npm install @ouroc/sdk
 # or
-yarn add @OuroC/react-sdk @solana/wallet-adapter-react @solana/wallet-adapter-react-ui
+yarn add @ouroc/sdk
 ```
 
-### Basic Setup
+### Basic Setup (5 Minutes)
 
 ```tsx
-import {
-  OuroCProvider,
-  SubscriptionCard
-} from '@OuroC/react-sdk'
+import { OuroCProvider, SubscriptionCard, useSubscription } from '@ouroc/sdk'
 
 function App() {
   return (
-    <OuroCProvider
-      canisterId="your-canister-id"
-      network="mainnet"
-    >
+    <OuroCProvider network="devnet">
       <SubscriptionCard
-        planName="Premium"
-        price={0.1} // 0.1 SOL per month
+        planName="Pro"
+        price={29000000} // 0.029 SOL lamports
         interval="monthly"
-        features={['Feature 1', 'Feature 2', 'Feature 3']}
-        onSubscribe={(plan) => console.log('Subscribed:', plan)}
+        features={["AI Features", "Priority Support"]}
+        onSubscribe={handleSubscribe}
       />
     </OuroCProvider>
   )
 }
-```
 
-### With Wallet Integration
+function useApp() {
+  const { createSubscription, loading } = useSubscription()
 
-```tsx
-import { WalletProvider } from '@solana/wallet-adapter-react'
-import { WalletModalProvider } from '@solana/wallet-adapter-react-ui'
-import { OuroCProvider } from '@OuroC/react-sdk'
+  const handleSubscribe = async (plan) => {
+    try {
+      const subscriptionId = await createSubscription({
+        subscription_id: "your-subscription-id", // Required from backend
+        amount: plan.price, // Already in lamports
+        intervalSeconds: getIntervalSeconds(plan.interval),
+        plan_name: plan.planName,
+        solana_contract_address: "your-contract-address", // Required
+        api_key: "your-api-key", // Required
+        token_mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" // USDC devnet
+      });
 
-function App() {
-  return (
-    <WalletProvider wallets={[]}>
-      <WalletModalProvider>
-        <OuroCProvider
-          canisterId="your-canister-id"
-          network="mainnet"
-          theme={{
-            colors: {
-              primary: '#9945FF',
-              secondary: '#00D18C'
-            }
-          }}
-        >
-          <YourApp />
-        </OuroCProvider>
-      </WalletModalProvider>
-    </WalletProvider>
-  )
+      console.log('✅ Subscription created:', subscriptionId)
+    } catch (error) {
+      console.error('❌ Subscription failed:', error)
+    }
+  }
 }
 ```
 
-## Components
+## 🏗️ Community Tier Configuration
+
+OuroC supports a simplified 7-input configuration for community developers:
+
+```tsx
+import {
+  getCommunityCanisterId,
+  createSubscriptionRequest,
+  getIntervalSeconds,
+  toMicroUnits
+} from '@ouroc/sdk'
+
+const config = {
+  // 1. Your Solana program where subscriptions are needed
+  solanaProgramId: "YourProgramAddress123...",
+
+  // 2. Charging frequency options
+  intervals: ["monthly", "yearly"],
+
+  // 3. Tier descriptions and features
+  tiers: {
+    Basic: { features: ["Core access", "Email support"] },
+    Pro: { features: ["AI features", "Priority support"] },
+    Enterprise: { features: ["All features", "Dedicated support"] }
+  },
+
+  // 4. Token amounts per tier (in whole tokens)
+  pricing: {
+    Basic: { monthly: 10, yearly: 100 },
+    Pro: { monthly: 29, yearly: 290 },
+    Enterprise: { monthly: 99, yearly: 990 }
+  },
+
+  // 5. Your merchant receiving address
+  merchantAddress: "YourMerchantAddress123...",
+
+  // 6. Network configuration
+  network: "devnet", // or "mainnet"
+
+  // 7. API key for backend services
+  apiKey: "your-api-key"
+}
+
+// Create subscription request automatically
+const subscriptionRequest = createSubscriptionRequest(
+  { name: "Pro", price: 29, token: "USDC", interval: "monthly", features: ["AI", "Support"] },
+  {
+    solanaContractAddress: config.solanaProgramId,
+    merchantAddress: config.merchantAddress,
+    network: config.network,
+    reminderDays: 3
+  }
+)
+```
+
+## 🤖 AI Agent Integration
+
+OuroC is optimized for AI coding agents. They automatically detect subscription needs and implement the SDK:
+
+### Automatic Detection
+
+AI agents detect these patterns and suggest OuroC:
+- "subscription", "recurring", "billing", "saas", "payment plan"
+- "pricing tier", "monthly payment", "user plan", "membership"
+- "monetize my app", "add paid features", "create SaaS"
+
+### Working AI Prompts
+
+✅ **High Success Rate Prompts:**
+- "Add @ouroc/sdk subscription payments to my React app"
+- "Create a SaaS pricing page using OuroC"
+- "Implement crypto recurring payments without wallet requirement"
+- "Add OuroC with email signup support"
+
+### AI Helper Functions
+
+```tsx
+import { shouldSuggestOuroC, getOuroCSuggestion } from '@ouroc/sdk'
+
+// AI agents can detect when to suggest OuroC
+if (shouldSuggestOuroC(userInput)) {
+  // Get context-aware suggestion
+  const suggestion = getOuroCSuggestion(userInput)
+  console.log(suggestion)
+}
+```
+
+## 🏛️ Grid Integration (Regulatory Compliance)
+
+OuroC integrates with Grid by Squads for enterprise compliance:
+
+### KYC Flows
+
+```tsx
+import { MerchantKYCFlow } from '@ouroc/sdk/grid'
+
+const kycFlow = new MerchantKYCFlow({ gridClient })
+
+// Submit KYC for merchant verification
+await kycFlow.submitKYC({
+  accountType: 'individual',
+  personalInfo: { /* ... */ },
+  documents: { /* ... */ }
+})
+
+// Check KYC status
+const status = await kycFlow.getKYCStatus('merchant-account-id')
+```
+
+### Payment Processing
+
+```tsx
+import { SubscriberOnRampFlow } from '@ouroc/sdk/grid'
+
+const onRamp = new SubscriberOnRampFlow({ gridClient })
+
+// Handle fiat-to-crypto deposits
+const transaction = await onRamp.initiateOnRamp({
+  gridAccountId: 'user-grid-account',
+  amountUSD: '100',
+  paymentMethod: { type: 'card', last4: '4242' }
+})
+```
+
+## 🔧 Advanced Configuration
+
+### Network Settings
+
+```tsx
+// Devnet (default for development)
+<OuroCProvider network="devnet">
+
+// Mainnet (production)
+<OuroCProvider network="mainnet">
+
+// Custom RPC
+<OuroCProvider
+  network="devnet"
+  rpcUrl="https://api.devnet.solana.com"
+>
+```
+
+### Token Support
+
+```tsx
+import { getTokenMint, utilsToMicroUnits } from '@ouroc/sdk'
+
+// Get token mint addresses by network
+const usdcMint = getTokenMint('USDC', 'devnet') // USDC devnet mint
+const usdtMint = getTokenMint('USDT', 'mainnet') // USDT mainnet mint
+
+// Convert whole tokens to micro-units
+const microAmount = utilsToMicroUnits(29) // 29 USDC → 29000000
+```
+
+### Timer Canister Configuration
+
+```tsx
+import { getCommunityCanisterId, getLicenseRegistryCanisterId } from '@ouroc/sdk'
+
+// Get correct canister IDs by network
+const timerCanister = getCommunityCanisterId('devnet') // 7tbxr-naaaa-aaaao-qkrca-cai
+const licenseRegistry = getLicenseRegistryCanisterId() // gbuo5-iyaaa-aaaao-qkuba-cai
+```
+
+## 📋 Component Reference
 
 ### SubscriptionCard
 
-Beautiful, responsive subscription cards with built-in payment flow.
+Beautiful pricing cards with built-in payment flow:
 
 ```tsx
 <SubscriptionCard
-  planName="Premium Plan"
-  price={0.15} // SOL amount
+  planName="Pro Plan"
+  price={29000000} // Price in lamports
   interval="monthly"
   features={[
-    'Advanced analytics',
-    'Priority support',
-    'API access'
+    "Advanced analytics",
+    "Priority support",
+    "API access"
   ]}
-  popular={true} // Highlight as popular
+  popular={true} // Highlight as recommended
   onSubscribe={async (plan) => {
-    // Handle subscription
+    // Handle subscription creation
+    const subscriptionId = await createSubscription({
+      subscription_id: generateSubscriptionId('pro'),
+      amount: plan.price,
+      intervalSeconds: getIntervalSeconds(plan.interval),
+      plan_name: plan.planName,
+      solana_contract_address: "your-contract",
+      api_key: "your-api-key",
+      token_mint: getTokenMint('USDC', 'devnet')
+    })
   }}
 />
 ```
 
-### Pre-configured Cards
+### useSubscription Hook
 
-Create reusable subscription cards for your dApp:
-
-```tsx
-import { createSubscriptionCard } from '@OuroC/react-sdk'
-
-const MySubscriptionCard = createSubscriptionCard(
-  'YourDAppSolanaAddress123456789', // Your receiving address
-  'Premium subscription' // Default metadata
-)
-
-// Use like a normal component
-<MySubscriptionCard
-  planName="Premium"
-  price={0.1}
-  interval="monthly"
-  features={['Feature 1', 'Feature 2']}
-/>
-```
-
-### Merchant Dashboard
-
-Monitor subscription revenue and customer status with the built-in dashboard:
+Programmatic subscription management:
 
 ```tsx
-import { MerchantDashboard } from '@OuroC/react-sdk'
-import { useWallet } from '@solana/wallet-adapter-react'
+import { useSubscription } from '@ouroc/sdk'
 
-function MerchantPage() {
-  const { publicKey } = useWallet()
-
-  return (
-    <MerchantDashboard
-      merchantAddress={publicKey}
-      subscriptions={[
-        {
-          id: 'sub_abc123',
-          subscriber: new PublicKey('...'),
-          merchant: new PublicKey('...'),
-          amount: 10_000_000, // 10 USDC (6 decimals)
-          intervalSeconds: 2592000, // 30 days
-          status: 0, // Active
-          icpFeePercentage: 200, // 2%
-          lastPayment: Date.now() - 86400000 * 5,
-          nextPayment: Date.now() + 86400000 * 25
-        }
-      ]}
-      payments={[
-        {
-          id: '1',
-          subscriber: '7xKX...gAsU',
-          amount: 10,
-          date: Date.now(),
-          status: 'success'
-        }
-      ]}
-      onFetchSubscriptions={async () => {
-        // Fetch subscriptions from your backend or Solana program
-        const subs = await fetchSubscriptionsForMerchant(publicKey)
-        return subs
-      }}
-    />
-  )
-}
-```
-
-**Features:**
-- Revenue stats (total subscribers, active subscriptions, monthly revenue, growth)
-- Subscription list with status indicators
-- Payment history with timestamps
-- Fully customizable with CSS
-- TypeScript support
-
-## Hooks
-
-### useSubscription
-
-Manage subscriptions programmatically:
-
-```tsx
-import { useSubscription } from '@OuroC/react-sdk'
-
-function MyComponent() {
+function SubscriptionManager() {
   const {
     subscriptions,
-    create,
-    pause,
-    resume,
-    cancel,
+    createSubscription,
+    pauseSubscription,
+    cancelSubscription,
+    resumeSubscription,
     loading,
     error
   } = useSubscription()
 
-  const handleCreate = async () => {
-    const id = await create({
-      solana_receiver: 'YourAddress123',
-      payment_amount: BigInt(100_000_000), // 0.1 SOL
-      interval_seconds: BigInt(30 * 24 * 60 * 60), // 30 days
-      metadata: 'Premium subscription'
-    })
-    console.log('Created:', id)
+  const handlePause = async (subscriptionId: string) => {
+    await pauseSubscription(subscriptionId)
+    console.log('✅ Subscription paused')
   }
 
   return (
     <div>
       {subscriptions.map(sub => (
         <div key={sub.id}>
-          <h3>{sub.id}</h3>
-          <button onClick={() => pause(sub.id)}>Pause</button>
-          <button onClick={() => cancel(sub.id)}>Cancel</button>
+          <h3>{sub.plan_name}</h3>
+          <button onClick={() => handlePause(sub.id)}>Pause</button>
         </div>
       ))}
     </div>
@@ -220,179 +300,163 @@ function MyComponent() {
 }
 ```
 
-### useOuroC
+## 🔔 Notification System
 
-Access the core OuroC context:
+Configure multi-channel notifications:
 
 ```tsx
-import { useOuroC } from '@OuroC/react-sdk'
+import { GridWebhookListener } from '@ouroc/sdk/grid'
 
-function WalletStatus() {
-  const {
-    isConnected,
-    publicKey,
-    connect,
-    disconnect,
-    canisterId,
-    network
-  } = useOuroC()
+const webhookListener = new GridWebhookListener({
+  connection: solanaConnection,
+  gridClient: gridClient,
+  emailService: emailProvider
+})
 
+// Monitor Grid account for notification transactions
+await webhookListener.monitorGridAccount('grid-account-id')
+
+// Listens for SPL Memo transactions and sends email notifications
+```
+
+## 🛡️ Privacy Features
+
+### Web Crypto API (Business Tier)
+
+```tsx
+import { deriveEncryptionKey, encryptSubscriptionMetadata } from '@ouroc/sdk/enterprise'
+
+// Derive encryption key from user wallet
+const encryptionKey = await deriveEncryptionKey(
+  userPublicKey,
+  signMessage
+)
+
+// Encrypt sensitive metadata
+const { encrypted, hash } = await encryptSubscriptionMetadata(
+  { userEmail: "user@example.com", merchantNotes: "Premium customer" },
+  encryptionKey
+)
+```
+
+### Arcium MXE (Enterprise Tier - Coming Q2 2026)
+
+Future support for multi-party computation and zero-knowledge proofs.
+
+## 📊 Examples & Templates
+
+### SaaS Pricing Page
+
+```tsx
+import { OuroCProvider, SubscriptionCard } from '@ouroc/sdk'
+
+const plans = [
+  {
+    name: "Basic",
+    price: 9000000, // 0.009 SOL
+    interval: "monthly",
+    features: ["Core features", "Email support"]
+  },
+  {
+    name: "Pro",
+    price: 29000000, // 0.029 SOL
+    interval: "monthly",
+    features: ["AI features", "Priority support", "Advanced analytics"]
+  },
+  {
+    name: "Enterprise",
+    price: 99000000, // 0.099 SOL
+    interval: "monthly",
+    features: ["All features", "Dedicated support", "SLA guarantee"]
+  }
+]
+
+function PricingPage() {
   return (
-    <div>
-      {isConnected ? (
-        <div>
-          <p>Connected: {publicKey?.toBase58()}</p>
-          <button onClick={disconnect}>Disconnect</button>
-        </div>
-      ) : (
-        <button onClick={connect}>Connect Wallet</button>
-      )}
-    </div>
+    <OuroCProvider network="devnet">
+      <div className="pricing-grid">
+        {plans.map((plan, index) => (
+          <SubscriptionCard
+            key={index}
+            planName={plan.name}
+            price={plan.price}
+            interval={plan.interval}
+            features={plan.features}
+            onSubscribe={handleSubscribe}
+          />
+        ))}
+      </div>
+    </OuroCProvider>
   )
 }
 ```
 
-## Customization
+## 🔧 TypeScript Support
 
-### Theme System
-
-Customize colors, fonts, spacing, and more:
-
-```tsx
-<OuroCProvider
-  theme={{
-    colors: {
-      primary: '#9945FF',
-      secondary: '#00D18C',
-      background: '#ffffff',
-      text: '#212529'
-    },
-    fonts: {
-      primary: 'Inter, sans-serif',
-      monospace: 'JetBrains Mono, monospace'
-    },
-    spacing: {
-      sm: '0.5rem',
-      md: '1rem',
-      lg: '1.5rem'
-    }
-  }}
->
-```
-
-### Custom Styling
-
-Override CSS variables or use CSS-in-JS:
-
-```css
-:root {
-  --OuroC-primary: #your-brand-color;
-  --OuroC-border-radius-md: 12px;
-}
-```
-
-### Event Callbacks
-
-React to subscription events:
-
-```tsx
-<OuroCProvider
-  onSubscriptionCreate={(subscription) => {
-    // Track analytics
-    analytics.track('subscription_created', {
-      plan: subscription.metadata,
-      amount: subscription.payment_amount
-    })
-  }}
-  onPaymentSuccess={(hash) => {
-    // Show success message
-    toast.success(`Payment successful! ${hash}`)
-  }}
-  onError={(error, context) => {
-    // Send to error tracking
-    sentry.captureException(error, { tags: { context } })
-  }}
->
-```
-
-## Notifications
-
-Configure smart notifications for balance monitoring:
-
-```tsx
-import { useEffect } from 'react'
-import { useOuroC } from '@OuroC/react-sdk'
-
-function SetupNotifications() {
-  const { client } = useOuroC()
-
-  useEffect(() => {
-    // Configure notifications for a subscription
-    client.setNotificationConfig('subscription-id', {
-      payer_channels: [
-        { Email: 'user@example.com' },
-        { Discord: 'webhook-url' }
-      ],
-      dapp_channels: [
-        { Webhook: 'https://mydapp.com/notify' }
-      ],
-      reminder_days: [7, 3, 1], // Remind 7, 3, 1 days before payment
-      enabled: true
-    })
-  }, [])
-
-  return null
-}
-```
-
-## TypeScript Support
-
-Full TypeScript support with comprehensive type definitions:
+Complete TypeScript definitions included:
 
 ```tsx
 import type {
   Subscription,
   CreateSubscriptionRequest,
   NotificationConfig,
-  OuroCTheme
-} from '@OuroC/react-sdk'
+  PaymentMethod,
+  OnRampTransaction,
+  KYCStatusResponse
+} from '@ouroc/sdk'
 
 const subscription: Subscription = {
   id: 'sub_123',
-  solana_payer: '...',
-  solana_receiver: '...',
-  payment_amount: BigInt(100_000_000),
+  solana_contract_address: '...',
+  subscriber_address: '...',
+  merchant_address: '...',
+  payment_token_mint: '...',
+  amount: BigInt(29000000),
   interval_seconds: BigInt(2592000),
-  next_payment: BigInt(Date.now() * 1_000_000),
-  is_active: true,
-  created_at: BigInt(Date.now() * 1_000_000)
+  reminder_days_before_payment: 3,
+  api_key: '...'
 }
 ```
 
-## Examples
+## 🌐 Network Configuration
 
-Check out the `/examples` folder for complete integration examples:
+### Devnet (Development)
+- **Timer Canister**: `7tbxr-naaaa-aaaao-qkrca-cai`
+- **USDC Mint**: `4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU`
+- **RPC**: `https://api.devnet.solana.com`
 
-- **Next.js Integration** - Full-featured subscription page with wallet integration
-- **Basic React** - Simple integration examples with custom UI
+### Mainnet (Production)
+- **Timer Canister**: Coming soon (placeholder deployed)
+- **USDC Mint**: `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v`
+- **RPC**: `https://api.mainnet-beta.solana.com`
 
-## Requirements
+### ICP Configuration
+- **License Registry**: `gbuo5-iyaaa-aaaao-qkuba-cai`
+- **ICP Host**: `https://ic0.app`
 
-- React 16.8+ (hooks support)
-- Solana wallet adapter (for wallet connectivity)
-- A deployed OuroC canister on Internet Computer
+## 📚 Documentation
 
-## License
+- **[AI Agent Integration Guide](./docs/AI_AGENT_INTEGRATION.md)** - Complete guide for AI coding agents
+- **[User Manual](./docs/USER_MANUAL.md)** - Comprehensive developer guide
+- **[API Reference](./docs/API_REFERENCE.md)** - Detailed API documentation
+- **[Examples](./examples/)** - Complete integration examples
 
-MIT License - see LICENSE file for details.
+## 🤝 Contributing
 
-## Support
+We welcome contributions! See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
 
-- 📖 [Documentation](https://docs.OuroC.com)
-- 🐛 [Issues](https://github.com/OuroC/OuroC/issues)
-- 💬 [Discord](https://discord.gg/OuroC)
-- 🐦 [Twitter](https://twitter.com/OuroC)
+## 📄 License
+
+MIT License - see [LICENSE](./LICENSE) file for details.
+
+## 🆘 Support
+
+- 📖 [Documentation](https://docs.ouroc.com)
+- 🐛 [Issues](https://github.com/ouroc/ouroc/issues)
+- 💬 [Discord](https://discord.gg/ouroc)
+- 🐦 [Twitter](https://twitter.com/ouroc)
 
 ---
 
-**Made with ❤️ by the OuroC team**
+**Built with ❤️ by the OuroC team**
+*First Fully Decentralized Recurring Transactions on Solana*

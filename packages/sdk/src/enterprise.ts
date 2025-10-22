@@ -24,11 +24,11 @@
 // Re-export all encryption utilities (Business Tier)
 export * from './core/encryption';
 
-// Re-export privacy helper functions
-export * from './core/privacy/createPrivateSubscription';
-export * from './core/privacy/getPrivateMetadata';
-export * from './core/privacy/updatePrivateMetadata';
-export * from './core/privacy/deletePrivateMetadata';
+// Re-export privacy helper functions - Temporarily disabled
+// export * from './core/privacy/createPrivateSubscription';
+// export * from './core/privacy/getPrivateMetadata';
+// export * from './core/privacy/updatePrivateMetadata';
+// export * from './core/privacy/deletePrivateMetadata';
 
 // Arcium MXE (Enterprise Tier - Coming Q2 2026)
 // Temporarily removed for hackathon - will be published after mainnet deploy

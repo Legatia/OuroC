@@ -560,36 +560,43 @@
 
             <div class="grid md:grid-cols-2 gap-12 items-center mb-16">
                 <div>
-                    <h3 class="text-2xl font-bold text-gray-900 mb-6">30-60 Minute Integration</h3>
+                    <h3 class="text-2xl font-bold text-gray-900 mb-6">Choose Your Integration Pattern</h3>
 
-                    <div class="space-y-6">
-                        <div class="flex items-start space-x-3">
-                            <div class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0 mt-1">
-                                <span class="text-purple-600 font-bold text-sm">1</span>
+                    <div class="space-y-8">
+                        <!-- Pattern 1: Direct Client -->
+                        <div class="bg-gradient-to-r from-green-50 to-emerald-50 p-6 rounded-xl border border-green-200">
+                            <div class="flex items-center mb-4">
+                                <div class="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center mr-3">
+                                    <span class="text-white font-bold">1</span>
+                                </div>
+                                <h4 class="font-bold text-gray-900 text-lg">Direct Client (5-15 min)</h4>
+                                <span class="ml-3 bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">Simplest</span>
                             </div>
-                            <div>
-                                <h4 class="font-bold text-gray-900 mb-1">Basic Setup</h4>
-                                <p class="text-gray-600">Install npm package and configure provider (5-10 min)</p>
+                            <p class="text-gray-600 mb-4">Perfect for community tier, CLI tools, and simple integrations</p>
+                            <div class="bg-gray-900 rounded-lg p-4 text-gray-300 text-sm font-mono">
+                                <div class="text-green-400 mb-2">// Direct client usage</div>
+                                <div>import { OuroCClient } from '@ouroc/sdk'</div>
+                                <div>const client = new OuroCClient(canisterId, network)</div>
+                                <div class="text-green-400 mt-2">// Create subscription directly</div>
+                                <div>await client.createSubscription({...})</div>
                             </div>
                         </div>
 
-                        <div class="flex items-start space-x-3">
-                            <div class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0 mt-1">
-                                <span class="text-purple-600 font-bold text-sm">2</span>
+                        <!-- Pattern 2: React Provider -->
+                        <div class="bg-gradient-to-r from-purple-50 to-pink-50 p-6 rounded-xl border border-purple-200">
+                            <div class="flex items-center mb-4">
+                                <div class="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center mr-3">
+                                    <span class="text-white font-bold">2</span>
+                                </div>
+                                <h4 class="font-bold text-gray-900 text-lg">React Provider (15-30 min)</h4>
+                                <span class="ml-3 bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded-full">Full-featured</span>
                             </div>
-                            <div>
-                                <h4 class="font-bold text-gray-900 mb-1">Tier Configuration</h4>
-                                <p class="text-gray-600">Define subscription plans and pricing (10-15 min)</p>
-                            </div>
-                        </div>
-
-                        <div class="flex items-start space-x-3">
-                            <div class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0 mt-1">
-                                <span class="text-purple-600 font-bold text-sm">3</span>
-                            </div>
-                            <div>
-                                <h4 class="font-bold text-gray-900 mb-1">Component Integration</h4>
-                                <p class="text-gray-600">Add SubscriptionCard components and business logic (10-15 min)</p>
+                            <p class="text-gray-600 mb-4">Complete React apps with UI components and state management</p>
+                            <div class="bg-gray-900 rounded-lg p-4 text-gray-300 text-sm font-mono">
+                                <div class="text-purple-400 mb-2">// React provider usage</div>
+                                <div>&lt;OuroCProvider canisterId={id} network="devnet"&gt;</div>
+                                <div>  &lt;SubscriptionCard onSubscribe={...} /&gt;</div>
+                                <div>&lt;/OuroCProvider&gt;</div>
                             </div>
                         </div>
                     </div>
@@ -597,7 +604,7 @@
 
                 <div class="bg-gray-900 rounded-2xl p-6 text-gray-300">
                     <div class="flex items-center justify-between mb-4">
-                        <span class="text-sm text-gray-400">AI Agent Generated Code</span>
+                        <span class="text-sm text-gray-400">AI Agent Generated Code - Both Patterns</span>
                         <button onclick="copyCode()" class="text-purple-400 hover:text-purple-300">
                             <i class="fas fa-copy"></i>
                         </button>
@@ -605,22 +612,55 @@
                     <pre class="text-sm overflow-x-auto"><code id="codeBlock">// AI Agent installs SDK
 npm install @ouroc/sdk
 
-// AI generated integration
+// PATTERN 1: Direct Client (Community Tier, CLI, Simple Apps)
+import { OuroCClient } from '@ouroc/sdk'
+
+const client = new OuroCClient("your-canister-id", "devnet")
+
+// Direct subscription creation
+async function createSubscription() {
+  try {
+    const subscriptionId = await client.createSubscription({
+      subscription_id: "unique-subscription-id",
+      solana_contract_address: "your-solana-contract",
+      subscriber_address: "user-wallet-address",
+      merchant_address: "merchant-wallet-address",
+      payment_token_mint: "USDC-mint-address",
+      amount: 29000000, // 29 USDC in micro-units
+      intervalSeconds: 2592000, // 30 days
+      api_key: "your-api-key"
+    })
+    console.log('✅ Subscription created:', subscriptionId)
+  } catch (error) {
+    console.error('❌ Subscription failed:', error)
+  }
+}
+
+// PATTERN 2: React Provider (Full-featured Apps)
 import { OuroCProvider, SubscriptionCard, useSubscription } from '@ouroc/sdk'
 
 function App() {
+  return (
+    &lt;OuroCProvider canisterId="your-canister-id" network="devnet"&gt;
+      &lt;SubscriptionComponent /&gt;
+    &lt;/OuroCProvider&gt;
+  )
+}
+
+function SubscriptionComponent() {
   const { createSubscription } = useSubscription()
 
   const handleSubscribe = async (plan) => {
     try {
       const subscriptionId = await createSubscription({
-        subscription_id: "your-subscription-id",
-        amount: plan.price, // lamports
-        intervalSeconds: getIntervalSeconds(plan.interval),
-        plan_name: plan.planName,
-        solana_contract_address: "your-contract",
-        api_key: "your-api-key",
-        token_mint: "USDC-mint-address"
+        subscription_id: "unique-subscription-id",
+        solana_contract_address: "your-solana-contract",
+        // subscriber_address auto-filled from connected wallet
+        merchant_address: "merchant-wallet-address",
+        payment_token_mint: "USDC-mint-address",
+        amount: 29000000, // 29 USDC in micro-units
+        intervalSeconds: 2592000, // 30 days
+        api_key: "your-api-key"
       })
       console.log('✅ Subscription created:', subscriptionId)
     } catch (error) {
@@ -629,15 +669,13 @@ function App() {
   }
 
   return (
-    &lt;OuroCProvider network="devnet"&gt;
-      &lt;SubscriptionCard
-        planName="Pro"
-        price={29000000} // 0.029 SOL
-        interval="monthly"
-        features={['AI Features', 'Priority Support']}
-        onSubscribe={handleSubscribe}
-      /&gt;
-    &lt;/OuroCProvider&gt;
+    &lt;SubscriptionCard
+      planName="Pro"
+      price={29} // 29 USDC (whole tokens)
+      interval="monthly"
+      features={['AI Features', 'Priority Support']}
+      onSubscribe={handleSubscribe}
+    /&gt;
   )
 }</code></pre>
                 </div>
@@ -663,10 +701,10 @@ function App() {
                     <p class="text-sm text-gray-600">GitBook docs</p>
                 </a>
 
-                <a href="#" onclick="alert('Try prompting: \"Add subscription payments to my React app\" in Cursor, Lovable, or v0.dev')" class="card-hover bg-gradient-to-br from-indigo-50 to-purple-50 p-6 rounded-xl text-center group border border-indigo-200">
+                <a href="#" onclick="alert('Try prompting: \n\nDirect Client: \"Add subscription payments to my Node.js app\"\nReact Provider: \"Add subscription payments to my React app\"\n\nWorks in Cursor, Lovable, v0.dev, Bolt, Claude Code, and GitHub Copilot')" class="card-hover bg-gradient-to-br from-indigo-50 to-purple-50 p-6 rounded-xl text-center group border border-indigo-200">
                     <i class="fas fa-robot text-3xl text-indigo-600 mb-4 group-hover:text-purple-600 transition"></i>
                     <h4 class="font-bold text-gray-900 mb-2">AI Agent Test</h4>
-                    <p class="text-sm text-gray-600">Try in your AI tool</p>
+                    <p class="text-sm text-gray-600">Try both patterns</p>
                 </a>
 
                 <a href="https://dashboard.ouroc.com" target="_blank" class="card-hover bg-gray-50 p-6 rounded-xl text-center group">
@@ -841,10 +879,15 @@ function App() {
                 </p>
                 <div class="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-6 mb-8">
                     <h4 class="font-bold text-gray-900 mb-2">Try it in your AI tool right now:</h4>
-                    <code class="bg-gray-900 text-green-400 px-4 py-2 rounded-lg text-sm">
-                        "Add subscription payments to my React app"
-                    </code>
-                    <p class="text-sm text-gray-600 mt-2">Works in Cursor, Lovable, v0.dev, Bolt, Claude Code, and GitHub Copilot</p>
+                    <div class="space-y-2">
+                        <code class="bg-gray-900 text-green-400 px-4 py-2 rounded-lg text-sm block">
+                            "Add subscription payments to my Node.js app"
+                        </code>
+                        <code class="bg-gray-900 text-blue-400 px-4 py-2 rounded-lg text-sm block">
+                            "Add subscription payments to my React app"
+                        </code>
+                    </div>
+                    <p class="text-sm text-gray-600 mt-2">AI agents will choose the right pattern for your needs</p>
                 </div>
                 <div class="flex flex-col sm:flex-row gap-4 justify-center">
                     <button onclick="window.open('https://github.com/ouroc', '_blank')" class="bg-purple-600 text-white px-8 py-4 rounded-full font-semibold hover:bg-purple-700 transition transform hover:scale-105">
