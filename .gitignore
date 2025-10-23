@@ -69,6 +69,12 @@ wallet.json
 credentials.json
 secrets.json
 
+# X.402 Facilitator Configuration
+facilitator.json
+x402-config.json
+*.facilitator.*
+x402-secrets.*
+
 # Keep example env files
 !.env.example
 !.env.*.example
@@ -174,6 +180,13 @@ BUILD_STATUS.md
 COMPILATION_STATUS.md
 FINAL_BUILD_STATUS.md
 
+# X.402 Development Files
+X402_DEVELOPMENT.md
+X402_INTEGRATION_TEMP.md
+x402-workspace/
+x402-testing/
+x402-temp/
+
 # Audit temporary files
 *_AUDIT.md
 SOLANA_CONTRACT_AUDIT.md
@@ -203,6 +216,9 @@ OPTION_C_*.md
 !LICENSE.md
 !CONTRIBUTING.md
 !CODE_OF_CONDUCT.md
+!packages/sdk/src/x402/X402_SPECIFICATION.md
+!packages/sdk/src/x402/types.ts
+!packages/sdk/src/x402/client.ts
 
 # =============================================================================
 # Claude Code
@@ -241,6 +257,12 @@ sdk/node_modules/
 sdk/.turbo/
 sdk/coverage/
 
+# X.402 Middleware Package
+packages/x402-middleware/dist/
+packages/x402-middleware/node_modules/
+packages/x402-middleware/.turbo/
+packages/x402-middleware/coverage/
+
 # Enterprise module build artifacts
 packages/sdk/dist/enterprise.*
 sdk/dist/enterprise.*
@@ -263,6 +285,14 @@ A2A_IMPLEMENTATION_SUMMARY.md
 audit.md
 demo-dapp/TEST_A2A_DEMO.md
 demo-dapp/utils/__tests__/
+
+# =============================================================================
+# X.402 Repository (Coinbase - cloned for reference)
+# =============================================================================
+x402/
+x402/**/
+x402-typescript/
+x402-typescript/**/
 
 # =============================================================================
 # Additional Generated/Temporary Files
@@ -398,6 +428,17 @@ test_*.yaml
 test_*.yml
 test_*.toml
 
+# X.402 Test Files
+x402-test-data/
+x402-test-fixtures/
+x402-mock-data/
+x402-test-*.json
+x402-test-*.yaml
+x402-test-*.yml
+x402-testing-*.log
+x402_test_results/
+x402_coverage/
+
 # ICP canister test files
 canister_test_*.did
 test_canisters/
@@ -443,3 +484,11 @@ dev_*.sh
 local_*.sh
 run_*.sh
 deploy_*.sh
+
+# X.402 Development Scripts
+x402-dev.sh
+x402-local.sh
+x402-test.sh
+x402-deploy.sh
+facilitator-dev.sh
+payment-test.sh

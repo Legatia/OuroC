@@ -2,35 +2,43 @@
 
 This directory contains AI-focused documentation and utilities to help AI coding agents (Cursor, Lovable, v0.dev, Bolt, Claude Code, etc.) successfully integrate OuroC SDK into applications.
 
+**✅ X.402 Delegation Protocol Operational**: AI agents can now securely manage subscriptions with capability tokens and constraint-based permissions.
+
 ## 🤖 For AI Coding Agents
 
 ### Quick Access
 ```typescript
 // AI agents can import the AI helper directly
-import { getAIInstructions, getEffectivePrompts } from '@ouroc/sdk/ai';
+import { getAIInstructions, getEffectivePrompts, getX402Prompts } from '@ouroc/sdk/ai';
 
 // Get latest instructions with fallback chain
 const instructions = await getAIInstructions();
 
 // Get working prompts for AI tools
 const prompts = await getEffectivePrompts();
+
+// Get X.402 delegation specific prompts
+const x402Prompts = getX402Prompts();
 ```
 
 ### What AI Agents Get
 
 1. **Working Prompts**: Tested prompts that consistently work
-2. **Current API Info**: Up-to-date component and hook documentation
-3. **Code Examples**: Ready-to-use implementation patterns
-4. **Troubleshooting**: Common issues and solutions
-5. **Best Practices**: AI-specific implementation tips
+2. **X.402 Delegation Support**: Secure AI agent authorization patterns
+3. **Current API Info**: Up-to-date component and hook documentation
+4. **Code Examples**: Ready-to-use implementation patterns
+5. **Troubleshooting**: Common issues and solutions
+6. **Best Practices**: AI-specific implementation tips
+7. **Middleware Integration**: Express.js and Next.js delegation verification
 
 ## 📁 File Structure
 
 ```
 packages/sdk/src/ai/
-├── index.ts              # Main AI integration module
+├── index.ts              # Main AI integration module with X.402 support
 ├── instructions.json     # NPM-published instructions
 ├── prompts.md           # Effective prompts for AI agents
+├── utilities.ts         # AI detection and suggestion utilities
 └── README.md           # This file
 ```
 
@@ -94,14 +102,24 @@ AI agents should emphasize that **backend integration is required** for:
 ## 📋 Effective Prompts
 
 ### High Success Rate Prompts
+
+#### Basic Subscription Prompts
 - "Add @ouroc/sdk subscription payments to my React app"
 - "Create a SaaS pricing page using OuroC"
 - "Implement crypto recurring payments without wallet requirement"
+
+#### X.402 Delegation Prompts (NEW)
+- "Add @ouroc/sdk with X.402 delegation to my AI agent"
+- "Implement secure AI agent authorization with OuroC X.402"
+- "Create AI subscription management with capability tokens"
+- "Build AI assistant with OuroC recurring payments"
+- "Add X.402 middleware for AI authorization"
 
 ### Prompt Patterns
 1. **Problem + Solution**: "I need to [PROBLEM] using OuroC"
 2. **Feature-Focused**: "Add [FEATURE] with OuroC"
 3. **Technology-Specific**: "Integrate OuroC with [TECHNOLOGY]"
+4. **AI Delegation**: "Create AI agent with X.402 delegation for [PURPOSE]"
 
 See [prompts.md](./prompts.md) for comprehensive prompt guide.
 
@@ -125,8 +143,10 @@ The system automatically:
 
 ### Success Factors
 - **Clear package name**: Always mention "@ouroc/sdk"
+- **X.402 specification**: Include "X.402 delegation" for AI agent features
 - **Specific requirements**: Include pricing, features, constraints
 - **Technical context**: Mention React, Next.js, TypeScript
+- **Middleware needs**: Specify Express.js or Next.js for delegation verification
 - **Error handling**: Request proper error handling
 
 ## 📊 AI Agent Success Metrics
@@ -142,6 +162,9 @@ The system automatically:
 ❌ No wallet connection checks
 ❌ Missing error handling
 ❌ Incorrect network configuration
+❌ Missing X.402 capability token validation
+❌ Incorrect middleware setup for delegation
+❌ Capability tokens without proper constraints
 
 ## 🔍 Debugging AI Implementations
 
@@ -156,6 +179,9 @@ When AI agents generate OuroC code, verify:
 6. ✅ All required createSubscription parameters included
 7. ✅ getIntervalSeconds used for interval conversion
 8. ✅ Backend integration requirements clearly documented
+9. ✅ X.402 capability tokens properly validated
+10. ✅ Delegation constraints correctly implemented
+11. ✅ Middleware properly configured for API protection
 
 ### Troubleshooting Prompts
 ```
@@ -165,7 +191,10 @@ When AI agents generate OuroC code, verify:
 3. Add all required createSubscription parameters
 4. Add error handling for subscription creation
 5. Use getIntervalSeconds for interval conversion
-6. Set correct network (devnet for development)"
+6. Set correct network (devnet for development)
+7. For X.402: Add proper capability token validation
+8. For AI agents: Include delegation constraints and permissions
+9. For middleware: Configure Express.js/Next.js delegation verification"
 ```
 
 ## 📈 Performance Optimization
@@ -187,6 +216,9 @@ When AI agents generate OuroC code, verify:
 - **Code generation**: AI-powered code templates
 - **Performance metrics**: AI implementation success tracking
 - **Community prompts**: Crowd-sourced effective prompts
+- **X.402 delegation templates**: Pre-built capability token patterns
+- **Middleware generator**: Auto-generate Express.js/Next.js delegation middleware
+- **AI agent marketplace**: Discover and integrate specialized AI agents
 
 ### Contribution Guidelines
 When adding new AI-focused features:
@@ -197,6 +229,7 @@ When adding new AI-focused features:
 
 ---
 
-**Last Updated**: 2025-10-21
-**Compatibility**: OuroC SDK v1.0.0+
+**Last Updated**: 2025-10-22
+**Compatibility**: OuroC SDK v1.0.0+ with X.402 Protocol v1.0+
 **AI Tools Tested**: Cursor, Lovable, v0.dev, Bolt, Claude Code, GitHub Copilot
+**X.402 Delegation**: ✅ Operational with middleware support

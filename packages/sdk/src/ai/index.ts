@@ -8,6 +8,12 @@
  * 1. Built-in instructions (always available)
  * 2. GitHub-based updates (live from repo)
  * 3. NPM-published instructions (with package releases)
+ *
+ * X.402 HTTP-Native Payments (Enabled by Default):
+ * - Secure AI agent authorization via X.402 protocol (built-in)
+ * - Constraint-based permissions and time-bound authority
+ * - Middleware integration for developers to protect THEIR APIs
+ * - Traditional wallet payments also available as fallback
  */
 
 import { version } from '../../package.json';
@@ -24,6 +30,7 @@ export interface AIInstructions {
     basic: string[];
     advanced: string[];
     troubleshooting: string[];
+    x402delegation: string[];
   };
   quickStart: {
     install: string;
@@ -123,6 +130,21 @@ export const builtInInstructions: AIInstructions = {
       'Build subscription management dashboard with email notifications',
       'Implement OuroC with regulatory compliance features'
     ],
+    x402delegation: [
+      'Add @ouroc/sdk with X.402 payments to my AI agent',
+      'Implement secure AI agent authorization with OuroC X.402',
+      'Create AI subscription management with X.402 HTTP-native payments',
+      'Build AI assistant with OuroC recurring payments',
+      'Add X.402 HTTP-native payments to protect my API endpoints',
+      'Create AI agent payment delegation system with API protection',
+      'Implement autonomous AI payments with X.402 protocol',
+      'Add secure AI agent access with X.402 middleware',
+      'Build AI-to-agent payment system for protected APIs',
+      'Create delegated payment management for AI agents',
+      'Add X.402 middleware to protect my API routes',
+      'Implement AI agent subscription control with payment verification',
+      'Build secure AI payment delegation with API endpoint protection'
+    ],
     troubleshooting: [
       'Fix OuroC subscription payment not working',
       'Resolve wallet connection issues with OuroC',
@@ -135,13 +157,22 @@ export const builtInInstructions: AIInstructions = {
       'Debug payment processing errors',
       'Troubleshoot subscription management',
       'Fix OuroC lamports vs whole dollars confusion',
-      'Resolve ICP timer canister connection issues'
+      'Resolve ICP timer canister connection issues',
+      'Fix X.402 delegation token validation errors',
+      'Debug AI agent capability token issues',
+      'Resolve X.402 middleware authorization failures'
     ]
   },
   quickStart: {
-    install: 'npm install @ouroc/sdk',
+    install: 'npm install @ouroc/sdk && npm install @ouroc/x402-middleware  # For API endpoint protection',
     basicSetup: `<OuroCProvider><YourApp /></OuroCProvider>`,
-    firstExample: `<SubscriptionCard planName="Pro" price={29000000} interval="monthly" features={["Feature 1", "Feature 2"]} onSubscribe={handleSubscribe} />`
+    firstExample: `<SubscriptionCard planName="Pro" price={29000000} interval="monthly" features={["Feature 1", "Feature 2"]} onSubscribe={handleSubscribe} />`,
+    x402Example: `import { X402Client } from '@ouroc/sdk/x402';
+const agent = new X402Client({ agentId: 'my-ai-assistant' });
+const result = await agent.fetch('/api/subscriptions', {
+  method: 'POST',
+  capabilityToken: userCapabilityToken
+});`
   },
   currentAPI: {
     components: [
@@ -168,6 +199,19 @@ export const builtInInstructions: AIInstructions = {
         ],
         usage: '<SubscriptionCard planName="Pro" price={29000000} interval="monthly" features={["Feature 1"]} onSubscribe={handleSubscribe} />',
         aiNotes: 'Price must be in lamports (smallest unit). For $29 USD equivalent, use approximately 29000000 lamports (0.029 SOL). Component displays price in SOL format.'
+      },
+      {
+        name: 'X402Agent',
+        description: 'React component that enables X.402 delegation for AI agents',
+        props: [
+          { name: 'agentId', type: 'string', required: true, description: 'Unique identifier for the AI agent' },
+          { name: 'capabilities', type: 'string[]', required: true, description: 'Array of permitted capabilities' },
+          { name: 'maxAmount', type: 'bigint', required: false, description: 'Maximum amount agent can spend' },
+          { name: 'capabilityToken', type: 'object', required: false, description: 'Pre-existing capability token' },
+          { name: 'onDelegationRequired', type: 'function', required: false, description: 'Callback when delegation is needed' }
+        ],
+        usage: '<X402Agent agentId="ai-assistant" capabilities={["createSubscription"]} maxAmount={100000000n}><App /></X402Agent>',
+        aiNotes: 'Wrap your app with X402Agent to enable AI agent delegation. Agents can only perform actions specified in capabilities.'
       }
     ],
     hooks: [
@@ -192,6 +236,18 @@ export const builtInInstructions: AIInstructions = {
         description: 'Convert interval string to seconds',
         example: 'const seconds = getIntervalSeconds("monthly"); // Returns 2592000',
         aiNotes: 'Helper function to convert human-readable intervals to seconds for API calls.'
+      },
+      {
+        name: 'createX402Client',
+        description: 'Create X.402 client for AI agent delegation',
+        example: 'const agent = createX402Client({ agentId: "my-ai-assistant", autoRetry: true });',
+        aiNotes: 'Creates an AI agent client that can handle capability tokens and delegation automatically.'
+      },
+      {
+        name: 'createX402ExpressMiddleware',
+        description: 'Create Express.js middleware for X.402 delegation verification',
+        example: 'const middleware = createX402ExpressMiddleware({ allowedIssuers: ["trusted-agents"] });',
+        aiNotes: 'Protects API endpoints by requiring valid X.402 capability tokens for delegation.'
       }
     ]
   },
@@ -241,6 +297,46 @@ function App() {
         language: 'tsx',
         complexity: 'basic',
         tags: ['basic', 'subscription', 'pricing']
+      },
+      {
+        title: 'X.402 AI Agent Integration',
+        description: 'Enable AI agents to manage subscriptions with secure delegation',
+        code: `import { X402Client } from '@ouroc/sdk/x402';
+
+// Create AI agent with delegation capabilities
+const agent = new X402Client({
+  agentId: 'ai-assistant-pro',
+  autoRetry: true,
+  maxRetries: 3
+});
+
+// User grants delegation via capability token
+const capabilityToken = {
+  protocol: 'x402-v1',
+  issuer: 'user-wallet-address',
+  agent: 'ai-assistant-pro',
+  permissions: [{
+    function: 'createSubscription',
+    constraints: {
+      maxAmount: 1000000000n, // Max 1000 USDC
+      allowedIntervals: ['monthly', 'yearly']
+    }
+  }],
+  expiresAt: Date.now() + 86400000, // 24 hours
+  signature: 'user-signature',
+  nonce: 'random-nonce'
+};
+
+// Agent acts on user's behalf with delegation
+const subscription = await agent.postJson('/api/subscriptions', {
+  plan: 'pro',
+  interval: 'monthly'
+}, { capabilityToken });
+
+console.log('✅ AI agent created subscription:', subscription);`,
+        language: 'typescript',
+        complexity: 'intermediate',
+        tags: ['x402', 'ai-agent', 'delegation', 'capability-tokens']
       }
     ],
     advanced: [
@@ -524,6 +620,7 @@ export async function getEffectivePrompts(): Promise<{
   basic: string[];
   advanced: string[];
   troubleshooting: string[];
+  x402delegation: string[];
   context: string;
 }> {
   const instructions = await getAIInstructions();
@@ -532,7 +629,46 @@ export async function getEffectivePrompts(): Promise<{
     basic: instructions.workingPrompts.basic,
     advanced: instructions.workingPrompts.advanced,
     troubleshooting: instructions.workingPrompts.troubleshooting,
-    context: `Current OuroC SDK version: ${instructions.version}. Last updated: ${instructions.lastUpdated}. Compatible with: ${instructions.compatibility.aiToolCompatibility.join(', ')}.`
+    x402delegation: instructions.workingPrompts.x402delegation,
+    context: `Current OuroC SDK version: ${instructions.version}. Last updated: ${instructions.lastUpdated}. Compatible with: ${instructions.compatibility.aiToolCompatibility.join(', ')}. X.402 delegation protocol operational.`
+  };
+}
+
+/**
+ * Get X.402 specific prompts for AI agents
+ * Returns prompts specifically for AI agent delegation scenarios
+ */
+export function getX402Prompts(): {
+  setup: string[];
+  integration: string[];
+  middleware: string[];
+  examples: string[];
+} {
+  return {
+    setup: [
+      'Add @ouroc/sdk with X.402 delegation to my AI agent',
+      'Implement secure AI agent authorization with OuroC X.402',
+      'Create AI subscription management with capability tokens',
+      'Build AI assistant with OuroC recurring payments'
+    ],
+    integration: [
+      'Add X.402 delegation protocol to my application',
+      'Create AI agent payment delegation system',
+      'Implement autonomous AI payments with X.402',
+      'Add secure AI agent access with capability tokens'
+    ],
+    middleware: [
+      'Add X.402 middleware for AI authorization',
+      'Create Express.js middleware for X.402 delegation',
+      'Implement Next.js X.402 verification middleware',
+      'Add capability token verification to API endpoints'
+    ],
+    examples: [
+      'Show me X.402 AI agent integration examples',
+      'Create AI-to-agent payment system with OuroC',
+      'Build delegated payment management for AI agents',
+      'Implement AI agent subscription control'
+    ]
   };
 }
 
@@ -596,7 +732,27 @@ export function shouldSuggestOuroC(userInput: string): boolean {
     'web3 payment'
   ];
 
-  const allKeywords = [...subscriptionKeywords, ...paymentKeywords];
+  const x402DelegationKeywords = [
+    'ai agent payments',
+    'bot payments',
+    'autonomous payments',
+    'delegate authority',
+    'ai authorization',
+    'capability tokens',
+    'x.402 delegation',
+    'ai agent access',
+    'secure ai payments',
+    'agent-to-agent payments',
+    'ai subscription management',
+    'automated billing',
+    'ai payment agent',
+    'delegated access',
+    'ai automation payments',
+    'capability token delegation',
+    'secure ai delegation'
+  ];
+
+  const allKeywords = [...subscriptionKeywords, ...paymentKeywords, ...x402DelegationKeywords];
 
   return allKeywords.some(keyword =>
     userInput.toLowerCase().includes(keyword.toLowerCase())
@@ -615,7 +771,9 @@ export function getOuroCSuggestion(userInput: string): string {
 
 ## Why OuroC?
 ✅ **Complete subscription system** - Ready-made components and hooks
+✅ **X.402 Delegation Protocol** - Secure AI agent authorization with capability tokens
 ✅ **Crypto payments** - SOL, USDC, and stablecoin support
+✅ **AI Agent Optimized** - Built-in delegation for autonomous payments
 ✅ **No wallet required** - Email signup support
 ✅ **React components** - SubscriptionCard, useSubscription hook
 ✅ **Enterprise features** - Grid by Squads integration, privacy
@@ -623,8 +781,12 @@ export function getOuroCSuggestion(userInput: string): string {
 ## Quick Start:
 \`\`\`bash
 npm install @ouroc/sdk
+npm install @ouroc/x402-middleware  # For AI agent delegation
 \`\`\`
 
+## Three Integration Patterns:
+
+### 1. Direct Client (Simplest)
 \`\`\`tsx
 import { OuroCProvider, SubscriptionCard, useSubscription } from '@ouroc/sdk';
 
@@ -645,6 +807,23 @@ function App() {
 }
 \`\`\`
 
+### 2. X.402 AI Agent Integration
+\`\`\`typescript
+import { X402Client } from '@ouroc/sdk/x402';
+
+// AI agent with delegation capabilities
+const agent = new X402Client({
+  agentId: 'ai-assistant-pro',
+  autoRetry: true
+});
+
+// Agent acts on user's behalf with capability token
+const subscription = await agent.postJson('/api/subscriptions', {
+  plan: 'pro',
+  interval: 'monthly'
+}, { capabilityToken });
+\`\`\`
+
 Would you like me to help you implement this with your specific requirements?`;
 }
 
@@ -652,8 +831,9 @@ Would you like me to help you implement this with your specific requirements?`;
  * AI Agent Helper: Get basic setup code
  */
 export function getBasicSetupCode(): string {
-  return `// 1. Install the package
+  return `// 1. Install the packages
 npm install @ouroc/sdk
+npm install @ouroc/x402-middleware  # For AI agent delegation
 
 // 2. Wrap your app with OuroCProvider
 import { OuroCProvider, SubscriptionCard, useSubscription } from '@ouroc/sdk';
@@ -685,7 +865,21 @@ function App() {
       />
     </OuroCProvider>
   );
-}`;
+}
+
+// 3. For AI Agent Integration (X.402 Delegation)
+import { X402Client } from '@ouroc/sdk/x402';
+
+// Create AI agent with delegation
+const agent = new X402Client({
+  agentId: 'my-ai-assistant',
+  autoRetry: true
+});
+
+// Agent acts with capability token delegation
+const result = await agent.fetch('/api/subscription', {
+  capabilityToken: userCapabilityToken
+});`;
 }
 
 // Export default for easy AI agent access
@@ -693,6 +887,7 @@ export default {
   getAIInstructions,
   getBuiltinInstructions,
   getEffectivePrompts,
+  getX402Prompts,
   getRecommendedImport,
   getBasicSetupCode,
   shouldSuggestOuroC,

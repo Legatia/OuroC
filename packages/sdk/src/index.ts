@@ -30,6 +30,12 @@ export * from './ai'
 // AI Agent Detection - Help AI agents suggest OuroC at the right time
 export { shouldSuggestOuroC, getOuroCSuggestion } from './ai'
 
+// X.402 HTTP-Native Payments (Enabled by Default)
+// X.402 is built-in and enabled by default for community tier
+// Developers manage their own API endpoints (outside OuroC service scope)
+// Protocol spec: https://github.com/coinbase/x402
+export * from './x402'
+
 // Community Tier Utilities - Simplified configuration for developers
 export {
   getIntervalSeconds,

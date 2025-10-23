@@ -6,10 +6,10 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-ouro_c_subscriptions = "7c1tGePFVT3ztPEESfzG7gFqYiCJUDjFa7PCeyMSYtub"
+ouroc_prima = "7c1tGePFVT3ztPEESfzG7gFqYiCJUDjFa7PCeyMSYtub"
 
 [programs.devnet]
-ouro_c_subscriptions = "7c1tGePFVT3ztPEESfzG7gFqYiCJUDjFa7PCeyMSYtub"
+ouroc_prima = "7c1tGePFVT3ztPEESfzG7gFqYiCJUDjFa7PCeyMSYtub"
 
 [registry]
 url = "https://api.apr.dev"

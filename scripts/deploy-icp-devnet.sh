@@ -126,7 +126,7 @@ if [ "$NETWORK" == "ic" ]; then
 fi
 
 # Update test configuration
-TEST_ENV_FILE="../solana-contract/ouro_c_subscriptions/.env.devnet"
+TEST_ENV_FILE="../solana-contract/ouroc_prima/.env.devnet"
 
 if [ -f "$TEST_ENV_FILE" ]; then
     echo -e "${BLUE}📝 Updating test configuration...${NC}"
@@ -173,7 +173,7 @@ echo ""
 echo -e "${GREEN}Next Steps:${NC}"
 echo ""
 echo "1. Run integration tests:"
-echo "   ${BLUE}cd solana-contract/ouro_c_subscriptions${NC}"
+echo "   ${BLUE}cd solana-contract/ouroc_prima${NC}"
 echo "   ${BLUE}npm run test:integration${NC}"
 echo ""
 echo "2. Create a test subscription:"

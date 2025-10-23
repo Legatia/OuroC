@@ -2,12 +2,13 @@
 
 🚀 **First Fully Decentralized Recurring Transactions on Solana**
 
-OuroC SDK provides complete subscription infrastructure for Solana dApps with ICP-powered timer canisters, AI agent optimization, and Grid integration for regulatory compliance.
+OuroC SDK provides complete subscription infrastructure for Solana dApps with ICP-powered timer canisters, AI agent optimization, X.402 HTTP-native payments, and Grid integration for regulatory compliance.
 
 ## ✨ Key Features
 
 - 🔄 **Fully Decentralized** - No centralized payment processors or custodians
 - 🤖 **AI Agent Optimized** - Automatic detection and implementation for Cursor, Lovable, v0.dev, Bolt, Claude Code
+- 🌐 **X.402 HTTP-Native Payments** - Coinbase X.402 protocol enabled by default for seamless payment flows
 - 🏛️ **Grid Integration** - KYC, compliance, and regulatory features
 - 💎 **Zero Downtime** - ICP timer canisters ensure perfect execution
 - 🎯 **Community Tier** - 7-input configuration for rapid integration

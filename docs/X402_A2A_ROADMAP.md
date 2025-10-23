@@ -1,17 +1,17 @@
 # OuroC X.402 & A2A Extension Roadmap
 
-**Version**: 1.0
-**Last Updated**: 2025-10-15
+**Version**: 2.0
+**Last Updated**: 2025-10-22
 **Status**: Planning Phase
 
 ---
 
 ## Executive Summary
 
-This document outlines the integration of **X.402 protocol** (HTTP 402 payment standard) with OuroC's existing **Agent-to-Agent (A2A) payment infrastructure**. The goal is to position OuroC as the premier payment facilitator for autonomous AI agents and API monetization.
+This document outlines the integration of **X.402 protocol** (secure agent delegation standard) with OuroC's existing **Agent-to-Agent (A2A) infrastructure**. The goal is to position OuroC as the **premier SDK for AI agent integration** - enabling secure, verifiable, and standardized agent access to subscription management functions.
 
 ### Vision
-Make OuroC the **Stripe for AI agents** - enabling seamless, programmable payments for the emerging agent economy.
+Make OuroC the **"OAuth for AI agents"** - enabling secure delegation and standardized agent interaction with subscription management, without handling private keys or altering our blockchain layer.
 
 ---
 
@@ -59,66 +59,225 @@ Make OuroC the **Stripe for AI agents** - enabling seamless, programmable paymen
 
 ### What is X.402?
 
-X.402 is an open payment standard enabling direct, programmatic payments for web services using HTTP 402 status code.
+X.402 is an open delegation standard enabling **secure agent authorization** and **session control** for web services and SDKs.
 
 **Key Concepts**:
-1. **Pay-per-request**: Services charge per API call
-2. **HTTP 402**: Standard "Payment Required" response
-3. **Facilitator**: Third party validates and settles payments
-4. **Crypto-native**: Uses blockchain for settlement
+1. **Capability Tokens**: Cryptographic proof of user authorization for agents
+2. **Secure Delegation**: Agents act on behalf of users with verifiable limits
+3. **Session Control**: Time and permission-bounded agent access
+4. **Standardized Interface**: Universal agent-to-SDK communication
 
 **Standard Flow**:
 ```
-1. Client → Server: GET /api/service
-2. Server → Client: 402 Payment Required (with payment details)
-3. Client → Facilitator: Execute payment
-4. Facilitator → Server: Payment proof
-5. Server → Client: Service response
+1. User → Agent: Authorize with capability token
+2. Agent → SDK: Call function with X.402 delegation
+3. SDK → Verification: Validate token and permissions
+4. SDK → Execution: Perform authorized function
+5. SDK → Agent: Return result with audit trail
 ```
 
 **Perfect for**:
-- AI agents calling APIs
-- Micropayments
-- API monetization
-- Machine-to-machine commerce
+- AI agents managing user subscriptions
+- Automated SaaS administration
+- Bot-based account management
+- Secure third-party automation
 
-**Official Docs**: https://x402.gitbook.io/x402
+**What X.402 Does NOT Do**:
+- ❌ Handle private keys or wallet credentials
+- ❌ Alter blockchain contracts or transaction signing
+- ❌ Process payments or handle money
+- ❌ Store user secrets or sensitive data
+
+**What X.402 DOES Do**:
+- ✅ Secure agent delegation with user consent
+- ✅ Verifiable session control and permissions
+- ✅ Standardized agent-to-SDK communication
+- ✅ Auditable authorization trails
 
 ---
 
 ## Integration Strategy
 
-### OuroC's Role: Payment Facilitator
+### OuroC's Role: X.402-Enabled SDK Provider
 
-OuroC will become the **trusted facilitator** in the X.402 ecosystem:
+OuroC will become the **first major SDK to natively support X.402 delegation**:
 
 ```
-┌─────────────┐                 ┌─────────────┐
-│  AI Agent   │                 │  API Service │
-│  (Buyer)    │◄───402───────── │  (Seller)    │
-└──────┬──────┘                 └──────┬───────┘
-       │                               │
-       │  Payment via OuroC            │  Verify proof
-       │                               │
-       ▼                               ▼
+┌─────────────┐    X.402 Delegation    ┌─────────────┐
+│  AI Agent   │◄─────────────────────► │  OuroC SDK   │
+│  (Operator) │    Capability Token   │ (Functions) │
+└──────┬──────┘                      └──────┬───────┘
+       │                                   │
+       │  Verifiable Actions              │  Execute on
+       │                                   │  Blockchain
+       ▼                                   ▼
 ┌──────────────────────────────────────────┐
-│    OuroC Facilitator (ICP + Solana)      │
-│  ✓ Agent authorization                   │
-│  ✓ Solana payment execution              │
-│  ✓ Payment proof generation              │
-│  ✓ Spending limit enforcement            │
+│         OuroC Infrastructure               │
+│  ✓ X.402 token validation                │
+│  ✓ Permission enforcement               │
+│  ✓ Session management                   │
+│  ✓ Audit logging                        │
+│  ✓ ICP + Solana execution               │
 └──────────────────────────────────────────┘
 ```
+
+### Key Benefits
+
+1. **Secure Agent Integration**: AI agents can manage subscriptions safely
+2. **Standardized Interface**: Any X.402-compatible agent can use OuroC
+3. **User Control**: Users delegate specific permissions with time limits
+4. **Zero Key Exposure**: No private keys handled by agents or SDK
+5. **Complete Audit Trail**: Every action cryptographically verifiable
 
 ---
 
 ## Implementation Phases
 
-## Phase 1: Critical Security & On-Chain Authorization (Weeks 1-2)
+## Phase 1: X.402 Delegation Layer (Weeks 1-2)
 
-**Priority**: CRITICAL 🚨
+**Priority**: HIGH 🔥
 
-### 1.1 Solana Contract Updates
+### 1.1 X.402 Capability Token System
+
+**New Package**: `packages/sdk/src/x402/`
+
+**Core Components**:
+```typescript
+// packages/sdk/src/x402/types.ts
+export interface X402CapabilityToken {
+  protocol: 'x402-v1'
+  issuer: string                    // User wallet who delegated
+  agent: string                     // Agent identifier
+  permissions: X402Permission[]
+  expiresAt: number                 // Unix timestamp
+  signature: string                 // User's cryptographic signature
+  nonce: string                     // Prevent replay attacks
+}
+
+export interface X402Permission {
+  function: string                  // e.g., 'createSubscription'
+  allowedParams?: string[]         // Whitelisted parameters
+  maxUses?: number                  // Usage limit
+  constraints?: {
+    maxAmount?: bigint             // Max subscription amount
+    allowedIntervals?: string[]    // Allowed billing intervals
+    allowedMerchants?: string[]    // Allowed merchant addresses
+  }
+}
+```
+
+**Token Validation**:
+```typescript
+// packages/sdk/src/x402/validator.ts
+export class X402Validator {
+  validateToken(token: X402CapabilityToken, requestedAction: {
+    function: string,
+    params: any[],
+    caller: string
+  }): X402ValidationResult {
+    // 1. Verify signature against issuer
+    // 2. Check token hasn't expired
+    // 3. Validate requested action against permissions
+    // 4. Check usage limits and constraints
+    // 5. Prevent replay attacks with nonce
+  }
+}
+```
+
+### 1.2 SDK Function Wrapping
+
+**Wrap Existing Functions with X.402**:
+```typescript
+// packages/sdk/src/x402/delegated-client.ts
+export class X402OuroCClient extends OuroCClient {
+  async createSubscriptionWithX402(
+    request: CreateSubscriptionRequest,
+    capabilityToken: X402CapabilityToken
+  ): Promise<SubscriptionId> {
+    // 1. Validate X.402 token
+    const validation = this.validateToken(token, {
+      function: 'createSubscription',
+      params: [request],
+      caller: token.agent
+    })
+
+    if (!validation.valid) {
+      throw new X402Error(`Invalid delegation: ${validation.reason}`)
+    }
+
+    // 2. Execute original function
+    const result = await super.createSubscription(request)
+
+    // 3. Log delegation usage
+    this.logDelegationUsage(token, 'createSubscription', result)
+
+    return result
+  }
+
+  // Wrap other functions similarly...
+  async cancelSubscriptionWithX402(
+    subscriptionId: string,
+    capabilityToken: X402CapabilityToken
+  ): Promise<void>
+
+  async pauseSubscriptionWithX402(
+    subscriptionId: string,
+    capabilityToken: X402CapabilityToken
+  ): Promise<void>
+}
+```
+
+### 1.3 Metadata Manifest for Agent Discovery
+
+**Function Registry**:
+```typescript
+// packages/sdk/src/x402/manifest.ts
+export const OuroCManifest = {
+  protocol: 'x402-v1',
+  sdk: '@ouroc/sdk',
+  version: '1.0.0',
+  functions: [
+    {
+      name: 'createSubscription',
+      description: 'Create a new subscription',
+      parameters: [
+        { name: 'subscription_id', type: 'string', required: true },
+        { name: 'amount', type: 'bigint', required: true },
+        { name: 'interval_seconds', type: 'bigint', required: true },
+        // ... other parameters
+      ],
+      examples: [
+        {
+          description: 'Create $29 monthly subscription',
+          params: {
+            subscription_id: 'sub_123',
+            amount: '29000000',
+            interval_seconds: '2592000'
+          }
+        }
+      ]
+    },
+    {
+      name: 'cancelSubscription',
+      description: 'Cancel an existing subscription',
+      parameters: [
+        { name: 'subscription_id', type: 'string', required: true }
+      ]
+    },
+    // ... other functions
+  ],
+  authentication: {
+    type: 'x402-delegation',
+    requiredScopes: ['subscriptions']
+  }
+}
+```
+
+**Deliverables**:
+- ✅ X.402 capability token system
+- ✅ Token validation and permission checking
+- ✅ SDK function wrapping with delegation
+- ✅ Metadata manifest for agent discovery
 
 **File**: `solana-contract/ouro_c_subscriptions/programs/ouro_c_subscriptions/src/lib.rs`
 

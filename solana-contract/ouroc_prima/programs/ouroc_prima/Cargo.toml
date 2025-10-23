@@ -1,12 +1,12 @@
 [package]
-name = "ouro_c_subscriptions"
+name = "ouroc_prima"
 version = "0.1.0"
 description = "Created with Anchor"
 edition = "2021"
 
 [lib]
 crate-type = ["cdylib", "lib"]
-name = "ouro_c_subscriptions"
+name = "ouroc_prima"
 
 [features]
 default = []

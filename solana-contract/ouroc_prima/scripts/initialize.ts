@@ -2,7 +2,7 @@ import * as anchor from '@coral-xyz/anchor';
 import { Program } from '@coral-xyz/anchor';
 import { PublicKey, SystemProgram } from '@solana/web3.js';
 import { getAssociatedTokenAddress, TOKEN_PROGRAM_ID } from '@solana/spl-token';
-import { OuroCSubscriptions } from '../target/types/ouro_c_subscriptions';
+import { OurocPrima } from '../target/types/ouroc_prima';
 
 async function main() {
   // Setup provider
@@ -17,7 +17,7 @@ async function main() {
     throw new Error('IDL not found');
   }
 
-  const program = new Program(idl, provider) as Program<OuroCSubscriptions>;
+  const program = new Program(idl, provider) as Program<OurocPrima>;
 
   // ICP Canister Public Key (from initialized canister)
   // Main wallet: D2hWeWekkcxJisDHLcFJEgzwvDE9yJmB7NKzLpvdSp6e
@@ -45,7 +45,7 @@ async function main() {
   );
 
   console.log('╔════════════════════════════════════════════════════════╗');
-  console.log('║        OuroC Subscriptions - Initialization            ║');
+  console.log('║            OuroC-Prima - Initialization                ║');
   console.log('╚════════════════════════════════════════════════════════╝');
   console.log('');
   console.log('Configuration:');
