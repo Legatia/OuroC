@@ -38,29 +38,43 @@ OuroC is a **decentralized subscription payment protocol** that enables automate
 
 ### Who is OuroC For?
 
-🎯 **Subscribers**: Anyone wanting to automate recurring payments (SaaS, content, services)
-
 🏪 **Merchants**: Businesses offering subscription products or services
-
-🤖 **AI Agents**: Autonomous systems that need to pay for other services
 
 👨‍💻 **Developers**: Building applications with subscription features
 
+🎯 **Subscribers**: Anyone wanting to automate recurring payments (SaaS, content, services)
+
 🏢 **Enterprise**: Organizations requiring privacy and compliance features
+
+🤖 **AI Agents**: Your AI agent can automate all the above for you
 
 ---
 
-## Getting Started with providing your clients OuroC functionalities
+## Getting Started
 
 ### Installation
 
-Run installation in your front-end project folder:
+If you don't have `package.json` file in your website repo, you will need to setup proper Node.js project structure. Once done you run:
+
+```bash
+npm install
+```
+
+in order [to start managing the software your website use](https://docs.npmjs.com/about-npm#use-npm-to---).
+
+Once `package.json` available in your project, run:
 
 ```bash
 npm install @ouroc/sdk
 ```
 
-### Basic Setup
+in order to add OuroC npm package in your website dependencies.
+
+### Basic Setup for Pure Vanilla Node.js application
+
+<move the demo instructions here>
+
+### Basic Setup for an App on React
 
 ```typescript
 import { OuroCProvider, useSubscription } from '@ouroc/sdk';
@@ -165,7 +179,7 @@ User → Solana Contract (subscription data + payment delegation)
 
 ---
 
-## What to include in your front-end so that subscribers can pay you with USDC
+## For Subscribers
 
 ### Creating Your First Subscription
 
@@ -341,7 +355,7 @@ function NotificationSettings() {
 
 ---
 
-## What to include in your front-end so that you can see OuroC's influence on your business
+## For Merchants
 
 ### Accepting Subscriptions
 
@@ -549,7 +563,7 @@ function FiatWithdrawal() {
 
 ---
 
-## What to include in your front-end so that AI Agents can connect with OuroC
+## For AI Agents
 
 ### Setting Up Agent Payments
 

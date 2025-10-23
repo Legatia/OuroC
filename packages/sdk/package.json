@@ -1,6 +1,7 @@
 {
   "name": "@ouroc/sdk",
   "version": "1.0.0",
+  "type": "module",
   "description": "Complete OuroC SDK - Decentralized subscriptions on Solana with ICP timers, Grid API, and React components",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -73,7 +74,7 @@
     "@dfinity/agent": "^0.20.2",
     "@dfinity/candid": "^0.20.2",
     "@dfinity/principal": "^0.20.2",
-    "@solana/spl-token": "^0.4.14",
+    "@solana/spl-token": "^0.1.8",
     "@solana/wallet-adapter-base": "^0.9.23",
     "@solana/wallet-adapter-react": "^0.15.35",
     "@solana/web3.js": "^1.87.6",

@@ -56,6 +56,28 @@ interface OuroCCanister {
   emergency_pause_all: () => Promise<Result<number>>
 }
 
+// Simple configuration interface for community tier
+export interface OuroCClientConfig {
+  wallet?: any // Solana wallet adapter
+  network?: 'mainnet' | 'testnet' | 'devnet' | 'local'
+  canisterId?: string
+  icpHost?: string
+  solanaConfig?: Partial<SolanaPaymentConfig>
+}
+
+// Simple subscription request (community tier API)
+export interface SimpleSubscriptionRequest {
+  solana_payer: string // Subscriber wallet address
+  solana_receiver: string // Merchant wallet address
+  amount: number // Amount in micro-units (e.g., 10_000000 for 10 USDC)
+  interval_seconds: number // Payment interval in seconds
+  token: 'USDC' | 'USDT' | 'PYUSD' | 'DAI' // Token type
+  subscription_id: string // Unique subscription ID
+  merchant_name: string // Merchant display name
+  reminder_days?: number // Days before payment to send reminder (default: 3)
+  payment_method?: 'wallet' | 'x402' | 'email' // Payment method (default: 'x402')
+}
+
 export class OuroCClient {
   private actor: OuroCCanister | null = null
   private agent: HttpAgent | null = null
@@ -70,31 +92,74 @@ export class OuroCClient {
   private onOverdueSubscriptions?: (subscriptionIds: SubscriptionId[]) => void
   private lastHealthStatus: CanisterHealth['status'] = 'healthy'
   private initializationPromise: Promise<void> | null = null
+  public wallet?: any // Store wallet for later use
 
-  constructor(
-    canisterId: string,
-    network: 'mainnet' | 'testnet' | 'devnet' | 'local' = 'mainnet',
-    icpHost?: string,
-    solanaConfig?: Partial<SolanaPaymentConfig>
-  ) {
-    this.canisterId = canisterId
-    this.network = network
+  constructor(configOrCanisterId: OuroCClientConfig | string, network?: 'mainnet' | 'testnet' | 'devnet' | 'local', icpHost?: string, solanaConfig?: Partial<SolanaPaymentConfig>) {
+    // Support both simple config object and legacy parameters
+    if (typeof configOrCanisterId === 'string') {
+      // Legacy constructor: new OuroCClient(canisterId, network, icpHost, solanaConfig)
+      this.canisterId = configOrCanisterId
+      this.network = network || 'mainnet'
+      this.wallet = undefined
+      
+      // Initialize Solana connection
+      const solanaEndpoint = this.getSolanaEndpoint(this.network)
+      this.connection = new Connection(solanaEndpoint, 'confirmed')
 
-    // Initialize Solana connection
-    const solanaEndpoint = this.getSolanaEndpoint(network)
-    this.connection = new Connection(solanaEndpoint, 'confirmed')
+      // Initialize Solana payments
+      this.solanaPayments = new SolanaPayments({
+        connection: this.connection,
+        ...solanaConfig
+      })
 
-    // Initialize Solana payments
-    this.solanaPayments = new SolanaPayments({
-      connection: this.connection,
-      ...solanaConfig
-    })
+      // Initialize first payment handler
+      this.firstPaymentHandler = new FirstPaymentHandler(this.connection)
 
-    // Initialize first payment handler
-    this.firstPaymentHandler = new FirstPaymentHandler(this.connection)
+      // Initialize ICP agent and store the promise
+      this.initializationPromise = this.initializeAgent(icpHost)
+    } else {
+      // Simple config object: new OuroCClient({ wallet, network })
+      const config = configOrCanisterId
+      this.wallet = config.wallet
+      this.network = config.network || 'devnet' // Default to devnet for community tier
+      
+      // Auto-detect canister ID based on network
+      this.canisterId = config.canisterId || this.getDefaultCanisterId(this.network)
+      
+      // Initialize Solana connection
+      const solanaEndpoint = this.getSolanaEndpoint(this.network)
+      this.connection = new Connection(solanaEndpoint, 'confirmed')
 
-    // Initialize ICP agent and store the promise
-    this.initializationPromise = this.initializeAgent(icpHost)
+      // Initialize Solana payments
+      this.solanaPayments = new SolanaPayments({
+        connection: this.connection,
+        ...config.solanaConfig
+      })
+
+      // Initialize first payment handler
+      this.firstPaymentHandler = new FirstPaymentHandler(this.connection)
+
+      // Initialize ICP agent and store the promise
+      this.initializationPromise = this.initializeAgent(config.icpHost)
+    }
+  }
+  
+  /**
+   * Get default canister ID based on network
+   * Uses the community canister for devnet/mainnet
+   */
+  private getDefaultCanisterId(network: string): string {
+    switch (network) {
+      case 'mainnet':
+        return 'placeholder-mainnet-timer-canister' // TODO: Replace with actual mainnet
+      case 'devnet':
+      case 'testnet':
+        return '7tbxr-naaaa-aaaao-qkrca-cai' // Devnet community canister
+      case 'local':
+        return 'rrkah-fqaaa-aaaaa-aaaaq-cai' // Local default
+      default:
+        return '7tbxr-naaaa-aaaao-qkrca-cai'
+    }
   }
 
   /**
@@ -171,14 +236,87 @@ export class OuroCClient {
   private getIDL(): any {
     return idlFactory
   }
+  
+  /**
+   * Convert simple subscription request to full CreateSubscriptionRequest
+   * This enables the community tier API where users don't need to know about
+   * contract addresses, token mints, etc.
+   */
+  private convertToFullRequest(simpleRequest: SimpleSubscriptionRequest): CreateSubscriptionRequest {
+    // Import token mint mapping
+    const TOKEN_MINTS = {
+      USDC: {
+        mainnet: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+        devnet: '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'
+      },
+      USDT: {
+        mainnet: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
+        devnet: null
+      },
+      PYUSD: {
+        mainnet: '2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo',
+        devnet: null
+      },
+      DAI: {
+        mainnet: 'EjmyN6qEC1Tf1JxiG1ae7UTJhUxSwk1TCWNWqxWV4J6o',
+        devnet: null
+      }
+    }
+
+    const networkKey = (this.network === 'mainnet' ? 'mainnet' : 'devnet') as 'mainnet' | 'devnet'
+    const tokenMint = TOKEN_MINTS[simpleRequest.token]?.[networkKey]
+
+    if (!tokenMint) {
+      throw new OuroCError(
+        `Token ${simpleRequest.token} not available on ${this.network}`,
+        'TOKEN_NOT_AVAILABLE'
+      )
+    }
+
+    // Use placeholder contract address for community tier
+    const contractAddress = 'OuroCProgramId11111111111111111111111111' // TODO: Replace with actual program ID
+
+    return {
+      subscription_id: simpleRequest.subscription_id,
+      solana_contract_address: contractAddress,
+      subscriber_address: simpleRequest.solana_payer,
+      merchant_address: simpleRequest.solana_receiver,
+      payment_token_mint: tokenMint,
+      amount: BigInt(simpleRequest.amount),
+      reminder_days_before_payment: simpleRequest.reminder_days || 3,
+      interval_seconds: BigInt(simpleRequest.interval_seconds),
+      api_key: 'ouro_community_shared_2025_demo_key', // Community API key
+      payment_method: simpleRequest.payment_method || 'x402',
+      x402_config: {
+        payment_schemes: [`solana-${simpleRequest.token.toLowerCase()}`],
+        agent_delegation: {
+          enabled: true,
+          agents: {}
+        }
+      }
+    }
+  }
 
   // Subscription management
-  async createSubscription(request: CreateSubscriptionRequest, walletAdapter?: any): Promise<SubscriptionId> {
+  async createSubscription(request: CreateSubscriptionRequest | SimpleSubscriptionRequest, walletAdapter?: any): Promise<SubscriptionId> {
     if (!this.actor) throw new OuroCError('Client not initialized', 'NOT_INITIALIZED')
 
     try {
+      // Detect if this is a simple request and convert it
+      let fullRequest: CreateSubscriptionRequest
+      if ('token' in request && typeof request.token === 'string') {
+        // Simple request - convert it
+        fullRequest = this.convertToFullRequest(request as SimpleSubscriptionRequest)
+      } else {
+        // Already a full request
+        fullRequest = request as CreateSubscriptionRequest
+      }
+      
+      // Use stored wallet if no walletAdapter provided
+      const wallet = walletAdapter || this.wallet
+
       // Step 1: Create subscription timer on ICP
-      const result = await this.actor.create_subscription(request)
+      const result = await this.actor.create_subscription(fullRequest)
 
       if (!('ok' in result)) {
         throw new OuroCError(
@@ -190,17 +328,17 @@ export class OuroCClient {
       const subscriptionId = result.ok
 
       // Step 2: Execute first payment if wallet adapter is provided
-      console.log('DEBUG: walletAdapter received:', walletAdapter)
-      console.log('DEBUG: walletAdapter type:', typeof walletAdapter)
-      console.log('DEBUG: walletAdapter truthy?', !!walletAdapter)
+      console.log('DEBUG: wallet received:', wallet)
+      console.log('DEBUG: wallet type:', typeof wallet)
+      console.log('DEBUG: wallet truthy?', !!wallet)
 
-      if (walletAdapter) {
+      if (wallet) {
         console.log('Executing first payment with wallet adapter...')
 
         try {
-          const subscriberPubkey = new PublicKey(request.subscriber_address)
-          const merchantPubkey = new PublicKey(request.merchant_address)
-          const usdcMint = new PublicKey(request.payment_token_mint)
+          const subscriberPubkey = new PublicKey(fullRequest.subscriber_address)
+          const merchantPubkey = new PublicKey(fullRequest.merchant_address)
+          const usdcMint = new PublicKey(fullRequest.payment_token_mint)
           const amount = Number(request.amount)
 
           // Check balance first
