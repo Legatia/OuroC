@@ -99,9 +99,9 @@ export class OuroCClient {
     if (typeof configOrCanisterId === 'string') {
       // Legacy constructor: new OuroCClient(canisterId, network, icpHost, solanaConfig)
       this.canisterId = configOrCanisterId
-      this.network = network || 'mainnet'
+      this.network = network || 'devnet' // TODO: (production) switch to mainnet once the devnet test are satisfactory
       this.wallet = undefined
-      
+
       // Initialize Solana connection
       const solanaEndpoint = this.getSolanaEndpoint(this.network)
       this.connection = new Connection(solanaEndpoint, 'confirmed')
@@ -122,10 +122,10 @@ export class OuroCClient {
       const config = configOrCanisterId
       this.wallet = config.wallet
       this.network = config.network || 'devnet' // Default to devnet for community tier
-      
+
       // Auto-detect canister ID based on network
       this.canisterId = config.canisterId || this.getDefaultCanisterId(this.network)
-      
+
       // Initialize Solana connection
       const solanaEndpoint = this.getSolanaEndpoint(this.network)
       this.connection = new Connection(solanaEndpoint, 'confirmed')
@@ -143,7 +143,7 @@ export class OuroCClient {
       this.initializationPromise = this.initializeAgent(config.icpHost)
     }
   }
-  
+
   /**
    * Get default canister ID based on network
    * Uses the community canister for devnet/mainnet
@@ -236,7 +236,7 @@ export class OuroCClient {
   private getIDL(): any {
     return idlFactory
   }
-  
+
   /**
    * Convert simple subscription request to full CreateSubscriptionRequest
    * This enables the community tier API where users don't need to know about
@@ -274,7 +274,7 @@ export class OuroCClient {
     }
 
     // Use placeholder contract address for community tier
-    const contractAddress = 'OuroCProgramId11111111111111111111111111' // TODO: Replace with actual program ID
+    const contractAddress = '7c1tGePFVT3ztPEESfzG7gFqYiCJUDjFa7PCeyMSYtub' // TODO: Replace with actual program ID
 
     return {
       subscription_id: simpleRequest.subscription_id,
@@ -311,7 +311,7 @@ export class OuroCClient {
         // Already a full request
         fullRequest = request as CreateSubscriptionRequest
       }
-      
+
       // Use stored wallet if no walletAdapter provided
       const wallet = walletAdapter || this.wallet
 
