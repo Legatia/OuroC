@@ -1,7 +1,7 @@
 {
   "name": "@ouroc/x402-middleware",
   "version": "1.0.0",
-  "description": "X.402 middleware for automatic AI agent payments",
+  "description": "X.402 HTTP-native payments middleware (kept for future reference)",
   "main": "dist/index.js",
   "module": "dist/index.esm.js",
   "types": "dist/index.d.ts",
@@ -13,11 +13,10 @@
   },
   "keywords": [
     "x402",
-    "ai-agents",
+    "http-native-payments",
     "payments",
     "middleware",
-    "oauth",
-    "delegation",
+    "coinbase-x402",
     "ouroc"
   ],
   "author": "OuroC Team",
