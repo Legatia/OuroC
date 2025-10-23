@@ -36,6 +36,7 @@ export interface AIInstructions {
     install: string;
     basicSetup: string;
     firstExample: string;
+    x402Example: string;
   };
   currentAPI: {
     components: ComponentInfo[];

@@ -1,5 +1,6 @@
 // Core exports
 export { OuroCClient } from './core/OuroCClient'
+export type { OuroCClientConfig, SimpleSubscriptionRequest } from './core/OuroCClient'
 // export { SecureOuroCClient } from './core/SecureOuroCClient' // Removed - incomplete implementation
 export type { CanisterHealth } from './core/OuroCClient'
 export * from './core/types'
