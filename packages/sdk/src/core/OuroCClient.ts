@@ -151,7 +151,7 @@ export class OuroCClient {
   private getDefaultCanisterId(network: string): string {
     switch (network) {
       case 'mainnet':
-        return 'placeholder-mainnet-timer-canister' // TODO: Replace with actual mainnet
+        return 'placeholder-mainnet-timer-canister' // TODO: (production) Replace with actual mainnet
       case 'devnet':
       case 'testnet':
         return '7tbxr-naaaa-aaaao-qkrca-cai' // Devnet community canister
@@ -274,7 +274,7 @@ export class OuroCClient {
     }
 
     // Use placeholder contract address for community tier
-    const contractAddress = '7c1tGePFVT3ztPEESfzG7gFqYiCJUDjFa7PCeyMSYtub' // TODO: Replace with actual program ID
+    const contractAddress = '7c1tGePFVT3ztPEESfzG7gFqYiCJUDjFa7PCeyMSYtub' // TODO: (production) Replace with actual program ID
 
     return {
       subscription_id: simpleRequest.subscription_id,
@@ -339,7 +339,7 @@ export class OuroCClient {
           const subscriberPubkey = new PublicKey(fullRequest.subscriber_address)
           const merchantPubkey = new PublicKey(fullRequest.merchant_address)
           const usdcMint = new PublicKey(fullRequest.payment_token_mint)
-          const amount = Number(request.amount)
+          const amount = Number(fullRequest.amount)
 
           // Check balance first
           const { hasEnough, balance } = await this.firstPaymentHandler.checkBalance(

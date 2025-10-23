@@ -1,7 +1,6 @@
 {
   "name": "@ouroc/sdk",
   "version": "1.0.0",
-  "type": "module",
   "description": "Complete OuroC SDK - Decentralized subscriptions on Solana with ICP timers, Grid API, and React components",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
