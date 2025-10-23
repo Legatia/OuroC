@@ -3,6 +3,7 @@ import { useWallet } from '@solana/wallet-adapter-react'
 import { PublicKey } from '@solana/web3.js'
 import { OuroCClient } from '../core/OuroCClient'
 import { OuroCConfig, OuroCTheme, OuroCError } from '../core/types'
+import { AutoNotificationManager } from '../components/AutoNotificationManager'
 
 // Default theme
 const defaultTheme: OuroCTheme = {
@@ -66,6 +67,13 @@ interface OuroCProviderProps {
   onSubscriptionCreate?: (subscription: any) => void
   onPaymentSuccess?: (paymentHash: string) => void
   onBalanceLow?: (balance: bigint) => void
+  // Notification settings
+  notifications?: {
+    enabled?: boolean
+    position?: 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left'
+    showBrowserNotifications?: boolean // Request browser notification permission
+    autoAlertUrgent?: boolean // Show in-app alerts for urgent payments
+  }
 }
 
 export function OuroCProvider({
@@ -77,7 +85,8 @@ export function OuroCProvider({
   onError,
   onSubscriptionCreate,
   onPaymentSuccess,
-  onBalanceLow
+  onBalanceLow,
+  notifications: notificationSettings
 }: OuroCProviderProps) {
   const wallet = useWallet()
   const [client] = useState(() => new OuroCClient(canisterId, network, icpHost))
@@ -108,6 +117,18 @@ export function OuroCProvider({
   useEffect(() => {
     setIsConnected(wallet.connected && wallet.publicKey !== null)
   }, [wallet.connected, wallet.publicKey])
+
+  // Request browser notification permission if enabled
+  useEffect(() => {
+    if (notificationSettings?.showBrowserNotifications !== false) {
+      // Request permission on mount (default: enabled)
+      if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission().then(permission => {
+          console.log('Browser notification permission:', permission)
+        })
+      }
+    }
+  }, [notificationSettings?.showBrowserNotifications])
 
   // Error handler
   const handleError = (error: Error, context: string) => {
@@ -200,6 +221,12 @@ export function OuroCProvider({
         } as React.CSSProperties}
       >
         {children}
+
+        {/* Auto Notification Manager - Built-in by default */}
+        <AutoNotificationManager
+          enabled={notificationSettings?.enabled !== false} // Default: enabled
+          position={notificationSettings?.position || 'top-right'} // Default: top-right
+        />
       </div>
     </OuroCContext.Provider>
   )

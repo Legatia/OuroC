@@ -10,6 +10,7 @@
 - **Demo Application** - Working frontend with real Grid flows and subscription creation
 - **Community API Key** - Shared key system operational: `ouro_community_shared_2025_demo_key`
 - **Cross-Chain Architecture** - ICP + Solana + Grid (fully functional)
+- **X.402 HTTP-Native Payments** - Coinbase X.402 protocol integration, enabled by default (spec-aligned)
 - **Agent-to-Agent (A2A) Payments** - Already built and operational
 
 ## 🤖 Agent-Enhanced Subscription SDK: Smarter Recurring Payments
@@ -19,18 +20,19 @@ We provide the infrastructure that dApp developers use to handle recurring payme
 
 **Current SDK Flow:**
 ```
-dApp Developer integrates Ouro-C SDK → Users subscribe to dApp → Recurring USDC payments → dApp gets paid reliably
+dApp Developer integrates Ouro-C SDK → Users subscribe to dApp → X.402 HTTP-native payments → Recurring USDC payments → dApp gets paid reliably
 ```
 
 **Agent-Enhanced SDK Flow:**
 ```
-dApp Developer integrates Ouro-C SDK + Agents → Users subscribe → Intelligent payment processing → Enhanced reliability & insights
+dApp Developer integrates Ouro-C SDK + Agents → Users subscribe → X.402 payments with agent optimization → Intelligent payment processing → Enhanced reliability & insights
 ```
 
 ### **Why Agents Enhance Our Subscription SDK:**
-- **Payment Reliability** - Agents monitor and retry failed transactions automatically
+- **Payment Reliability** - Agents monitor and retry failed transactions automatically (works with X.402)
 - **User Analytics** - Intelligent insights on user behavior and churn prediction
 - **Cost Optimization** - Dynamic fee optimization and gas cost management
+- **X.402 Enhancement** - Agent-optimized HTTP-native payment flows for better success rates
 - **Compliance Automation** - Automatic regulatory compliance and reporting
 - **Merchant Intelligence** - Data-driven insights for dApp business decisions
 
@@ -40,6 +42,7 @@ dApp Developer integrates Ouro-C SDK + Agents → Users subscribe → Intelligen
 - **ICP Timer Canister**: Fixed scheduling with rate limiting and tier validation
 - **LicenseRegistry**: API key management with Community/Business/Enterprise tiers
 - **Grid Integration**: Email authentication, KYC, multisig wallet creation
+- **X.402 HTTP-Native Payments**: Coinbase X.402 protocol with "exact" scheme for Solana USDC
 - **Subscription SDK**: Complete payment infrastructure for dApp developers
 - **Cross-Chain Coordination**: ICP timers trigger Solana contract execution
 

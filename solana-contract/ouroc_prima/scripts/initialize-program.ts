@@ -2,10 +2,10 @@ import * as anchor from "@coral-xyz/anchor";
 import { Program, AnchorProvider } from "@coral-xyz/anchor";
 import { PublicKey, SystemProgram } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
-import { OuroCSubscriptions } from "../target/types/ouro_c_subscriptions";
+import { OurocPrima } from "../target/types/ouroc_prima";
 
 /**
- * Initialize OuroC Subscription Program on Devnet
+ * Initialize OuroC-Prima Subscription Program on Devnet
  *
  * This is a one-time setup
  */
@@ -15,13 +15,13 @@ async function main() {
   const provider = AnchorProvider.env();
   anchor.setProvider(provider);
 
-  const program = anchor.workspace.ouroCSubscriptions as Program<OuroCSubscriptions>;
+  const program = anchor.workspace.ourocPrima as Program<OurocPrima>;
   const authority = provider.wallet.publicKey;
 
   const USDC_MINT_DEVNET = new PublicKey("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU");
   const PROGRAM_ID = new PublicKey("7c1tGePFVT3ztPEESfzG7gFqYiCJUDjFa7PCeyMSYtub");
 
-  console.log("\n🚀 Initializing OuroC Subscription Program");
+  console.log("\n🚀 Initializing OuroC-Prima Subscription Program");
   console.log("━".repeat(80));
   console.log("Program ID:", PROGRAM_ID.toString());
   console.log("Authority:", authority.toString());

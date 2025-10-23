@@ -104,6 +104,7 @@ export interface AgentMetadata {
 }
 
 export interface CreateSubscriptionRequest {
+  // Core subscription fields (required)
   subscription_id: string // Must match Solana subscription ID
   solana_contract_address: SolanaAddress // Deployed Solana program address
   subscriber_address: SolanaAddress // Subscriber wallet
@@ -115,6 +116,26 @@ export interface CreateSubscriptionRequest {
   start_time?: [] | [Timestamp] // Optional timestamp for when subscription starts
   api_key: string // Ouro-C API key for license validation
   agent_metadata?: AgentMetadata // Optional: For AI agent subscriptions
+
+  // X.402 HTTP-Native Payments (enabled by default)
+  payment_method?: 'wallet' | 'x402' | 'email' // Default: 'x402' (HTTP-native payments)
+  x402_config?: {
+    // Developer manages their API endpoints (outside OuroC service scope)
+    api_endpoint?: string // Developer's API that needs payment protection
+    facilitator_url?: string // Defaults to OuroC facilitator
+    payment_schemes?: string[] // Defaults: ['solana-usdc'] for community tier
+
+    // AI agent delegation (enabled by default for community tier)
+    agent_delegation?: {
+      enabled: boolean // Default: true (AI agents can pay on behalf of users)
+      agents: Record<string, {
+        max_amount_per_transaction?: bigint // Per-transaction limit
+        max_monthly_amount?: bigint // Monthly spending limit
+        expires_at?: number // Delegation expiry timestamp
+        enabled: boolean // Agent enabled/disabled
+      }>
+    }
+  }
 }
 
 // Notification system types
@@ -240,16 +261,20 @@ export interface UseSubscriptionReturn {
 // OuroC notification type (avoiding conflict with browser Notification)
 export interface OuroCNotification {
   id: string
-  subscriptionId: string
+  subscriptionId?: string // Optional for notifications not tied to specific subscriptions
+  title: string // Notification title for UI display
   message: string
-  timestamp: number
+  timestamp: Date | number // Accept both Date and number for flexibility
   read: boolean
-  type: 'payment_success' | 'payment_failed' | 'low_balance' | 'subscription_expiring' | 'upcoming_payment'
+  type: 'payment_success' | 'payment_failed' | 'low_balance' | 'subscription_expiring' | 'upcoming_payment' | 'payment_reminder' | 'subscription_created'
   metadata?: {
-    amount?: bigint
-    token?: SupportedToken
+    amount?: bigint | string // Support both bigint and string representations
+    token?: SupportedToken | string // Support both enum and string
     daysUntilPayment?: number
     paymentDate?: Timestamp
+    merchantName?: string // For payment reminders
+    source?: 'icp_canister' | 'solana_memo' | 'simulation' // Track notification source
+    memo?: string // Original SPL memo for reference
   }
 }
 
@@ -281,6 +306,14 @@ export interface UseNotificationsReturn {
   markAsRead: (notificationId: string) => void
   markAllAsRead: () => void
   refresh: () => Promise<void>
+  isListeningToTransactions?: boolean // Whether listening to Solana transactions
+  simulatePaymentReminder?: (data: {
+    merchantName: string
+    amount: string
+    token: string
+    daysUntilPayment: number
+  }) => void // For testing payment reminders
+  parseSolanaMemo?: (memo: string) => OuroCNotification | null // Parse SPL memos
 }
 
 export interface UseBalanceReturn {

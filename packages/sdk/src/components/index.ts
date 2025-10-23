@@ -6,6 +6,10 @@ export { HealthMonitor } from './HealthMonitor'
 export { MerchantDashboard } from './MerchantDashboard'
 export { TokenSelector } from './TokenSelector'
 export { NetworkToggle } from './NetworkToggle'
+export { NotificationPanel } from './NotificationPanel'
+export { NotificationButton } from './NotificationButton'
+export { NotificationExample } from './NotificationExample'
+export { AutoNotificationManager } from './AutoNotificationManager'
 
 // Export component types
 export type { SubscriptionCardProps } from '../core/types'

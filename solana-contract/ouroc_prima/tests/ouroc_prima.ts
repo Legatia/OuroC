@@ -1,13 +1,13 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { PublicKey, SystemProgram } from "@solana/web3.js";
-import { OuroCSubscriptions } from "../target/types/ouro_c_subscriptions";
+import { OurocPrima } from "../target/types/ouroc_prima";
 
-describe("ouro_c_subscriptions", () => {
+describe("ouroc_prima", () => {
   // Configure the client to use the local cluster.
   anchor.setProvider(anchor.AnchorProvider.env());
 
-  const program = anchor.workspace.ouroCSubscriptions as Program<OuroCSubscriptions>;
+  const program = anchor.workspace.ourocPrima as Program<OurocPrima>;
   const authority = anchor.AnchorProvider.env().wallet;
 
   it("Initializes program with proper security settings", async () => {

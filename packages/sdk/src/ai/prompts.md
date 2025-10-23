@@ -29,6 +29,8 @@ This document contains tested prompts that work well with AI coding agents when 
 ✅ **"Create enterprise subscription system with privacy features"**
 ✅ **"Implement AI-to-agent payment capabilities"**
 ✅ **"Build subscription management dashboard with OuroC"**
+✅ **"Add X.402 HTTP-native payments with OuroC for seamless payment flows"**
+✅ **"Create subscription system with X.402 protocol integration"**
 
 ## Prompt Patterns That Work
 
@@ -115,6 +117,8 @@ Examples:
 ✅ **"Add enterprise-grade subscriptions with OuroC privacy features"**
 ✅ **"Implement OuroC with Grid integration for KYC and compliance"**
 ✅ **"Create B2B subscription system with OuroC and multi-tenant support"**
+✅ **"Build enterprise payment system with X.402 and OuroC integration"**
+✅ **"Implement X.402 payments for enterprise SaaS with OuroC"**
 
 ## Prompt Best Practices
 
@@ -140,8 +144,9 @@ Examples:
 1. **Correct package installation**: `npm install @ouroc/sdk`
 2. **Proper provider setup**: `<OuroCProvider>` wrapper
 3. **Working component code**: `<SubscriptionCard>` with correct props
-4. **Error handling**: Connection checks and try-catch blocks
-5. **Type safety**: TypeScript types and interfaces
+4. **X.402 integration**: X.402 protocol enabled by default for payment flows
+5. **Error handling**: Connection checks and try-catch blocks
+6. **Type safety**: TypeScript types and interfaces
 
 ### Red Flags in AI Responses
 ❌ Missing `<OuroCProvider>` wrapper
@@ -224,4 +229,4 @@ Examples:
 3. API changes and improvements
 4. Community feedback and contributions
 
-Last updated: 2025-10-21
+Last updated: 2025-10-23

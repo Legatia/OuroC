@@ -86,7 +86,7 @@ pub fn get_jupiter_program_id() -> Pubkey {
 }
 
 #[program]
-pub mod ouro_c_subscriptions {
+pub mod ouroc_prima {
     use super::*;
 
     /// Initialize the subscription program
@@ -549,7 +549,7 @@ pub mod ouro_c_subscriptions {
         );
 
         // Call main process_payment with manual authorization
-        ouro_c_subscriptions::process_payment(ctx, None, 0)
+        ouroc_prima::process_payment(ctx, None, 0)
     }
 
     /// Send notification to subscriber via Solana memo transaction
