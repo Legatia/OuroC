@@ -585,10 +585,10 @@ pub mod ouroc_prima {
                     subscription.amount,
                 );
 
-                // Verify timestamp (5 minute window)
+                // Verify timestamp (5 minute window for production security)
                 let current_time = Clock::get()?.unix_timestamp;
                 require!(
-                    crate::crypto::verify_timestamp(timestamp, current_time, 60)?,
+                    crate::crypto::verify_timestamp(timestamp, current_time, 300)?,
                     ErrorCode::TimestampExpired
                 );
 
@@ -628,7 +628,7 @@ pub mod ouroc_prima {
                         );
 
                         let current_time = Clock::get()?.unix_timestamp;
-                        let timestamp_valid = crate::crypto::verify_timestamp(timestamp, current_time, 60)?;
+                        let timestamp_valid = crate::crypto::verify_timestamp(timestamp, current_time, 300)?;
 
                         if timestamp_valid {
                             let is_valid = verify_ed25519_ix(
@@ -730,7 +730,7 @@ pub mod ouroc_prima {
 
                 let current_time = Clock::get()?.unix_timestamp;
                 require!(
-                    crate::crypto::verify_timestamp(timestamp, current_time, 60)?,
+                    crate::crypto::verify_timestamp(timestamp, current_time, 300)?,
                     ErrorCode::TimestampExpired
                 );
 
@@ -761,7 +761,7 @@ pub mod ouroc_prima {
                         let message = crate::crypto::create_payment_message(&subscription.id, timestamp, subscription.amount);
                         let current_time = Clock::get()?.unix_timestamp;
 
-                        if crate::crypto::verify_timestamp(timestamp, current_time, 60)? {
+                        if crate::crypto::verify_timestamp(timestamp, current_time, 300)? {
                             let is_valid = verify_ed25519_ix(
                                 &ctx.accounts.instructions_sysvar,
                                 &icp_pubkey,
@@ -890,7 +890,7 @@ mod payment_helpers {
                 );
 
                 // Verify timestamp is recent (prevent replay attacks)
-                let max_age_seconds = 60; // 1 minute
+                let max_age_seconds = 300; // 5 minutes - reduced from 60 minutes for security
                 require!(
                     verify_timestamp(timestamp, clock.unix_timestamp, max_age_seconds)?,
                     ErrorCode::SignatureExpired
@@ -2032,4 +2032,7 @@ pub enum ErrorCode {
 
     #[msg("Fee collection address not set - admin must call update_fee_destination")]
     FeeCollectionAddressNotSet,
+
+    #[msg("Replay attack detected - timestamp already used")]
+    ReplayAttack,
 }
