@@ -1,0 +1,3 @@
+[dependencies]
+base-x-encoder = "1.0.0"
+sha2 = "0.1.9"

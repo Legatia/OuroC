@@ -3,7 +3,8 @@ import { useWallet } from '@solana/wallet-adapter-react'
 import { motion } from 'framer-motion'
 import { Shield } from 'lucide-react'
 import WalletButton from '../components/WalletButton'
-import GridSubscriptionModal from '../components/GridSubscriptionModal'
+import X402PaymentDemo from '../components/X402PaymentDemo'
+import { OuroC } from '@ouroc/sdk'
 
 // Minimal subscription plans for demo
 const plans = [
@@ -214,13 +215,12 @@ export default function Home() {
         </div>
       </main>
 
-      {/* Grid Subscription Modal */}
-      <GridSubscriptionModal
-        isOpen={showModal}
-        onClose={() => setShowModal(false)}
-        plan={selectedPlan}
-        merchantAddress={MERCHANT_ADDRESS}
-      />
+      {/* X.402 HTTP Payment Demo */}
+        <X402PaymentDemo
+          isOpen={showModal}
+          onClose={() => setShowModal(false)}
+          plan={selectedPlan}
+        />
     </div>
   )
 }

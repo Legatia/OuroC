@@ -3,7 +3,8 @@
   "canisters": {
     "OuroC_timer": {
       "type": "motoko",
-      "main": "src/timer/main.mo"
+      "main": "src/timer/main.mo",
+      "args": "--package base-x-encoder .mops/base-x-encoder@1.0.0/src --package new-base .mops/new-base@0.4.0/src --package sha2 .mops/sha2@0.1.9/src"
     },
     "LicenseRegistry": {
       "type": "motoko",

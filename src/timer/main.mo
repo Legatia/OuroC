@@ -59,10 +59,13 @@ persistent actor OuroCTimer {
         #Expired;
     };
 
-    // Minimalistic subscription timer - ICP only tracks WHEN to trigger, Solana has WHAT data
+    // Minimalistic subscription timer - ICP tracks WHEN to trigger + WHO to charge
+    // Solana PDA has full subscription details, but ICP needs addresses to build transactions
     public type Subscription = {
         id: SubscriptionId;
         solana_contract_address: SolanaAddress; // Deployed Solana program address
+        subscriber_address: SolanaAddress;      // Subscriber's wallet (needed for tx accounts)
+        merchant_address: SolanaAddress;        // Merchant's wallet (needed for tx accounts)
         payment_token_mint: Text;               // Token mint to determine opcode (0=USDC, 1=other)
         reminder_days_before_payment: Nat;      // Days before payment to send notification (opcode 2)
         interval_seconds: Nat64;                // Payment interval
@@ -142,9 +145,30 @@ persistent actor OuroCTimer {
     private var fee_address_proposal_time: ?Int = null;
     private var fee_address_change_delay: Int = 7 * 24 * 60 * 60 * 1_000_000_000; // 7 days in nanoseconds
 
+    // Old subscription type for migration (before adding addresses)
+    private type OldSubscription = {
+        id: SubscriptionId;
+        solana_contract_address: SolanaAddress;
+        payment_token_mint: Text;
+        reminder_days_before_payment: Nat;
+        interval_seconds: Nat64;
+        next_execution: Timestamp;
+        status: SubscriptionStatus;
+        created_at: Timestamp;
+        last_triggered: ?Timestamp;
+        trigger_count: Nat;
+        failed_payment_count: Nat;
+        last_failure_time: ?Timestamp;
+        last_error: ?Text;
+    };
+
     // Stable storage for upgrades
-    private var stable_subscriptions: [(SubscriptionId, Subscription)] = [];
+    // Migration strategy: Keep variable name but change the type it references
+    // On upgrade, Motoko will see this as [(SubscriptionId, OldSubscription)] matching existing stable memory
+    private var stable_subscriptions: [(SubscriptionId, OldSubscription)] = [];
+    private var stable_subscriptions_v2: [(SubscriptionId, Subscription)] = []; // New format with addresses
     private var stable_encrypted_metadata: [(SubscriptionId, EncryptedMetadata)] = [];
+    private var migration_completed: Bool = false;
 
     // Deprecated stable variables (kept for compatibility only)
     private var MAX_SUBSCRIPTIONS_PER_PRINCIPAL: Nat = 100;
@@ -152,7 +176,8 @@ persistent actor OuroCTimer {
     private var fee_collection_address: Text = "CKEY8bppifSErEfP5cvX8hCnmQ2Yo911mosdRx7M3HxF";
 
     system func preupgrade() {
-        stable_subscriptions := Iter.toArray(subscriptions.entries());
+        // Save to v2 format with new addresses
+        stable_subscriptions_v2 := Iter.toArray(subscriptions.entries());
         stable_encrypted_metadata := Iter.toArray(encrypted_metadata.entries());
         // Save admin lists
         stable_admins := authManager.getAdmins();
@@ -171,12 +196,46 @@ persistent actor OuroCTimer {
             };
         };
 
-        stable_subscriptions := [];
-        for ((id, sub) in stable_subscriptions.vals()) {
-            subscriptions.put(id, sub);
-            if (sub.status == #Active) {
-                ignore schedule_subscription_timer<system>(sub);
+        // Migration: Check if we have old format data (without addresses)
+        if (stable_subscriptions.size() > 0 and stable_subscriptions_v2.size() == 0) {
+            Debug.print("🔄 Migrating " # Nat.toText(stable_subscriptions.size()) # " old subscriptions to new format...");
+            for ((id, old_sub) in stable_subscriptions.vals()) {
+                // Create new subscription with placeholder addresses
+                // These will need to be updated via update_subscription_addresses()
+                let migrated_sub: Subscription = {
+                    id = old_sub.id;
+                    solana_contract_address = old_sub.solana_contract_address;
+                    subscriber_address = "PLACEHOLDER_SUBSCRIBER"; // Admin must update
+                    merchant_address = "PLACEHOLDER_MERCHANT";     // Admin must update
+                    payment_token_mint = old_sub.payment_token_mint;
+                    reminder_days_before_payment = old_sub.reminder_days_before_payment;
+                    interval_seconds = old_sub.interval_seconds;
+                    next_execution = old_sub.next_execution;
+                    status = #Paused; // Pause migrated subscriptions until addresses updated
+                    created_at = old_sub.created_at;
+                    last_triggered = old_sub.last_triggered;
+                    trigger_count = old_sub.trigger_count;
+                    failed_payment_count = old_sub.failed_payment_count;
+                    last_failure_time = old_sub.last_failure_time;
+                    last_error = old_sub.last_error;
+                };
+                subscriptions.put(id, migrated_sub);
+                Debug.print("✅ Migrated subscription: " # id # " (PAUSED - update addresses to resume)");
             };
+            migration_completed := true;
+            stable_subscriptions := []; // Clear after migration
+            Debug.print("✅ Migration complete. Call update_subscription_addresses() to set addresses and resume.");
+        } else if (stable_subscriptions_v2.size() > 0) {
+            // Normal restore from v2 format (with addresses)
+            Debug.print("📥 Restoring " # Nat.toText(stable_subscriptions_v2.size()) # " subscriptions...");
+            for ((id, sub) in stable_subscriptions_v2.vals()) {
+                subscriptions.put(id, sub);
+                if (sub.status == #Active) {
+                    ignore schedule_subscription_timer<system>(sub);
+                };
+            };
+            stable_subscriptions_v2 := []; // Clear after restore
+            Debug.print("✅ Restore complete.");
         };
 
         // Restore encrypted metadata
@@ -406,6 +465,8 @@ persistent actor OuroCTimer {
         let subscription: Subscription = {
             id = id;
             solana_contract_address = req.solana_contract_address;
+            subscriber_address = req.subscriber_address;
+            merchant_address = req.merchant_address;
             payment_token_mint = req.payment_token_mint;
             reminder_days_before_payment = req.reminder_days_before_payment;
             interval_seconds = req.interval_seconds;
@@ -435,6 +496,43 @@ persistent actor OuroCTimer {
 
     public query func list_subscriptions(): async [Subscription] {
         Iter.toArray(subscriptions.vals())
+    };
+
+    /// Update subscription addresses (for migrated subscriptions or corrections)
+    /// Only callable by admins
+    public shared(msg) func update_subscription_addresses(
+        subscription_id: SubscriptionId,
+        subscriber_address: SolanaAddress,
+        merchant_address: SolanaAddress
+    ): async Result.Result<(), Text> {
+        // Verify admin authorization
+        if (not authManager.isAdmin(msg.caller)) {
+            return #err("Unauthorized: Only admins can update subscription addresses");
+        };
+
+        // Validate addresses
+        if (not Solana.is_valid_solana_address(subscriber_address)) {
+            return #err("Invalid subscriber address");
+        };
+        if (not Solana.is_valid_solana_address(merchant_address)) {
+            return #err("Invalid merchant address");
+        };
+
+        switch (subscriptions.get(subscription_id)) {
+            case (?sub) {
+                let updated_sub = {
+                    sub with
+                    subscriber_address = subscriber_address;
+                    merchant_address = merchant_address;
+                };
+                subscriptions.put(subscription_id, updated_sub);
+                Debug.print("✅ Updated addresses for subscription: " # subscription_id);
+                #ok()
+            };
+            case null {
+                #err("Subscription not found")
+            };
+        };
     };
 
     public func pause_subscription(id: SubscriptionId): async Result.Result<(), Text> {
@@ -555,6 +653,8 @@ persistent actor OuroCTimer {
                     let result = await send_solana_opcode(
                         sub.solana_contract_address,
                         subscription_id,
+                        sub.subscriber_address,
+                        sub.merchant_address,
                         0 // Opcode 0 = Payment
                     );
 
@@ -635,6 +735,8 @@ persistent actor OuroCTimer {
     private func send_solana_opcode(
         contract_address: SolanaAddress,
         subscription_id: SubscriptionId,
+        subscriber_address: SolanaAddress,
+        merchant_address: SolanaAddress,
         opcode: Nat8
     ): async Result.Result<Text, Text> {
         let opcode_name = if (opcode == 0) "Payment" else "Notification";
@@ -642,11 +744,12 @@ persistent actor OuroCTimer {
 
         switch (solana_client) {
             case (?client) {
-                // Call Solana contract with opcode + subscription_id
-                // Solana contract reads subscription PDA and handles routing
+                // Call Solana contract with all required info to build transaction
                 let tx_result = await client.call_with_opcode(
                     contract_address,
                     subscription_id,
+                    subscriber_address,
+                    merchant_address,
                     opcode
                 );
 

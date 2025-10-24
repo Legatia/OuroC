@@ -25,6 +25,7 @@ const externalDeps = (id) => {
          id.startsWith('@solana') ||
          id.startsWith('@dfinity') ||
          id.startsWith('@coral-xyz') ||
+         id.startsWith('@coinbase') ||
          id.startsWith('@sqds') ||
          id === 'axios' ||
          id === 'bs58' ||
@@ -39,39 +40,14 @@ export default [
       {
         file: 'dist/index.js',
         format: 'cjs',
-        sourcemap: true
+        sourcemap: true,
+        inlineDynamicImports: true
       },
       {
         file: 'dist/index.esm.js',
         format: 'esm',
-        sourcemap: true
-      }
-    ],
-    plugins: [
-      ...sharedPlugins,
-      typescript({
-        tsconfig: './tsconfig.json',
-        exclude: ['**/*.test.*', '**/*.stories.*', 'examples/**/*', 'src/agents/**/*', 'src/grid/**/*'],
-        declaration: true,
-        declarationDir: 'dist',
-        rootDir: 'src'
-      })
-    ],
-    external: externalDeps
-  },
-  // Enterprise SDK build
-  {
-    input: 'src/enterprise.ts',
-    output: [
-      {
-        file: 'dist/enterprise.js',
-        format: 'cjs',
-        sourcemap: true
-      },
-      {
-        file: 'dist/enterprise.esm.js',
-        format: 'esm',
-        sourcemap: true
+        sourcemap: true,
+        inlineDynamicImports: true
       }
     ],
     plugins: [

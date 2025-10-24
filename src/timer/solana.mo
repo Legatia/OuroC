@@ -15,6 +15,8 @@ import Float "mo:base/Float";
 import Int64 "mo:base/Int64";
 import SolRpcTypes "./sol_rpc_types";
 import SHA256 "./sha256";
+import SolTx "./solana_transaction";
+import BaseX "mo:base-x-encoder";
 
 module {
     public type SolanaAddress = Text;
@@ -45,6 +47,7 @@ module {
     public class SolanaClient(key_name: Text, rpc_config: SolanaRpcConfig) {
         private let threshold_manager = ThresholdEd25519.ThresholdEd25519Manager(key_name);
         private var main_keypair: ?SolanaKeypair = null;
+        private var main_wallet_address: Text = "";  // ICP's Solana wallet address
         // Fee collection keypair removed - fee wallet is now external (not managed by ICP)
         // private var fee_collection_keypair: ?SolanaKeypair = null;
 
@@ -75,6 +78,7 @@ module {
                         main_keypair := ?main_kp;
 
                         let main_address = ThresholdEd25519.public_key_to_base58(main_kp.public_key);
+                        main_wallet_address := main_address;  // Store for transaction building
 
                         Debug.print("Initialized Solana wallet - Main: " # main_address # " | Fee (governed): " # fee_address);
                         #ok({main_address = main_address; fee_address = fee_address})
@@ -346,8 +350,10 @@ module {
         /// Opcode 0: Payment (Solana handles swap internally if needed)
         /// Opcode 1: Notification (send memo to subscriber)
         public func call_with_opcode(
-            _contract_address: SolanaAddress,
+            contract_address: SolanaAddress,
             subscription_id: Text,
+            subscriber_address: SolanaAddress,
+            merchant_address: SolanaAddress,
             opcode: Nat8
         ): async Result.Result<TransactionHash, Text> {
             switch (main_keypair) {
@@ -356,34 +362,100 @@ module {
                         let recent_blockhash = await get_recent_blockhash();
 
                         switch (recent_blockhash) {
-                            case (#ok(_blockhash)) {
-                                // Build Anchor instruction with opcode + subscription_id
-                                // ✅ IMPLEMENTATION NOTE:
-                                // To implement generic opcode instruction builder:
-                                //
-                                // 1. Create instruction discriminator from opcode:
-                                //    For opcode 0 (payment): sha256("global:process_payment").slice(0, 8)
-                                //    For opcode 1 (notification): sha256("global:send_notification").slice(0, 8)
-                                //
-                                // 2. Borsh-serialize the instruction data:
-                                //    struct ProcessPaymentArgs {
-                                //      subscription_id: String,
-                                //      timestamp: i64,
-                                //      icp_signature: [u8; 64],
-                                //    }
-                                //
-                                // 3. Combine: [discriminator] + [borsh_serialized_args]
-                                //
-                                // Reference: Anchor instruction encoding spec
-                                // https://www.anchor-lang.com/docs/the-program-module#instruction-data
-                                //
-                                // For now, using placeholder for minimalistic opcode approach
-
+                            case (#ok(blockhash)) {
+                                // Build Solana transaction that calls process_trigger on the contract
                                 let opcode_name = if (opcode == 0) "payment" else "notification";
-                                Debug.print("Calling Solana contract opcode " # Nat8.toText(opcode) # " (" # opcode_name # ") for: " # subscription_id);
+                                Debug.print("🔨 Building Solana transaction...");
+                                Debug.print("  Contract: " # contract_address);
+                                Debug.print("  Subscription: " # subscription_id);
+                                Debug.print("  Subscriber: " # subscriber_address);
+                                Debug.print("  Merchant: " # merchant_address);
+                                Debug.print("  Opcode: " # Nat8.toText(opcode) # " (" # opcode_name # ")");
 
-                                // Placeholder - will be replaced with actual Solana transaction
-                                #ok("tx_opcode_" # Nat8.toText(opcode) # "_" # subscription_id)
+                                // Get main wallet address from parent
+                                let icp_authority = main_wallet_address;
+                                Debug.print("  ICP Authority: " # icp_authority);
+
+                                // USDC mint address (devnet)
+                                let usdc_mint = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+
+                                // 1. Build instruction data
+                                let instruction_data = SolTx.buildProcessTriggerInstructionData(
+                                    opcode,
+                                    Time.now()
+                                );
+                                Debug.print("✅ Instruction data built (" # Nat.toText(instruction_data.size()) # " bytes)");
+
+                                // 2. Build all required accounts
+                                let ?accounts = SolTx.buildProcessTriggerAccounts(
+                                    contract_address,
+                                    subscription_id,
+                                    subscriber_address,
+                                    merchant_address,
+                                    icp_authority,
+                                    usdc_mint
+                                ) else {
+                                    Debug.print("❌ Failed to derive PDAs/token accounts");
+                                    return #err("Failed to derive required accounts");
+                                };
+                                Debug.print("✅ Derived " # Nat.toText(accounts.size()) # " accounts");
+
+                                // 3. Build Solana transaction for signing
+                                Debug.print("🔐 Building transaction for Chain Fusion signing...");
+
+                                // Helper: Decode Base58 address
+                                func decodeBase58(address: Text): ?[Nat8] {
+                                    switch (BaseX.fromBase58(address)) {
+                                        case (#ok(bytes)) { ?bytes };
+                                        case (#err(_)) { null };
+                                    };
+                                };
+
+                                // Convert SolTx.AccountMeta to ThresholdEd25519.SolanaAccountMeta
+                                let converted_accounts = Array.map<SolTx.AccountMeta, ThresholdEd25519.SolanaAccountMeta>(
+                                    accounts,
+                                    func(acc: SolTx.AccountMeta): ThresholdEd25519.SolanaAccountMeta {
+                                        // Decode Base58 address to bytes
+                                        let ?addr_bytes = decodeBase58(acc.pubkey) else Debug.trap("Invalid address: " # acc.pubkey);
+                                        {
+                                            pubkey = Blob.fromArray(addr_bytes);
+                                            is_signer = acc.is_signer;
+                                            is_writable = acc.is_writable;
+                                        }
+                                    }
+                                );
+
+                                // Decode contract address (program ID)
+                                let ?program_id_bytes = decodeBase58(contract_address) else {
+                                    Debug.print("❌ Invalid contract address");
+                                    return #err("Invalid contract address");
+                                };
+
+                                // Get ICP's Solana public key for fee payer
+                                let main_keypair_result = await threshold_manager.get_main_keypair();
+                                let fee_payer = switch (main_keypair_result) {
+                                    case (#ok(keypair)) { keypair.public_key };
+                                    case (#err(error)) {
+                                        Debug.print("❌ Failed to get main keypair: " # error);
+                                        return #err("Failed to get main keypair: " # error);
+                                    };
+                                };
+
+                                // Build transaction
+                                let transaction: ThresholdEd25519.SolanaTransaction = {
+                                    recent_blockhash = blockhash;
+                                    fee_payer = fee_payer;
+                                    instructions = [{
+                                        program_id = Blob.fromArray(program_id_bytes);
+                                        accounts = converted_accounts;
+                                        data = Blob.fromArray(instruction_data);
+                                    }];
+                                };
+
+                                Debug.print("✅ Transaction built, signing and submitting...");
+
+                                // 4. Sign and send transaction using existing infrastructure
+                                await sign_and_send_transaction(transaction, [])
                             };
                             case (#err(error)) {
                                 #err("Failed to get recent blockhash: " # error)

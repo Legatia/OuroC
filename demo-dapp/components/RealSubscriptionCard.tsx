@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import { Check, Star, Zap, ArrowRight, AlertCircle } from 'lucide-react'
 import { useWallet } from '@solana/wallet-adapter-react'
 import WalletButton from './WalletButton'
-import { OuroCClient } from '@ouroc/sdk'
+import { OuroC } from '@ouroc/sdk'
 import { TokenSelector } from './TokenSelector'
 import { NetworkToggle } from './NetworkToggle'
 import { SupportedToken, getTokenMint, isTokenAvailableOnDevnet } from '../utils/tokenUtils'
@@ -28,7 +28,7 @@ export default function RealSubscriptionCard({ plan, onSubscribe, merchantAddres
   const [isSubscribing, setIsSubscribing] = useState(false)
   const [subscriptionError, setSubscriptionError] = useState<string | null>(null)
   const [subscriptionSuccess, setSubscriptionSuccess] = useState(false)
-  const [client, setClient] = useState<OuroCClient | null>(null)
+  const [client, setClient] = useState<OuroC | null>(null)
   const [selectedToken, setSelectedToken] = useState<SupportedToken>('USDC')
   const [network, setNetwork] = useState<'mainnet' | 'devnet'>('devnet')
 
@@ -39,19 +39,23 @@ export default function RealSubscriptionCard({ plan, onSubscribe, merchantAddres
   useEffect(() => {
     const initClient = async () => {
       if (typeof window !== 'undefined') {
-        // Create OuroC client - it will handle initialization internally
-        const ouroCClient = new OuroCClient(
-          '7tbxr-naaaa-aaaao-qkrca-cai', // OuroC Timer Canister (IC mainnet)
-          'devnet', // Solana network (devnet for testing)
-          'https://ic0.app' // ICP mainnet host
-        )
+        // Create OuroC client using our simplified SDK
+        const ouroCClient = new OuroC({
+          canisterId: '7tbxr-naaaa-aaaao-qkrca-cai', // OuroC Timer Canister (IC mainnet)
+          network: 'devnet', // Solana network (devnet for testing)
+          x402Enabled: true, // Enable X.402 HTTP payments
+          supportedTokens: ['USDC', 'USDT'], // Multi-token support
+          feePercentage: 1.5, // Platform fee
+          notifications: true, // Enable notifications
+          autoProcessing: true // Enable automatic processing
+        })
 
-        // Wait for initialization to complete
-        await ouroCClient.waitForInitialization()
+        // Initialize the SDK
+        await ouroCClient.initialize()
 
         // Set client - it's ready to use
         setClient(ouroCClient)
-        console.log('✅ OuroC client initialized successfully')
+        console.log('✅ OuroC Core SDK initialized successfully')
       }
     }
 
@@ -90,9 +94,7 @@ export default function RealSubscriptionCard({ plan, onSubscribe, merchantAddres
       // Create subscription configuration matching the canister's expected format
       const subscriptionConfig = {
         subscription_id: subscriptionId,
-        reminder_days_before_payment: 3,
-        solana_contract_address: "7c1tGePFVT3ztPEESfzG7gFqYiCJUDjFa7PCeyMSYtub",
-        subscriber_address: publicKey.toBase58(),
+                subscriber_address: publicKey.toBase58(),
         merchant_address: merchantAddress,
         payment_token_mint: tokenMint,
         amount: BigInt(plan.price * 1_000_000), // Convert USDC to micro-units (6 decimals)
