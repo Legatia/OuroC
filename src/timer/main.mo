@@ -67,7 +67,6 @@ persistent actor OuroCTimer {
         subscriber_address: SolanaAddress;      // Subscriber's wallet (needed for tx accounts)
         merchant_address: SolanaAddress;        // Merchant's wallet (needed for tx accounts)
         payment_token_mint: Text;               // Token mint to determine opcode (0=USDC, 1=other)
-        reminder_days_before_payment: Nat;      // Days before payment to send notification (opcode 2)
         interval_seconds: Nat64;                // Payment interval
         next_execution: Timestamp;              // Next trigger time
         status: SubscriptionStatus;             // Timer status
@@ -98,7 +97,6 @@ persistent actor OuroCTimer {
         amount: Nat64;                          // Subscription amount (for validation only)
         subscriber_address: SolanaAddress;      // Subscriber's wallet address
         merchant_address: SolanaAddress;        // Merchant's wallet address
-        reminder_days_before_payment: Nat;      // Days before payment to send notification
         interval_seconds: Nat64;                // Payment interval in seconds
         start_time: ?Timestamp;                 // Optional start time (defaults to now + interval)
         api_key: Text;                          // Ouro-C API key for license validation
@@ -107,6 +105,7 @@ persistent actor OuroCTimer {
     // State
     private transient var subscriptions = Map.HashMap<SubscriptionId, Subscription>(10, Text.equal, Text.hash);
     private transient var active_timers = Map.HashMap<SubscriptionId, Timer.TimerId>(10, Text.equal, Text.hash);
+    private transient var notification_timers = Map.HashMap<SubscriptionId, Timer.TimerId>(10, Text.equal, Text.hash);
 
     // Encrypted metadata storage (for privacy-enhanced subscriptions)
     private transient var encrypted_metadata = Map.HashMap<SubscriptionId, EncryptedMetadata>(10, Text.equal, Text.hash);
@@ -145,7 +144,7 @@ persistent actor OuroCTimer {
     private var fee_address_proposal_time: ?Int = null;
     private var fee_address_change_delay: Int = 7 * 24 * 60 * 60 * 1_000_000_000; // 7 days in nanoseconds
 
-    // Old subscription type for migration (before adding addresses)
+    // Original subscription type for migration (before adding addresses)
     private type OldSubscription = {
         id: SubscriptionId;
         solana_contract_address: SolanaAddress;
@@ -162,11 +161,31 @@ persistent actor OuroCTimer {
         last_error: ?Text;
     };
 
+    // Previous subscription type (v2) - with addresses but still has reminder_days_before_payment
+    private type PreviousSubscription = {
+        id: SubscriptionId;
+        solana_contract_address: SolanaAddress;
+        subscriber_address: SolanaAddress;
+        merchant_address: SolanaAddress;
+        payment_token_mint: Text;
+        reminder_days_before_payment: Nat; // Field being removed in v3
+        interval_seconds: Nat64;
+        next_execution: Timestamp;
+        status: SubscriptionStatus;
+        created_at: Timestamp;
+        last_triggered: ?Timestamp;
+        trigger_count: Nat;
+        failed_payment_count: Nat;
+        last_failure_time: ?Timestamp;
+        last_error: ?Text;
+    };
+
     // Stable storage for upgrades
     // Migration strategy: Keep variable name but change the type it references
     // On upgrade, Motoko will see this as [(SubscriptionId, OldSubscription)] matching existing stable memory
     private var stable_subscriptions: [(SubscriptionId, OldSubscription)] = [];
-    private var stable_subscriptions_v2: [(SubscriptionId, Subscription)] = []; // New format with addresses
+    private var stable_subscriptions_v2: [(SubscriptionId, PreviousSubscription)] = []; // Previous format with reminder_days_before_payment
+    private var stable_subscriptions_v3: [(SubscriptionId, Subscription)] = []; // Current format without reminder_days_before_payment
     private var stable_encrypted_metadata: [(SubscriptionId, EncryptedMetadata)] = [];
     private var migration_completed: Bool = false;
 
@@ -176,8 +195,30 @@ persistent actor OuroCTimer {
     private var fee_collection_address: Text = "CKEY8bppifSErEfP5cvX8hCnmQ2Yo911mosdRx7M3HxF";
 
     system func preupgrade() {
-        // Save to v2 format with new addresses
-        stable_subscriptions_v2 := Iter.toArray(subscriptions.entries());
+        // Save to v2 format (with reminder_days_before_payment) to trigger migration on next upgrade
+        // We'll simulate the v2 format by adding the field back
+        let v2_data = Buffer.Buffer<(SubscriptionId, PreviousSubscription)>(subscriptions.size());
+        for ((id, sub) in subscriptions.entries()) {
+            let v2_sub: PreviousSubscription = {
+                id = sub.id;
+                solana_contract_address = sub.solana_contract_address;
+                subscriber_address = sub.subscriber_address;
+                merchant_address = sub.merchant_address;
+                payment_token_mint = sub.payment_token_mint;
+                reminder_days_before_payment = 1; // Default value (not used anymore)
+                interval_seconds = sub.interval_seconds;
+                next_execution = sub.next_execution;
+                status = sub.status;
+                created_at = sub.created_at;
+                last_triggered = sub.last_triggered;
+                trigger_count = sub.trigger_count;
+                failed_payment_count = sub.failed_payment_count;
+                last_failure_time = sub.last_failure_time;
+                last_error = sub.last_error;
+            };
+            v2_data.add((id, v2_sub));
+        };
+        stable_subscriptions_v2 := Buffer.toArray(v2_data);
         stable_encrypted_metadata := Iter.toArray(encrypted_metadata.entries());
         // Save admin lists
         stable_admins := authManager.getAdmins();
@@ -196,19 +237,64 @@ persistent actor OuroCTimer {
             };
         };
 
-        // Migration: Check if we have old format data (without addresses)
-        if (stable_subscriptions.size() > 0 and stable_subscriptions_v2.size() == 0) {
+        // Migration: Check if we need to migrate from v2 (with reminder_days_before_payment) to v3 (without)
+        // Note: The current data is in stable_subscriptions_v2 due to previous preupgrade behavior
+        if (stable_subscriptions_v2.size() > 0) {
+            // Check if v2 data has reminder_days_before_payment field
+            // If it does, migrate to v3 format (without the field)
+            Debug.print("🔄 Checking v2 subscriptions for reminder_days_before_payment field...");
+
+            // Since PreviousSubscription has the field and Subscription doesn't, we need to migrate
+            for ((id, prev_sub) in stable_subscriptions_v2.vals()) {
+                // Create new subscription without reminder_days_before_payment field
+                let migrated_sub: Subscription = {
+                    id = prev_sub.id;
+                    solana_contract_address = prev_sub.solana_contract_address;
+                    subscriber_address = prev_sub.subscriber_address;
+                    merchant_address = prev_sub.merchant_address;
+                    payment_token_mint = prev_sub.payment_token_mint;
+                    interval_seconds = prev_sub.interval_seconds;
+                    next_execution = prev_sub.next_execution;
+                    status = prev_sub.status;
+                    created_at = prev_sub.created_at;
+                    last_triggered = prev_sub.last_triggered;
+                    trigger_count = prev_sub.trigger_count;
+                    failed_payment_count = prev_sub.failed_payment_count;
+                    last_failure_time = prev_sub.last_failure_time;
+                    last_error = prev_sub.last_error;
+                };
+                subscriptions.put(id, migrated_sub);
+                if (migrated_sub.status == #Active) {
+                    ignore schedule_subscription_timer<system>(migrated_sub);
+                    ignore schedule_notification_timer<system>(migrated_sub);
+                };
+                Debug.print("✅ Migrated subscription v2->v3: " # id # " (removed reminder_days_before_payment)");
+            };
+            stable_subscriptions_v2 := []; // Clear after migration
+            Debug.print("✅ Migration from v2 to v3 complete - removed reminder_days_before_payment field.");
+        } else if (stable_subscriptions_v3.size() > 0) {
+            // Normal restore from v3 format (current format without reminder_days_before_payment)
+            Debug.print("📥 Restoring " # Nat.toText(stable_subscriptions_v3.size()) # " subscriptions from v3 format...");
+            for ((id, sub) in stable_subscriptions_v3.vals()) {
+                subscriptions.put(id, sub);
+                if (sub.status == #Active) {
+                    ignore schedule_subscription_timer<system>(sub);
+                    ignore schedule_notification_timer<system>(sub);
+                };
+            };
+            stable_subscriptions_v3 := []; // Clear after restore
+            Debug.print("✅ Restore complete.");
+        } else if (stable_subscriptions.size() > 0) {
+            // Legacy migration from very old format (without addresses)
             Debug.print("🔄 Migrating " # Nat.toText(stable_subscriptions.size()) # " old subscriptions to new format...");
             for ((id, old_sub) in stable_subscriptions.vals()) {
                 // Create new subscription with placeholder addresses
-                // These will need to be updated via update_subscription_addresses()
                 let migrated_sub: Subscription = {
                     id = old_sub.id;
                     solana_contract_address = old_sub.solana_contract_address;
                     subscriber_address = "PLACEHOLDER_SUBSCRIBER"; // Admin must update
                     merchant_address = "PLACEHOLDER_MERCHANT";     // Admin must update
                     payment_token_mint = old_sub.payment_token_mint;
-                    reminder_days_before_payment = old_sub.reminder_days_before_payment;
                     interval_seconds = old_sub.interval_seconds;
                     next_execution = old_sub.next_execution;
                     status = #Paused; // Pause migrated subscriptions until addresses updated
@@ -225,17 +311,6 @@ persistent actor OuroCTimer {
             migration_completed := true;
             stable_subscriptions := []; // Clear after migration
             Debug.print("✅ Migration complete. Call update_subscription_addresses() to set addresses and resume.");
-        } else if (stable_subscriptions_v2.size() > 0) {
-            // Normal restore from v2 format (with addresses)
-            Debug.print("📥 Restoring " # Nat.toText(stable_subscriptions_v2.size()) # " subscriptions...");
-            for ((id, sub) in stable_subscriptions_v2.vals()) {
-                subscriptions.put(id, sub);
-                if (sub.status == #Active) {
-                    ignore schedule_subscription_timer<system>(sub);
-                };
-            };
-            stable_subscriptions_v2 := []; // Clear after restore
-            Debug.print("✅ Restore complete.");
         };
 
         // Restore encrypted metadata
@@ -468,7 +543,6 @@ persistent actor OuroCTimer {
             subscriber_address = req.subscriber_address;
             merchant_address = req.merchant_address;
             payment_token_mint = req.payment_token_mint;
-            reminder_days_before_payment = req.reminder_days_before_payment;
             interval_seconds = req.interval_seconds;
             next_execution = start_time;
             status = #Active;
@@ -482,6 +556,7 @@ persistent actor OuroCTimer {
 
         subscriptions.put(id, subscription);
         ignore schedule_subscription_timer<system>(subscription);
+        ignore schedule_notification_timer<system>(subscription);
 
         // Consume license usage
         ignore await consume_license_usage(req.api_key);
@@ -543,6 +618,7 @@ persistent actor OuroCTimer {
                 };
                 subscriptions.put(id, updated_sub);
                 cancel_timer(id);
+                cancel_notification_timer(id);
                 #ok()
             };
             case null #err("Subscription not found");
@@ -561,6 +637,7 @@ persistent actor OuroCTimer {
                     };
                     subscriptions.put(id, updated_sub);
                     ignore schedule_subscription_timer<system>(updated_sub);
+                    ignore schedule_notification_timer<system>(updated_sub);
                     #ok()
                 } else {
                     #err("Subscription is not paused")
@@ -578,6 +655,7 @@ persistent actor OuroCTimer {
                 };
                 subscriptions.put(id, updated_sub);
                 cancel_timer(id);
+                cancel_notification_timer(id);
                 #ok()
             };
             case null #err("Subscription not found");
@@ -605,6 +683,7 @@ persistent actor OuroCTimer {
         for (id in to_remove.vals()) {
             subscriptions.delete(id);
             cancel_timer(id); // Ensure timer is cancelled
+            cancel_notification_timer(id); // Ensure notification timer is cancelled
             cleanup_count += 1;
         };
 
@@ -676,6 +755,7 @@ persistent actor OuroCTimer {
 
                             subscriptions.put(subscription_id, updated_sub);
                             ignore schedule_subscription_timer<system>(updated_sub);
+                            ignore schedule_notification_timer<system>(updated_sub);
 
                             Debug.print("Payment trigger sent: " # tx_hash # ". Next: " # Int.toText(next_execution));
                         };
@@ -715,6 +795,7 @@ persistent actor OuroCTimer {
                                 };
                                 subscriptions.put(subscription_id, updated_sub);
                                 ignore schedule_subscription_timer<system>(updated_sub);
+                                ignore schedule_notification_timer<system>(updated_sub);
                                 Debug.print("Retrying with " # Nat64.toText(backoff_multiplier) # "x backoff. Next: " # Int.toText(backoff_next_execution));
                             };
                         };
@@ -768,6 +849,74 @@ persistent actor OuroCTimer {
                 #ok("simulated_tx_" # Nat8.toText(opcode) # "_" # Int.toText(Time.now()))
             };
         }
+    };
+
+    // Schedule notification to be sent 24 hours before payment
+    private func schedule_notification_timer<system>(subscription: Subscription): ?Timer.TimerId {
+        let now = Time.now();
+        let notification_time = subscription.next_execution - (24 * 60 * 60 * 1_000_000_000); // 24 hours before payment
+
+        // Only schedule if notification time is in the future
+        if (notification_time > now) {
+            let timer_id = Timer.setTimer<system>(
+                #nanoseconds(Int.abs(notification_time - now)),
+                func(): async () {
+                    await trigger_notification(subscription.id);
+                }
+            );
+            notification_timers.put(subscription.id, timer_id);
+            Debug.print("Scheduled notification for subscription: " # subscription.id # " at: " # Int.toText(notification_time));
+            ?timer_id
+        } else {
+            Debug.print("Notification time not in future for subscription: " # subscription.id);
+            null
+        }
+    };
+
+    // Cancel notification timer for a subscription
+    private func cancel_notification_timer(subscription_id: SubscriptionId): () {
+        switch (notification_timers.get(subscription_id)) {
+            case (?timer_id) {
+                Timer.cancelTimer(timer_id);
+                notification_timers.delete(subscription_id);
+                Debug.print("Cancelled notification timer for subscription: " # subscription_id);
+            };
+            case null {};
+        };
+    };
+
+    // Trigger notification for a subscription
+    private func trigger_notification(subscription_id: SubscriptionId): async () {
+        Debug.print("Triggering notification for subscription: " # subscription_id);
+
+        switch (subscriptions.get(subscription_id)) {
+            case (?sub) {
+                if (sub.status == #Active) {
+                    // Opcode 1: Notification
+                    let result = await send_solana_opcode(
+                        sub.solana_contract_address,
+                        subscription_id,
+                        sub.subscriber_address,
+                        sub.merchant_address,
+                        1 // Opcode 1 = Notification
+                    );
+
+                    switch (result) {
+                        case (#ok(tx_hash)) {
+                            Debug.print("Notification sent successfully for subscription: " # subscription_id # " tx: " # tx_hash);
+                        };
+                        case (#err(error)) {
+                            Debug.print("Failed to send notification for subscription: " # subscription_id # " error: " # error);
+                        };
+                    }
+                } else {
+                    Debug.print("Subscription " # subscription_id # " is not active, skipping notification");
+                }
+            };
+            case null {
+                Debug.print("Subscription " # subscription_id # " not found for notification");
+            };
+        };
     };
 
     // Configuration and management functions

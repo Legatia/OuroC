@@ -237,7 +237,6 @@ export function createSubscriptionRequest(
   merchant_address: string
   payment_token_mint: string
   amount: bigint
-  reminder_days_before_payment: number
   interval_seconds: bigint
   api_key: string
 } {
@@ -248,7 +247,6 @@ export function createSubscriptionRequest(
     merchant_address: config.merchantAddress,
     payment_token_mint: getTokenMint(plan.token, config.network) || '',
     amount: toMicroUnits(plan.price),
-    reminder_days_before_payment: config.reminderDays || 3,
     interval_seconds: BigInt(getIntervalSeconds(plan.interval, plan.customInterval)),
     api_key: getCommunityApiKey()
   }

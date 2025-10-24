@@ -5,7 +5,6 @@ export const idlFactory = ({ IDL }: any) => {
   const Timestamp = IDL.Int;
   const CreateSubscriptionRequest = IDL.Record({
     'subscription_id' : IDL.Text,
-    'reminder_days_before_payment' : IDL.Nat,
     'solana_contract_address' : SolanaAddress,
     'payment_token_mint' : IDL.Text,
     'start_time' : IDL.Opt(Timestamp),
@@ -51,7 +50,6 @@ export const idlFactory = ({ IDL }: any) => {
     'last_error' : IDL.Opt(IDL.Text),
     'status' : SubscriptionStatus,
     'trigger_count' : IDL.Nat,
-    'reminder_days_before_payment' : IDL.Nat,
     'created_at' : Timestamp,
     'next_execution' : Timestamp,
     'solana_contract_address' : SolanaAddress,

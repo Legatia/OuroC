@@ -201,7 +201,6 @@ export function createSubscriptionCard(
           merchant_address: defaultReceiverAddress,
           payment_token_mint: TOKEN_MINTS[plan.token],
           amount: BigInt(Math.floor(plan.price * 1_000_000)), // Convert to micro-units
-          reminder_days_before_payment: plan.reminderDays,
           interval_seconds: BigInt(plan.intervalSeconds),
           api_key: 'ouro_community_shared_2025_demo_key' // Shared Community API key
         })

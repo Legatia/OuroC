@@ -41,7 +41,6 @@ describe('Core Types', () => {
         icp_fee_usdc_account: 'TokenAccount789',
         payment_token_mint: TOKEN_MINTS.USDC,
         amount: BigInt(10_000_000),
-        reminder_days_before_payment: 3,
         interval_seconds: BigInt(2592000),
         next_payment: BigInt(Date.now() * 1_000_000),
         is_active: true,
@@ -68,14 +67,12 @@ describe('Core Types', () => {
         icp_fee_usdc_account: 'TokenAccount789',
         payment_token_mint: TOKEN_MINTS.USDC,
         amount: BigInt(10_000_000),
-        reminder_days_before_payment: 3,
         interval_seconds: BigInt(2592000),
       }
 
       expect(mockRequest.subscription_id).toBe('sub_123')
       expect(typeof mockRequest.amount).toBe('bigint')
       expect(mockRequest.payment_token_mint).toBe(TOKEN_MINTS.USDC)
-      expect(mockRequest.reminder_days_before_payment).toBe(3)
     })
   })
 })

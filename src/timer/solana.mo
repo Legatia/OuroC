@@ -245,62 +245,7 @@ module {
             }
         };
 
-        // Send notification via Solana memo transaction
-        /// Call Solana contract's send_notification instruction
-        /// This function triggers the Solana contract to send notification on-chain
-        /// This ensures notification logic persists with the Solana contract, not ICP
-        public func call_send_notification(
-            _contract_address: SolanaAddress,
-            subscription_id: Text,
-            memo_message: Text
-        ): async Result.Result<TransactionHash, Text> {
-            switch (main_keypair) {
-                case (?_main_kp) {
-                    try {
-                        // Get recent blockhash
-                        let recent_blockhash = await get_recent_blockhash();
-
-                        switch (recent_blockhash) {
-                            case (#ok(_blockhash)) {
-                                // Build instruction to call Solana contract's send_notification
-                                // ✅ IMPLEMENTATION NOTE:
-                                // To implement send_notification Anchor instruction:
-                                //
-                                // 1. Calculate instruction discriminator:
-                                //    sha256("global:send_notification").slice(0, 8)
-                                //
-                                // 2. Serialize instruction data:
-                                //    [discriminator: [u8; 8]] + [subscription_id: String] + [memo: String]
-                                //
-                                // 3. Build instruction with accounts:
-                                //    - subscription_account (writable)
-                                //    - icp_authority (signer - this canister's pubkey)
-                                //    - notification_log_account (writable, optional)
-                                //
-                                // 4. Use build_solana_instruction helper (see lines ~400-450)
-                                //
-                                // For now, using placeholder - notification logged off-chain
-
-                                Debug.print("Calling Solana contract send_notification for subscription: " # subscription_id);
-                                Debug.print("Memo: " # memo_message);
-
-                                // Placeholder return - will be replaced with actual contract call
-                                #ok("notification_tx_hash_placeholder")
-                            };
-                            case (#err(error)) {
-                                #err("Failed to get recent blockhash: " # error)
-                            };
-                        }
-                    } catch (_) {
-                        #err("Transaction failed")
-                    }
-                };
-                case null {
-                    #err("Main keypair not initialized")
-                };
-            }
-        };
-
+  
         /// Create and sign a payment authorization message for Solana contract
         /// Message format: subscription_id + timestamp + amount (matches Solana contract's crypto.rs)
         public func create_payment_authorization(

@@ -84,7 +84,6 @@ export interface Subscription {
   icp_fee_usdc_account: SolanaAddress // ICP fee collection account
   payment_token_mint: SolanaAddress // Token user pays with (USDC/USDT/PYUSD/DAI) - locked at creation
   amount: bigint // Payment amount in micro-units (e.g., 10_000_000 = 10 USDC) - locked at creation
-  reminder_days_before_payment: number // Days before payment to send reminder - merchant configured
   interval_seconds: bigint
   next_payment: Timestamp
   is_active: boolean
@@ -111,7 +110,6 @@ export interface CreateSubscriptionRequest {
   merchant_address: SolanaAddress // Merchant wallet
   payment_token_mint: SolanaAddress // Token user chooses to pay with (USDC/USDT/PYUSD/DAI)
   amount: bigint // Payment amount in micro-units (e.g., 10_000_000 = 10 USDC)
-  reminder_days_before_payment: number // Days before payment to send reminder (e.g., 3 = 3 days before)
   interval_seconds: bigint
   start_time?: [] | [Timestamp] // Optional timestamp for when subscription starts
   api_key: string // Ouro-C API key for license validation
@@ -160,7 +158,6 @@ export interface PushSubscriptionConfig {
 export interface NotificationConfig {
   payer_channels: NotificationChannel[]
   dapp_channels: NotificationChannel[]
-  reminder_days: number[]
   enabled: boolean
   push_enabled?: boolean // NEW: Enable push notifications
 }
