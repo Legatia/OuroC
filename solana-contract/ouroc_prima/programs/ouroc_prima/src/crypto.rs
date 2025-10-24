@@ -15,7 +15,7 @@ pub fn verify_icp_signature(
 ) -> Result<bool> {
     // This function is deprecated and should not be used.
     // All signature verification now uses verify_ed25519_ix().
-    Err(crate::ErrorCode::InvalidSignature.into())
+    Err(crate::errors::ErrorCode::InvalidSignature.into())
 }
 
 /// Create message for ICP canister to sign
@@ -78,7 +78,7 @@ pub fn verify_replay_protection(
 
     // Strict window: 2 minutes maximum
     if age < 0 || age > 120 {
-        return Err(anchor_lang::error::Error::from(crate::ErrorCode::TimestampExpired).into());
+        return Err(anchor_lang::error::Error::from(crate::errors::ErrorCode::TimestampExpired).into());
     }
 
     // Additional entropy-based validation
@@ -120,7 +120,7 @@ pub fn verify_ed25519_ix(
     // Load the Ed25519 instruction
     let ed25519_ix_index = current_index
         .checked_sub(1)
-        .ok_or(crate::ErrorCode::InvalidSignature)?;
+        .ok_or(crate::errors::ErrorCode::InvalidSignature)?;
 
     let ed25519_ix = instructions::load_instruction_at_checked(
         ed25519_ix_index as usize,
@@ -131,7 +131,7 @@ pub fn verify_ed25519_ix(
     let ed25519_program_id = anchor_lang::solana_program::ed25519_program::ID;
     require!(
         ed25519_ix.program_id == ed25519_program_id,
-        crate::ErrorCode::InvalidSignature
+        crate::errors::ErrorCode::InvalidSignature
     );
 
     // Parse Ed25519 instruction data format:
@@ -142,14 +142,14 @@ pub fn verify_ed25519_ix(
 
     require!(
         ed25519_ix.data.len() >= 112,
-        crate::ErrorCode::InvalidSignature
+        crate::errors::ErrorCode::InvalidSignature
     );
 
     // Extract public key (offset 15, 32 bytes)
     let pubkey_in_ix = &ed25519_ix.data[15..47];
     require!(
         pubkey_in_ix == expected_pubkey,
-        crate::ErrorCode::InvalidSignature
+        crate::errors::ErrorCode::InvalidSignature
     );
 
     // Extract message offset and size
@@ -162,13 +162,13 @@ pub fn verify_ed25519_ix(
 
     require!(
         ed25519_ix.data.len() >= msg_end,
-        crate::ErrorCode::InvalidSignature
+        crate::errors::ErrorCode::InvalidSignature
     );
 
     let message_in_ix = &ed25519_ix.data[msg_start..msg_end];
     require!(
         message_in_ix == expected_message,
-        crate::ErrorCode::InvalidSignature
+        crate::errors::ErrorCode::InvalidSignature
     );
 
     // If we got here, the Ed25519Program already verified the signature

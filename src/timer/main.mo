@@ -17,6 +17,7 @@ import ExperimentalCycles "mo:base/ExperimentalCycles";
 import Solana "./solana";
 import CycleManagement "./cycle_management";
 import Authorization "./authorization";
+import ThresholdEd25519 "./threshold_ed25519";
 
 // License Registry integration for IP protection
 // LicenseRegistry canister is referenced via canister ID in dfx.json
@@ -920,6 +921,28 @@ persistent actor OuroCTimer {
     };
 
     // Configuration and management functions
+
+    // Get the ICP canister's Ed25519 public key (for Solana contract initialization)
+    // This is the public key that the Solana contract will use to verify signatures
+    public func get_ed25519_public_key(): async Result.Result<Blob, Text> {
+        switch (solana_client) {
+            case (?client) {
+                let threshold_manager = ThresholdEd25519.ThresholdEd25519Manager(ed25519_key_name);
+                let keypair_result = await threshold_manager.get_main_keypair();
+                switch (keypair_result) {
+                    case (#ok(keypair)) {
+                        #ok(keypair.public_key)
+                    };
+                    case (#err(error)) {
+                        #err("Failed to get public key: " # error)
+                    };
+                }
+            };
+            case null {
+                #err("Solana client not initialized. Call initialize_canister() first.")
+            };
+        }
+    };
 
     // Returns only the main wallet address (fee wallet is external, not managed by ICP)
     public func get_wallet_addresses(): async Result.Result<{main: Text}, Text> {

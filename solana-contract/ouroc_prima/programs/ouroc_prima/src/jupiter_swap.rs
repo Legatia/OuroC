@@ -59,13 +59,13 @@ pub fn execute_jupiter_swap<'info>(
     // Verify Jupiter program ID
     require!(
         jupiter_program.key().to_string() == JUPITER_PROGRAM_ID,
-        ErrorCode::InvalidJupiterProgram
+        crate::jupiter_swap::JupiterErrorCode::InvalidJupiterProgram
     );
 
     // SECURITY: Validate routing accounts are provided
     require!(
         !remaining_accounts.is_empty(),
-        ErrorCode::InvalidRoutingAccounts
+        crate::jupiter_swap::JupiterErrorCode::InvalidRoutingAccounts
     );
 
     // Build Jupiter swap instruction data
@@ -138,7 +138,7 @@ pub fn execute_jupiter_swap<'info>(
     // Verify we got at least minimum amount
     require!(
         output_amount >= minimum_amount_out,
-        ErrorCode::SlippageExceeded
+        crate::jupiter_swap::JupiterErrorCode::SlippageExceeded
     );
 
     Ok(output_amount)
@@ -179,7 +179,7 @@ pub fn swap_stablecoin_to_usdc<'info>(
 
 // Error codes
 #[error_code]
-pub enum ErrorCode {
+pub enum JupiterErrorCode {
     #[msg("Invalid Jupiter program ID")]
     InvalidJupiterProgram,
 

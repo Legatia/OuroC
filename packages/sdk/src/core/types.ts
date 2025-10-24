@@ -102,15 +102,62 @@ export interface AgentMetadata {
   description?: string // What this agent does (e.g., "OpenAI API payment agent")
 }
 
+// ============================================================================
+// COMMUNITY TIER: Simplified Subscription Request (Recommended)
+// ============================================================================
+
+/**
+ * Simplified subscription request for Community tier
+ *
+ * ONLY requires:
+ * - merchant_address: Your wallet address
+ * - amount: Payment amount in USDC (e.g., 10 for 10 USDC)
+ * - interval: 'daily' | 'weekly' | 'monthly' | 'yearly' OR interval_seconds for custom
+ *
+ * Everything else is AUTO-GENERATED:
+ * - subscription_id: Generated from merchant+subscriber+amount+interval
+ * - subscriber_address: Extracted from wallet adapter
+ * - payment_token_mint: USDC (hardcoded for Community tier)
+ * - solana_contract_address: Hardcoded program ID
+ * - fee collection: Hardcoded treasury address
+ */
+export interface CommunitySubscriptionRequest {
+  // Required: Business logic only
+  merchant_address: string // Your wallet address (receives 98% of payment)
+  amount: number // Payment amount in USDC (e.g., 10 for 10 USDC)
+
+  // Required: Payment frequency (choose one)
+  interval?: 'daily' | 'weekly' | 'monthly' | 'yearly' // Predefined intervals
+  interval_seconds?: number // OR custom interval in seconds
+
+  // Optional: Notification settings
+  merchant_name?: string // Your app/business name for notifications (default: 'Merchant')
+
+  // Optional: AI agent support
+  agent_metadata?: AgentMetadata // For AI agent subscriptions
+
+  // NOTE: reminder_days is HARDCODED to 1 day (24 hours) for Community tier
+  // This is non-configurable and always enabled by default
+}
+
+// ============================================================================
+// FULL REQUEST: Internal use (auto-generated from CommunitySubscriptionRequest)
+// ============================================================================
+
+/**
+ * Full subscription request (internal use)
+ * This is what gets sent to ICP canister after auto-generation
+ * Merchants using Community tier should use CommunitySubscriptionRequest instead
+ */
 export interface CreateSubscriptionRequest {
   // Core subscription fields (required)
-  subscription_id: string // Must match Solana subscription ID
-  solana_contract_address: SolanaAddress // Deployed Solana program address
-  subscriber_address: SolanaAddress // Subscriber wallet
-  merchant_address: SolanaAddress // Merchant wallet
-  payment_token_mint: SolanaAddress // Token user chooses to pay with (USDC/USDT/PYUSD/DAI)
-  amount: bigint // Payment amount in micro-units (e.g., 10_000_000 = 10 USDC)
-  interval_seconds: bigint
+  subscription_id: string // Auto-generated: Must match Solana subscription ID
+  solana_contract_address: SolanaAddress // Auto-generated: Deployed Solana program address
+  subscriber_address: SolanaAddress // Auto-generated: Subscriber wallet (from wallet adapter)
+  merchant_address: SolanaAddress // From CommunitySubscriptionRequest
+  payment_token_mint: SolanaAddress // Auto-generated: USDC only for Community tier
+  amount: bigint // From CommunitySubscriptionRequest (converted to micro-units)
+  interval_seconds: bigint // From CommunitySubscriptionRequest
   start_time?: [] | [Timestamp] // Optional timestamp for when subscription starts
   api_key: string // Ouro-C API key for license validation
   agent_metadata?: AgentMetadata // Optional: For AI agent subscriptions

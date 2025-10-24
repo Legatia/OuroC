@@ -43,15 +43,15 @@ pub fn get_price_conversion(
         USDC_MINT => pyth_feeds::USDC_USD,
         USDT_MINT => pyth_feeds::USDT_USD,
         PYUSD_MINT => pyth_feeds::PYUSD_USD,
-        _ => return Err(ErrorCode::UnsupportedToken.into()),
+        _ => return Err(crate::price_oracle::PriceErrorCode::UnsupportedToken.into()),
     };
 
     // Parse Pyth price feed
     let feed_id = get_feed_id_from_hex(feed_id_hex)
-        .map_err(|_| ErrorCode::InvalidPriceFeed)?;
+        .map_err(|_| crate::price_oracle::PriceErrorCode::InvalidPriceFeed)?;
 
     let price_update_data = PriceUpdateV2::try_from_slice(&price_update.data.borrow())
-        .map_err(|_| ErrorCode::InvalidPriceUpdate)?;
+        .map_err(|_| crate::price_oracle::PriceErrorCode::InvalidPriceUpdate)?;
 
     let price = price_update_data
         .get_price_no_older_than(
@@ -59,20 +59,20 @@ pub fn get_price_conversion(
             60, // Max 60 seconds old
             &feed_id,
         )
-        .map_err(|_| ErrorCode::PriceTooOld)?;
+        .map_err(|_| crate::price_oracle::PriceErrorCode::PriceTooOld)?;
 
     // Pyth prices have different exponents, normalize to 8 decimals
     // Price format: price * 10^exponent
     let normalized_price = if price.exponent >= 0 {
         let multiplier = 10i64.checked_pow(price.exponent as u32)
-            .ok_or(ErrorCode::PriceOutOfBounds)?;
+            .ok_or(crate::price_oracle::PriceErrorCode::PriceOutOfBounds)?;
         price.price.checked_mul(multiplier)
-            .ok_or(ErrorCode::PriceOutOfBounds)?
+            .ok_or(crate::price_oracle::PriceErrorCode::PriceOutOfBounds)?
     } else {
         let divisor = 10i64.checked_pow((-price.exponent) as u32)
-            .ok_or(ErrorCode::PriceOutOfBounds)?;
+            .ok_or(crate::price_oracle::PriceErrorCode::PriceOutOfBounds)?;
         price.price.checked_div(divisor)
-            .ok_or(ErrorCode::PriceOutOfBounds)?
+            .ok_or(crate::price_oracle::PriceErrorCode::PriceOutOfBounds)?
     };
 
     msg!("Pyth price for {}: ${} (confidence: ±${})",
@@ -85,7 +85,7 @@ pub fn get_price_conversion(
     // Sanity check: price should be between $0.95 and $1.05
     require!(
         normalized_price > 95_000_000 && normalized_price < 105_000_000,
-        ErrorCode::PriceOutOfBounds
+        crate::price_oracle::PriceErrorCode::PriceOutOfBounds
     );
 
     // Calculate output amount
@@ -93,7 +93,7 @@ pub fn get_price_conversion(
     // Apply configurable slippage protection
     let output_amount_exact = input_amount; // Stablecoins are 1:1
     let slippage_multiplier = 10000u64.checked_sub(slippage_bps as u64)
-        .ok_or(ErrorCode::PriceOutOfBounds)?;
+        .ok_or(crate::price_oracle::PriceErrorCode::PriceOutOfBounds)?;
     let output_amount_min = (output_amount_exact * slippage_multiplier) / 10000;
 
     Ok(PriceConversion {
@@ -111,7 +111,7 @@ pub fn validate_price_confidence(conversion: &PriceConversion) -> Result<()> {
 
     require!(
         conversion.confidence_interval <= max_confidence,
-        ErrorCode::PriceConfidenceTooLow
+        crate::price_oracle::PriceErrorCode::PriceConfidenceTooLow
     );
 
     Ok(())
@@ -119,7 +119,7 @@ pub fn validate_price_confidence(conversion: &PriceConversion) -> Result<()> {
 
 // Error codes
 #[error_code]
-pub enum ErrorCode {
+pub enum PriceErrorCode {
     #[msg("Unsupported token for price oracle")]
     UnsupportedToken,
 

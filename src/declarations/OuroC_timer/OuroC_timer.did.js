@@ -8,7 +8,6 @@ export const idlFactory = ({ IDL }) => {
   const CreateSubscriptionRequest = IDL.Record({
     'subscription_id' : IDL.Text,
     'api_key' : IDL.Text,
-    'reminder_days_before_payment' : IDL.Nat,
     'solana_contract_address' : SolanaAddress,
     'payment_token_mint' : IDL.Text,
     'start_time' : IDL.Opt(Timestamp),
@@ -110,15 +109,16 @@ export const idlFactory = ({ IDL }) => {
     'last_error' : IDL.Opt(IDL.Text),
     'status' : SubscriptionStatus,
     'trigger_count' : IDL.Nat,
-    'reminder_days_before_payment' : IDL.Nat,
     'created_at' : Timestamp,
     'next_execution' : Timestamp,
     'solana_contract_address' : SolanaAddress,
     'payment_token_mint' : IDL.Text,
     'interval_seconds' : IDL.Nat64,
+    'subscriber_address' : SolanaAddress,
     'failed_payment_count' : IDL.Nat,
     'last_failure_time' : IDL.Opt(Timestamp),
     'last_triggered' : IDL.Opt(Timestamp),
+    'merchant_address' : SolanaAddress,
   });
   const Result_6 = IDL.Variant({
     'ok' : IDL.Record({ 'main' : IDL.Text }),
@@ -301,6 +301,11 @@ export const idlFactory = ({ IDL }) => {
         [],
       ),
     'update_fee_config' : IDL.Func([FeeConfig], [Result], []),
+    'update_subscription_addresses' : IDL.Func(
+        [SubscriptionId, SolanaAddress, SolanaAddress],
+        [Result],
+        [],
+      ),
   });
 };
 export const init = ({ IDL }) => { return []; };

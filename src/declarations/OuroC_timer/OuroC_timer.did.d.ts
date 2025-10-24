@@ -21,7 +21,6 @@ export type CanisterStatus = { 'Healthy' : null } |
 export interface CreateSubscriptionRequest {
   'subscription_id' : string,
   'api_key' : string,
-  'reminder_days_before_payment' : bigint,
   'solana_contract_address' : SolanaAddress,
   'payment_token_mint' : string,
   'start_time' : [] | [Timestamp],
@@ -110,15 +109,16 @@ export interface Subscription {
   'last_error' : [] | [string],
   'status' : SubscriptionStatus,
   'trigger_count' : bigint,
-  'reminder_days_before_payment' : bigint,
   'created_at' : Timestamp,
   'next_execution' : Timestamp,
   'solana_contract_address' : SolanaAddress,
   'payment_token_mint' : string,
   'interval_seconds' : bigint,
+  'subscriber_address' : SolanaAddress,
   'failed_payment_count' : bigint,
   'last_failure_time' : [] | [Timestamp],
   'last_triggered' : [] | [Timestamp],
+  'merchant_address' : SolanaAddress,
 }
 export type SubscriptionId = string;
 export type SubscriptionStatus = { 'Paused' : null } |
@@ -302,6 +302,14 @@ export interface _SERVICE {
     Result
   >,
   'update_fee_config' : ActorMethod<[FeeConfig], Result>,
+  /**
+   * / Update subscription addresses (for migrated subscriptions or corrections)
+   * / Only callable by admins
+   */
+  'update_subscription_addresses' : ActorMethod<
+    [SubscriptionId, SolanaAddress, SolanaAddress],
+    Result
+  >,
 }
 export declare const idlFactory: IDL.InterfaceFactory;
 export declare const init: (args: { IDL: typeof IDL }) => IDL.Type[];
