@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "name": "ouroc-timer-rust",
+  "canisters": {
+    "timer_rust": {
+      "type": "rust",
+      "package": "ouroc-timer-rust",
+      "candid": "src/timer_rust.did"
+    }
+  },
+  "networks": {
+    "local": {
+      "bind": "127.0.0.1:8000",
+      "type": "ephemeral"
+    }
+  }
+}

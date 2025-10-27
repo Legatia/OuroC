@@ -1,0 +1,39 @@
+# ICP / dfx
+.dfx/
+.cache/
+candid/
+
+# Rust
+target/
+**/*.rs.bk
+Cargo.lock
+
+# Node / Frontend
+node_modules/
+dist/
+build/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.env
+.env.local
+.env.*.local
+
+# Solana / Anchor
+.anchor/
+test-ledger/
+*.so
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Misc
+*.pem
+*.key
+.mops/

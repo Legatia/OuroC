@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "canisters": {
+    "timer_rust": {
+      "type": "rust",
+      "package": "ouroc-timer-rust",
+      "candid": "src/timer_rust/ouroc_timer_rust.did"
+    },
+    "license_registry": {
+      "type": "motoko",
+      "main": "src/license_registry/LicenseRegistry.mo"
+    },
+    "ouroc_frontend": {
+      "type": "assets",
+      "source": ["frontend/dist"],
+      "dependencies": ["timer_rust", "license_registry"]
+    }
+  },
+  "networks": {
+    "local": {
+      "bind": "127.0.0.1:4943",
+      "type": "ephemeral",
+      "replica": {
+        "subnet_type": "system"
+      }
+    },
+    "ic": {
+      "providers": ["https://ic0.app"],
+      "type": "persistent"
+    }
+  },
+  "defaults": {
+    "build": {
+      "args": "",
+      "packtool": ""
+    }
+  }
+}

@@ -14,7 +14,7 @@ use crate::crypto::*;
 
 /// Initialize the subscription program
 pub fn initialize(
-    ctx: Context<Initialize>,
+    ctx: Context<crate::Initialize>,
     authorization_mode: AuthorizationMode,
     icp_public_key: Option<[u8; 32]>,
 ) -> Result<()> {
@@ -50,7 +50,7 @@ pub fn initialize(
 /// Allows changing where platform fees are sent
 /// Can be used to upgrade to multisig or change wallets
 pub fn update_fee_destination(
-    ctx: Context<UpdateFeeDestination>,
+    ctx: Context<crate::UpdateFeeDestination>,
     new_fee_address: Pubkey,
 ) -> Result<()> {
     let config = &mut ctx.accounts.config;
@@ -80,7 +80,7 @@ pub fn update_fee_destination(
 /// Subscriber must call this before creating subscription
 /// Amount should be sufficient for multiple payments (subscription_amount * num_payments)
 pub fn approve_subscription_delegate(
-    ctx: Context<ApproveDelegate>,
+    ctx: Context<crate::ApproveDelegate>,
     subscription_id: String,
     amount: u64,
 ) -> Result<()> {
@@ -129,7 +129,7 @@ pub fn approve_subscription_delegate(
 
 /// Create a new subscription
 pub fn create_subscription(
-    ctx: Context<CreateSubscription>,
+    ctx: Context<crate::CreateSubscription>,
     subscription_id: String,
     amount: u64,
     interval_seconds: i64,
@@ -145,8 +145,8 @@ pub fn create_subscription(
     require!(amount >= 1000, ErrorCode::InvalidAmount); // Minimum 0.001 USDC
     require!(amount <= 1_000_000_000_000_000, ErrorCode::InvalidAmount); // Maximum 1B USDC
 
-    require!(interval_seconds > 0, ErrorCode::InvalidInterval);
-    require!(interval_seconds >= 3600, ErrorCode::InvalidInterval); // Minimum 1 hour
+    // Interval validation: -1 for one-time, or >= 10 seconds for recurring (10s for demo purposes)
+    require!(interval_seconds == -1 || interval_seconds >= 10, ErrorCode::InvalidInterval);
     require!(interval_seconds <= 365 * 24 * 60 * 60, ErrorCode::InvalidInterval); // Maximum 1 year
 
     // Validate subscription ID format and content
@@ -174,29 +174,41 @@ pub fn create_subscription(
     let subscription = &mut ctx.accounts.subscription;
     let clock = Clock::get()?;
 
+    // Derive escrow PDA for this subscription
+    let (escrow_pda, _bump) = crate::constants::derive_escrow_pda(&subscription_id, ctx.program_id);
+
     subscription.id = subscription_id.clone();
     subscription.subscriber = ctx.accounts.subscriber.key();
     subscription.merchant = merchant_address;
     subscription.merchant_name = merchant_name.clone(); // Store merchant name for notifications
     subscription.amount = amount; // Amount merchant receives in USDC
     subscription.interval_seconds = interval_seconds;
-    subscription.next_payment_time = clock.unix_timestamp + interval_seconds;
+    // For one-time payments (interval = -1), payment is due immediately
+    // For recurring, payment is due after the interval
+    subscription.next_payment_time = if interval_seconds == -1 {
+        clock.unix_timestamp // One-time: due immediately
+    } else {
+        clock.unix_timestamp + interval_seconds // Recurring: due after interval
+    };
     subscription.status = SubscriptionStatus::Active;
     subscription.created_at = clock.unix_timestamp;
     subscription.payments_made = 0;
     subscription.total_paid = 0;
     subscription.icp_canister_signature = icp_canister_signature;
     subscription.reminder_days_before_payment = reminder_days_before_payment; // Merchant-configured reminder timing
+    subscription.escrow_pda = escrow_pda; // Store escrow PDA for off-ramp integration
+    subscription.escrow_balance = 0; // Initial balance is 0
 
     // Update global config
     ctx.accounts.config.total_subscriptions += 1;
 
     msg!(
-        "Subscription created: {} for {} USDC every {} seconds, reminder: {} days before",
+        "Subscription created: {} for {} USDC every {} seconds, reminder: {} days before, escrow: {}",
         subscription.id,
         amount,
         interval_seconds,
-        reminder_days_before_payment
+        reminder_days_before_payment,
+        escrow_pda
     );
 
     // Emit event
@@ -212,9 +224,8 @@ pub fn create_subscription(
 }
 
 /// Process payment with automatic swap (Router function for multi-token support)
-/// This function checks the subscription's payment_token_mint:
-/// - If USDC: uses standard process_payment flow directly
-/// - If other token (USDT/PYUSD/DAI): swaps to USDC first, then processes payment
+/// COMMENTED OUT - Only USDC supported
+/*
 pub fn process_payment_with_swap<'info>(
     ctx: Context<'_, '_, '_, 'info, ProcessPaymentWithSwap<'info>>,
     icp_signature: Option<[u8; 64]>,
@@ -298,11 +309,12 @@ pub fn process_payment_with_swap<'info>(
         &ctx.accounts.instructions_sysvar,
     )
 }
+*/
 
 /// Process payment for a subscription (supports multiple authorization modes)
 /// Standard entry point for USDC-only subscriptions
 pub fn process_payment(
-    ctx: Context<ProcessPayment>,
+    ctx: Context<crate::ProcessPayment>,
     icp_signature: Option<[u8; 64]>,
     timestamp: i64,
 ) -> Result<()> {
@@ -322,7 +334,7 @@ pub fn process_payment(
 }
 
 /// Pause a subscription
-pub fn pause_subscription(ctx: Context<UpdateSubscription>) -> Result<()> {
+pub fn pause_subscription(ctx: Context<crate::UpdateSubscription>) -> Result<()> {
     let subscription = &mut ctx.accounts.subscription;
     require!(subscription.status == SubscriptionStatus::Active, ErrorCode::SubscriptionNotActive);
 
@@ -342,7 +354,7 @@ pub fn pause_subscription(ctx: Context<UpdateSubscription>) -> Result<()> {
 }
 
 /// Resume a subscription
-pub fn resume_subscription(ctx: Context<UpdateSubscription>) -> Result<()> {
+pub fn resume_subscription(ctx: Context<crate::UpdateSubscription>) -> Result<()> {
     let subscription = &mut ctx.accounts.subscription;
     require!(subscription.status == SubscriptionStatus::Paused, ErrorCode::SubscriptionNotPaused);
 
@@ -363,7 +375,7 @@ pub fn resume_subscription(ctx: Context<UpdateSubscription>) -> Result<()> {
 }
 
 /// Cancel a subscription
-pub fn cancel_subscription(ctx: Context<UpdateSubscription>) -> Result<()> {
+pub fn cancel_subscription(ctx: Context<crate::UpdateSubscription>) -> Result<()> {
     let subscription = &mut ctx.accounts.subscription;
     require!(
         subscription.status == SubscriptionStatus::Active ||
@@ -392,7 +404,7 @@ pub fn cancel_subscription(ctx: Context<UpdateSubscription>) -> Result<()> {
 
 /// Revoke subscription PDA delegate (after cancellation)
 pub fn revoke_subscription_delegate(
-    ctx: Context<RevokeDelegate>,
+    ctx: Context<crate::RevokeDelegate>,
 ) -> Result<()> {
     // Revoke the subscription PDA's delegate authority
     let cpi_accounts = token::Revoke {
@@ -409,15 +421,67 @@ pub fn revoke_subscription_delegate(
     Ok(())
 }
 
+/// Merchant claims USDC from escrow after off-ramp API confirmation
+/// This allows merchants to withdraw funds from escrow once fiat transfer is complete
+pub fn claim_from_escrow(
+    ctx: Context<crate::ClaimFromEscrow>,
+    subscription_id: String,
+    amount: u64,
+) -> Result<()> {
+    let subscription = &mut ctx.accounts.subscription;
+
+    // Validate claim amount
+    require!(amount > 0, ErrorCode::InvalidAmount);
+    require!(amount <= subscription.escrow_balance, ErrorCode::InsufficientAmount);
+
+    // Get escrow PDA bump for signing
+    let (_escrow_pda, bump) = crate::constants::derive_escrow_pda(&subscription_id, ctx.program_id);
+    let signer_seeds: &[&[&[u8]]] = &[&[
+        b"escrow",
+        subscription_id.as_bytes(),
+        &[bump],
+    ]];
+
+    // Transfer from escrow to merchant
+    let transfer_to_merchant = token::Transfer {
+        from: ctx.accounts.escrow_token_account.to_account_info(),
+        to: ctx.accounts.merchant_token_account.to_account_info(),
+        authority: ctx.accounts.escrow_pda.to_account_info(),
+    };
+
+    token::transfer(
+        CpiContext::new_with_signer(
+            ctx.accounts.token_program.to_account_info(),
+            transfer_to_merchant,
+            signer_seeds,
+        ),
+        amount,
+    )?;
+
+    // Update escrow balance
+    subscription.escrow_balance = subscription.escrow_balance
+        .checked_sub(amount)
+        .ok_or(ErrorCode::MathOverflow)?;
+
+    msg!(
+        "Merchant claimed {} micro-USDC from escrow for subscription {}. Remaining escrow: {}",
+        amount,
+        subscription_id,
+        subscription.escrow_balance
+    );
+
+    Ok(())
+}
+
 /// Emergency pause the entire program (admin only)
-pub fn emergency_pause(ctx: Context<AdminAction>) -> Result<()> {
+pub fn emergency_pause(ctx: Context<crate::AdminAction>) -> Result<()> {
     ctx.accounts.config.paused = true;
     msg!("Ouro-C Subscriptions emergency paused");
     Ok(())
 }
 
 /// Resume the program (admin only)
-pub fn resume_program(ctx: Context<AdminAction>) -> Result<()> {
+pub fn resume_program(ctx: Context<crate::AdminAction>) -> Result<()> {
     ctx.accounts.config.paused = false;
     msg!("Ouro-C Subscriptions resumed");
     Ok(())
@@ -425,7 +489,7 @@ pub fn resume_program(ctx: Context<AdminAction>) -> Result<()> {
 
 /// Update authorization mode (admin only)
 pub fn update_authorization_mode(
-    ctx: Context<AdminAction>,
+    ctx: Context<crate::AdminAction>,
     new_mode: AuthorizationMode,
     icp_public_key: Option<[u8; 32]>,
 ) -> Result<()> {
@@ -440,7 +504,7 @@ pub fn update_authorization_mode(
 }
 
 /// Manual payment processing (subscriber only)
-pub fn process_manual_payment(ctx: Context<ProcessPayment>) -> Result<()> {
+pub fn process_manual_payment(ctx: Context<crate::ProcessPayment>) -> Result<()> {
     require!(!ctx.accounts.config.paused, ErrorCode::ProgramPaused);
     require!(
         ctx.accounts.config.manual_processing_enabled,
@@ -458,7 +522,7 @@ pub fn process_manual_payment(ctx: Context<ProcessPayment>) -> Result<()> {
 /// Opcode 0: Payment (direct USDC only - use process_trigger_with_swap for swaps)
 /// Opcode 1: Notification (send memo to subscriber)
 pub fn process_trigger(
-    ctx: Context<ProcessTrigger>,
+    ctx: Context<crate::ProcessTrigger>,
     opcode: u8,
     icp_signature: Option<[u8; 64]>,
     timestamp: i64,
@@ -565,12 +629,6 @@ pub fn process_trigger(
     match opcode {
         0 => {
             // Payment: Direct USDC only
-            // For swaps, use process_trigger_with_swap instruction
-            let token_mint = subscription.payment_token_mint;
-            let usdc_mint = Pubkey::from_str(USDC_MINT).unwrap();
-
-            require!(token_mint == usdc_mint, ErrorCode::SwapNotImplemented);
-
             msg!("Processing direct USDC payment for subscription: {}", subscription.id);
             process_direct_usdc_payment(ctx)?;
         },
@@ -580,11 +638,10 @@ pub fn process_trigger(
 
             // Build notification message with merchant name and subscription details
             let memo = format!(
-                "{}: Payment due in {} days. Amount: {} {}",
+                "{}: Payment due in {} days. Amount: {} USDC",
                 subscription.merchant_name,
                 subscription.reminder_days_before_payment,
-                subscription.amount,
-                subscription.payment_token_mint
+                subscription.amount as f64 / 1_000_000.0
             );
 
             send_notification_internal(ctx, memo)?;
@@ -598,7 +655,8 @@ pub fn process_trigger(
 }
 
 /// Process trigger with Jupiter swap (opcode 0 only for non-USDC tokens)
-/// Solana handles Jupiter quote and swap execution internally
+/// COMMENTED OUT - Only USDC supported
+/*
 pub fn process_trigger_with_swap(
     ctx: Context<ProcessTriggerWithSwap>,
     icp_signature: Option<[u8; 64]>,
@@ -693,9 +751,10 @@ pub fn process_trigger_with_swap(
 
     Ok(())
 }
+*/
 
 pub fn send_notification(
-    ctx: Context<SendNotification>,
+    ctx: Context<crate::SendNotification>,
     memo_message: String,
 ) -> Result<()> {
     require!(!ctx.accounts.config.paused, ErrorCode::ProgramPaused);

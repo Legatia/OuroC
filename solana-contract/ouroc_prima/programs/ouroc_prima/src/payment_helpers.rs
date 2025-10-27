@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{Token, TokenAccount};
+use anchor_spl::token::{self, Token, TokenAccount};
 use crate::constants::*;
 use crate::data_structures::*;
 use crate::errors::ErrorCode;
@@ -157,16 +157,23 @@ pub fn process_payment_core<'info>(
     subscription.payments_made += 1;
     subscription.total_paid += subscription.amount;
 
-    // Schedule next payment relative to scheduled time (not current time) to prevent drift
-    subscription.next_payment_time = subscription.next_payment_time
-        .checked_add(subscription.interval_seconds)
-        .ok_or(ErrorCode::MathOverflow)?;
-
-    // Handle multiple missed payments by advancing until future
-    while subscription.next_payment_time < clock.unix_timestamp {
+    // Schedule next payment based on interval type
+    if subscription.interval_seconds == -1 {
+        // One-time payment: auto-cancel after payment
+        subscription.status = SubscriptionStatus::Cancelled;
+        msg!("One-time payment completed - subscription auto-cancelled");
+    } else {
+        // Recurring payment: schedule next payment relative to scheduled time (not current time) to prevent drift
         subscription.next_payment_time = subscription.next_payment_time
             .checked_add(subscription.interval_seconds)
             .ok_or(ErrorCode::MathOverflow)?;
+
+        // Handle multiple missed payments by advancing until future
+        while subscription.next_payment_time < clock.unix_timestamp {
+            subscription.next_payment_time = subscription.next_payment_time
+                .checked_add(subscription.interval_seconds)
+                .ok_or(ErrorCode::MathOverflow)?;
+        }
     }
 
     subscription.last_payment_time = Some(clock.unix_timestamp);
@@ -259,6 +266,20 @@ pub fn process_direct_usdc_payment(ctx: Context<crate::ProcessTrigger>) -> Resul
     subscription.last_payment_time = Some(Clock::get()?.unix_timestamp);
     subscription.payments_made = subscription.payments_made.checked_add(1).ok_or(ErrorCode::MathOverflow)?;
     subscription.total_paid = subscription.total_paid.checked_add(payment_amount).ok_or(ErrorCode::MathOverflow)?;
+    // Update escrow balance (merchant amount goes to escrow)
+    subscription.escrow_balance = subscription.escrow_balance.checked_add(merchant_amount).ok_or(ErrorCode::MathOverflow)?;
+
+    // Handle one-time vs recurring payments
+    if subscription.interval_seconds == -1 {
+        // One-time payment: auto-cancel after payment
+        subscription.status = SubscriptionStatus::Cancelled;
+        msg!("One-time payment completed - subscription auto-cancelled");
+    } else {
+        // Recurring: schedule next payment
+        subscription.next_payment_time = subscription.next_payment_time
+            .checked_add(subscription.interval_seconds)
+            .ok_or(ErrorCode::MathOverflow)?;
+    }
 
     // INTERACTIONS: External token transfers AFTER state updates (CEI pattern)
     let seeds = &[b"subscription", subscription_id.as_bytes(), &[ctx.bumps.subscription]];
@@ -284,28 +305,28 @@ pub fn process_direct_usdc_payment(ctx: Context<crate::ProcessTrigger>) -> Resul
         signer_seeds,
     )?;
 
-    // Transfer remaining to merchant
-    let transfer_merchant_ix = anchor_spl::token::spl_token::instruction::transfer(
+    // Transfer remaining to ESCROW (not directly to merchant)
+    let transfer_escrow_ix = anchor_spl::token::spl_token::instruction::transfer(
         ctx.accounts.token_program.key,
         &ctx.accounts.subscriber_token_account.key(),
-        &ctx.accounts.merchant_usdc_account.key(),
+        &ctx.accounts.escrow_usdc_account.key(),
         ctx.accounts.subscription_pda.key,
         &[],
         merchant_amount,
     )?;
 
     anchor_lang::solana_program::program::invoke_signed(
-        &transfer_merchant_ix,
+        &transfer_escrow_ix,
         &[
             ctx.accounts.subscriber_token_account.to_account_info(),
-            ctx.accounts.merchant_usdc_account.to_account_info(),
+            ctx.accounts.escrow_usdc_account.to_account_info(),
             ctx.accounts.subscription_pda.to_account_info(),
         ],
         signer_seeds,
     )?;
 
-    msg!("Direct USDC payment processed: {} USDC (fee: {}, merchant: {})",
-        payment_amount, fee_amount, merchant_amount);
+    msg!("USDC payment processed to ESCROW: {} USDC (fee: {}, escrow: {}, escrow_balance: {})",
+        payment_amount, fee_amount, merchant_amount, subscription.escrow_balance);
 
     // Emit payment event
     emit!(PaymentProcessed {

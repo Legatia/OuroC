@@ -47,10 +47,12 @@ pub struct Subscription {
     pub total_paid: u64,                 // 8 bytes
     pub icp_canister_signature: [u8; 64], // 64 bytes - Ed25519 signature from ICP
     pub reminder_days_before_payment: u32, // 4 bytes - Days before payment to send reminder (configured by merchant)
+    pub escrow_pda: Pubkey,              // 32 bytes - Escrow PDA that holds funds before off-ramp
+    pub escrow_balance: u64,             // 8 bytes - Current USDC balance in escrow
 }
 
 impl Subscription {
-    pub const LEN: usize = 32 + 32 + 32 + 32 + 8 + 8 + 8 + 1 + 8 + 9 + 8 + 8 + 64 + 4;
+    pub const LEN: usize = 32 + 32 + 32 + 32 + 8 + 8 + 8 + 1 + 8 + 9 + 8 + 8 + 64 + 4 + 32 + 8;
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq)]

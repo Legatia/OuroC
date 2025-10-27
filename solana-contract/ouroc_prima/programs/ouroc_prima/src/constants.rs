@@ -52,3 +52,11 @@ pub fn get_usdc_mint() -> Pubkey {
     Pubkey::from_str(USDC_MINT).unwrap()
 }
 
+// Derive escrow PDA for a subscription
+pub fn derive_escrow_pda(subscription_id: &str, program_id: &Pubkey) -> (Pubkey, u8) {
+    Pubkey::find_program_address(
+        &[b"escrow", subscription_id.as_bytes()],
+        program_id,
+    )
+}
+
