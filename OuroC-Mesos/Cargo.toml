@@ -6,3 +6,4 @@ resolver = "2"
 opt-level = 3
 lto = true
 strip = true
+

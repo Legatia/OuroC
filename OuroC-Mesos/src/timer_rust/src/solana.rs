@@ -150,15 +150,18 @@ async fn build_and_send_transaction(
     accounts: &[&str],
     instruction_data: &[u8],
 ) -> Result<String, String> {
+    use crate::state::get_cached_blockhash;
+
     ic_cdk::println!("🔨 Building Solana transaction...");
     ic_cdk::println!("  RPC: {}", rpc_endpoint);
     ic_cdk::println!("  Program: {}", program_id);
     ic_cdk::println!("  Accounts: {}", accounts.len());
     ic_cdk::println!("  Data: {} bytes", instruction_data.len());
 
-    // Step 1: Get recent blockhash from Solana RPC
-    let blockhash = get_recent_blockhash(rpc_endpoint).await?;
-    ic_cdk::println!("✅ Got recent blockhash: {}", blockhash);
+    // Step 1: Use cached blockhash (avoids IC consensus issues)
+    let blockhash = get_cached_blockhash()
+        .ok_or("No cached blockhash available. Blockhash cache needs refresh.")?;
+    ic_cdk::println!("✅ Using cached blockhash: {}", blockhash);
 
     // Step 2: Build transaction message
     let transaction_message = build_transaction_message(
@@ -188,12 +191,14 @@ use ic_cdk::api::management_canister::http_request::{
     http_request, CanisterHttpRequestArgument, HttpMethod, HttpResponse, TransformArgs,
 };
 
-/// Get recent blockhash from Solana RPC
+/// Get recent blockhash from Solana RPC using getSlot + getBlock (private helper)
+/// This approach is recommended by IC to avoid consensus issues with getLatestBlockhash
 async fn get_recent_blockhash(rpc_url: &str) -> Result<String, String> {
-    let request_body = serde_json::json!({
+    // Step 1: Get the most recent finalized slot
+    let slot_request = serde_json::json!({
         "jsonrpc": "2.0",
         "id": 1,
-        "method": "getLatestBlockhash",
+        "method": "getSlot",
         "params": [
             {
                 "commitment": "finalized"
@@ -201,22 +206,61 @@ async fn get_recent_blockhash(rpc_url: &str) -> Result<String, String> {
         ]
     }).to_string();
 
-    let response = make_http_request(
+    let slot_response = make_http_request(
         rpc_url,
         "POST",
-        request_body.as_bytes(),
+        slot_request.as_bytes(),
     ).await?;
 
-    // Parse JSON response
-    let json: serde_json::Value = serde_json::from_slice(&response.body)
-        .map_err(|e| format!("Failed to parse blockhash response: {}", e))?;
+    let slot_json: serde_json::Value = serde_json::from_slice(&slot_response.body)
+        .map_err(|e| format!("Failed to parse slot response: {}", e))?;
 
-    let blockhash = json["result"]["value"]["blockhash"]
+    let slot = slot_json["result"]
+        .as_u64()
+        .ok_or("Missing slot in response")?;
+
+    ic_cdk::println!("📍 Got finalized slot: {}", slot);
+
+    // Step 2: Get the block at that slot to extract its blockhash
+    let block_request = serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": 2,
+        "method": "getBlock",
+        "params": [
+            slot,
+            {
+                "encoding": "json",
+                "transactionDetails": "none",
+                "rewards": false,
+                "commitment": "finalized"
+            }
+        ]
+    }).to_string();
+
+    let block_response = make_http_request(
+        rpc_url,
+        "POST",
+        block_request.as_bytes(),
+    ).await?;
+
+    let block_json: serde_json::Value = serde_json::from_slice(&block_response.body)
+        .map_err(|e| format!("Failed to parse block response: {}", e))?;
+
+    let blockhash = block_json["result"]["blockhash"]
         .as_str()
-        .ok_or("Missing blockhash in response")?
+        .ok_or("Missing blockhash in block response")?
         .to_string();
 
+    ic_cdk::println!("🔗 Extracted blockhash from slot {}: {}", slot, blockhash);
+
     Ok(blockhash)
+}
+
+/// Refresh blockhash cache - PUBLIC function to be called by timer
+pub async fn refresh_blockhash_cache() -> Result<(), String> {
+    // DISABLED: Using durable nonces instead of blockhashes to avoid IC consensus issues
+    ic_cdk::println!("⚠️  Blockhash refresh disabled - using durable nonces instead");
+    Ok(())
 }
 
 /// Build a Solana transaction message (serialized for signing)

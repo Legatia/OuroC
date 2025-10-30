@@ -34,6 +34,10 @@ thread_local! {
     static CANISTER_START_TIME: std::cell::RefCell<Timestamp> = std::cell::RefCell::new(time());
     static FAILED_PAYMENT_COUNT: std::cell::RefCell<u32> = std::cell::RefCell::new(0);
     static HEALTH_CHECK_COUNTER: std::cell::RefCell<u64> = std::cell::RefCell::new(0);
+
+    // Solana blockhash cache (to avoid consensus issues)
+    static CACHED_BLOCKHASH: std::cell::RefCell<Option<String>> = std::cell::RefCell::new(None);
+    static BLOCKHASH_FETCHED_AT: std::cell::RefCell<Timestamp> = std::cell::RefCell::new(0);
 }
 
 // State structure for stable storage
@@ -392,4 +396,39 @@ pub fn get_all_encrypted_metadata() -> HashMap<String, crate::types::EncryptedMe
 
 pub fn restore_encrypted_metadata(metadata: HashMap<String, crate::types::EncryptedMetadata>) {
     ENCRYPTED_METADATA.with(|m| *m.borrow_mut() = metadata);
+}
+
+// ============================================================================
+// Solana Blockhash Cache Management
+// ============================================================================
+
+/// Set cached blockhash and update timestamp
+pub fn set_cached_blockhash(blockhash: String) {
+    let now = time();
+    CACHED_BLOCKHASH.with(|b| *b.borrow_mut() = Some(blockhash.clone()));
+    BLOCKHASH_FETCHED_AT.with(|t| *t.borrow_mut() = now);
+    ic_cdk::println!("✅ Blockhash cached: {} at {}", blockhash, now);
+}
+
+/// Get cached blockhash if still valid (valid for 60 seconds)
+pub fn get_cached_blockhash() -> Option<String> {
+    let now = time();
+    let fetched_at = BLOCKHASH_FETCHED_AT.with(|t| *t.borrow());
+
+    // Blockhash is valid for ~150 Solana slots (~60-75 seconds)
+    // We use 60 seconds to be conservative
+    let max_age_ns = 60_000_000_000u64; // 60 seconds in nanoseconds
+
+    if now.saturating_sub(fetched_at) < max_age_ns {
+        CACHED_BLOCKHASH.with(|b| b.borrow().clone())
+    } else {
+        ic_cdk::println!("⚠️ Cached blockhash expired (age: {} ns)", now.saturating_sub(fetched_at));
+        None
+    }
+}
+
+/// Clear cached blockhash
+pub fn clear_cached_blockhash() {
+    CACHED_BLOCKHASH.with(|b| *b.borrow_mut() = None);
+    BLOCKHASH_FETCHED_AT.with(|t| *t.borrow_mut() = 0);
 }

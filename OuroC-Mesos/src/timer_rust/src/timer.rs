@@ -120,3 +120,14 @@ pub fn restore_timers(active: HashMap<String, TimerInfo>, notification: HashMap<
     ACTIVE_TIMERS.with(|t| *t.borrow_mut() = active);
     NOTIFICATION_TIMERS.with(|t| *t.borrow_mut() = notification);
 }
+
+// ============================================================================
+// Blockhash Cache Refresh Timer
+// ============================================================================
+
+/// Start blockhash refresh timer - DISABLED
+/// Using durable nonces instead of blockhashes to avoid IC consensus issues
+pub fn start_blockhash_refresh_timer() {
+    ic_cdk::println!("✅ Blockhash refresh timer disabled - using durable nonces instead");
+    // No longer needed since we use durable nonces for all Solana transactions
+}

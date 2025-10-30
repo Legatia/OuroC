@@ -9,7 +9,10 @@ mod authorization;
 mod timer;
 mod license;
 mod solana;
+mod sol_rpc;      // NEW: SOL RPC client wrapper
+mod solana_rpc;   // NEW: Solana integration using SOL RPC canister
 mod solana_client;
+mod nonce_manager; // NEW: Durable nonce management
 mod utils;
 mod health;
 mod threshold_ed25519;
@@ -38,6 +41,7 @@ use ic_cdk::api::management_canister::http_request::{HttpResponse, TransformArgs
 fn init() {
     ic_cdk::println!("🚀 Ouro-C Timer Canister (Rust) initializing...");
     state::init();
+    timer::start_blockhash_refresh_timer();
     ic_cdk::println!("✅ Ouro-C Timer Canister (Rust) initialized successfully");
 }
 
@@ -108,6 +112,9 @@ fn post_upgrade() {
             // Restore timers
             let (active_timers, notification_timers) = timer::get_all_timers();
             timer::restore_timers(active_timers, notification_timers);
+
+            // Start blockhash refresh timer
+            timer::start_blockhash_refresh_timer();
 
             ic_cdk::println!("✅ State restored successfully. {} subscriptions loaded",
                               canister_state.subscriptions.len());

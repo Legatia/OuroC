@@ -14,6 +14,13 @@
       "type": "assets",
       "source": ["frontend/dist"],
       "dependencies": ["timer_rust", "license_registry"]
+    },
+    "simple_timer_frontend": {
+      "type": "custom",
+      "build": "npm run build",
+      "candid": "src/simple_timer_frontend/src/simple_timer_frontend.did",
+      "wasm": "target/wasm32-unknown-unknown/release/simple_timer_frontend.wasm",
+      "source": ["src/simple_timer_frontend/package.json", "src/simple_timer_frontend/src/index.ts"]
     }
   },
   "networks": {

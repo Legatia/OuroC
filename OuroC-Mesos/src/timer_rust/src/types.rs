@@ -51,6 +51,7 @@ pub struct Subscription {
     pub subscriber_address: SolanaAddress,
     pub merchant_address: SolanaAddress,
     pub payment_token_mint: String,
+    pub amount: u64, // USDC amount in micro-units (6 decimals)
     pub interval_seconds: u64,
     pub next_execution: Timestamp,
     pub status: SubscriptionStatus,

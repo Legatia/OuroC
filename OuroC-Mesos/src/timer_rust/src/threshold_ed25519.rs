@@ -175,16 +175,27 @@ impl ThresholdEd25519Manager {
     async fn real_sign_with_schnorr(&self, arg: SignWithSchnorrArgument) -> Result<SignWithSchnorrResult, String> {
         ic_cdk::print(&format!("📞 Calling IC management canister to sign {} bytes...", arg.message.len()));
 
+        // Check cycle balance before expensive operation
+        let balance = ic_cdk::api::canister_balance128();
+        const MIN_CYCLES_REQUIRED: u128 = 100_000_000_000; // 100B minimum
+
+        if balance < MIN_CYCLES_REQUIRED {
+            return Err(format!("Insufficient cycles: {} (need at least 100B for signing)", balance));
+        }
+
+        ic_cdk::print(&format!("💰 Canister balance: {} cycles", balance));
+
         // Management canister principal
         let mgmt_canister = candid::Principal::management_canister();
 
         // Call the management canister directly with cycles for signing
-        // Schnorr signing requires ~26.2B cycles
+        // Schnorr signing requires ~26.2B cycles base + overhead
+        // Increased to 50B to ensure sufficient cycles for all network conditions
         let (result,): (SignWithSchnorrResult,) = ic_cdk::api::call::call_with_payment(
             mgmt_canister,
             "sign_with_schnorr",
             (arg,),
-            27_000_000_000, // 27 billion cycles (increased to cover actual requirement)
+            50_000_000_000, // 50 billion cycles (increased from 27B to handle IC overhead)
         )
         .await
         .map_err(|e| format!("sign_with_schnorr call failed: {:?}", e))?;

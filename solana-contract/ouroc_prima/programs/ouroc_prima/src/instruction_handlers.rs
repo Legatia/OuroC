@@ -78,16 +78,21 @@ pub fn update_fee_destination(
 
 /// Approve subscription PDA to spend USDC tokens
 /// Subscriber must call this before creating subscription
-/// Amount should be sufficient for multiple payments (subscription_amount * num_payments)
+/// Automatically calculates one year of delegation: amount × (365 days / interval)
+/// This balances convenience (one approval per year) with security (not unlimited)
 pub fn approve_subscription_delegate(
     ctx: Context<crate::ApproveDelegate>,
     subscription_id: String,
     amount: u64,
+    interval_seconds: i64,
 ) -> Result<()> {
     // Enhanced amount validation
     require!(amount > 0, ErrorCode::InsufficientAmount);
     require!(amount >= 1000, ErrorCode::InsufficientAmount); // Minimum 0.001 USDC
     require!(amount <= MAX_APPROVAL_AMOUNT, ErrorCode::InvalidAmount);
+
+    // Calculate one year of delegation automatically
+    let delegation_amount = crate::constants::calculate_one_year_delegation(amount, interval_seconds)?;
 
     // Validate subscription ID format and content
     require!(subscription_id.len() > 0, ErrorCode::InvalidSubscriptionId);
@@ -107,13 +112,15 @@ pub fn approve_subscription_delegate(
     let cpi_program = ctx.accounts.token_program.to_account_info();
     let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
 
-    token::approve(cpi_ctx, amount)?;
+    token::approve(cpi_ctx, delegation_amount)?;
 
     msg!(
-        "Approved subscription PDA {} to spend {} USDC for subscription {}",
+        "Approved subscription PDA {} to spend {} USDC for subscription {} ({} USDC per payment × {} payments ≈ 1 year)",
         ctx.accounts.subscription_pda.key(),
+        delegation_amount,
+        subscription_id,
         amount,
-        subscription_id
+        delegation_amount / amount.max(1)
     );
 
     // Emit event
@@ -121,7 +128,7 @@ pub fn approve_subscription_delegate(
         subscription_id: subscription_id.clone(),
         subscriber: ctx.accounts.subscriber.key(),
         delegate: ctx.accounts.subscription_pda.key(),
-        amount,
+        amount: delegation_amount,
     });
 
     Ok(())
@@ -198,6 +205,29 @@ pub fn create_subscription(
     subscription.reminder_days_before_payment = reminder_days_before_payment; // Merchant-configured reminder timing
     subscription.escrow_pda = escrow_pda; // Store escrow PDA for off-ramp integration
     subscription.escrow_balance = 0; // Initial balance is 0
+
+    // Automatically approve delegation (one-click UX improvement)
+    // Calculate one year of delegation to minimize user interactions
+    let delegation_amount = crate::constants::calculate_one_year_delegation(amount, interval_seconds)?;
+
+    let cpi_accounts = token::Approve {
+        to: ctx.accounts.subscriber_token_account.to_account_info(),
+        delegate: ctx.accounts.subscription_pda.to_account_info(),
+        authority: ctx.accounts.subscriber.to_account_info(),
+    };
+
+    let cpi_program = ctx.accounts.token_program.to_account_info();
+    let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
+
+    token::approve(cpi_ctx, delegation_amount)?;
+
+    msg!(
+        "Auto-approved subscription PDA {} to spend {} USDC ({} USDC × {} payments ≈ 1 year)",
+        ctx.accounts.subscription_pda.key(),
+        delegation_amount,
+        amount,
+        delegation_amount / amount.max(1)
+    );
 
     // Update global config
     ctx.accounts.config.total_subscriptions += 1;

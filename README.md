@@ -10,7 +10,44 @@
 
 **OuroC** is the first fully decentralized recurring transaction protocol on Solana, built for the modern economy of AI agents, SaaS businesses, and privacy-conscious applications.
 
-**Core Innovation:**
+### 🏛️ OuroC-Mesos: The Foundation Layer
+
+**OuroC-Mesos** is the core infrastructure canister that powers the entire OuroC ecosystem. It serves as the autonomous scheduling engine that bridges Internet Computer Protocol (ICP) and Solana blockchain.
+
+**What Mesos Does:**
+- 🤖 **Autonomous Timer Management** - Schedules recurring subscription payments without centralized dependencies
+- 🔐 **Threshold Ed25519 Signing** - Uses ICP's Schnorr signature scheme to sign Solana transactions
+- 📡 **Cross-Chain Communication** - Bridges ICP timer logic with Solana smart contracts via HTTP outcalls
+- ⚡ **Opcode Routing** - Processes payment (opcode 0) and notification (opcode 1) triggers
+- 💾 **Subscription State Management** - Maintains subscription metadata, execution times, and failure handling
+- 🔄 **Exponential Backoff** - Automatically retries failed payments with intelligent backoff strategy
+
+**Architecture:**
+```
+ICP Timer Canister (OuroC-Mesos)
+    ├── Subscription Manager (creates/pauses/cancels subscriptions)
+    ├── Timer Module (schedules execution via ic_cdk_timers)
+    ├── Threshold Ed25519 (signs payment messages with 50B cycles)
+    ├── Solana RPC Client (HTTP outcalls to Solana devnet/mainnet)
+    └── State Management (stable storage for upgrades)
+            ↓
+    Solana Smart Contract (OuroC-Prima)
+        ├── Process payment (splits merchant/platform fee)
+        ├── Send notification (1 day before payment for intervals > 1 day)
+        └── Delegate authority (PDA pulls USDC from subscriber)
+```
+
+**Key Technical Details:**
+- **Delegation Model**: Subscribers approve subscription PDA to spend USDC (1 year of payments by default)
+- **Fee Calculation**: Platform takes 2% (200 basis points), merchant receives 98%
+- **Signature Cost**: 50 billion cycles per Schnorr Ed25519 signature (increased from 27B for reliability)
+- **Cycle Monitoring**: Built-in balance checks to prevent signing failures (minimum 100B cycles required)
+- **Network Support**: Solana devnet (active) and mainnet (prepared)
+
+**Built on OuroC-Prima**: Mesos is the first application built on top of the OuroC-Prima subscription smart contract, demonstrating how the decentralized recurring payment protocol works in production.
+
+### 🌟 Core Innovation
+
 - **ICP-powered Timer Canisters** - Autonomous scheduling without centralized dependencies
 - **X.402 HTTP-Native Payments** - Coinbase X.402 protocol for seamless payment flows (enabled by default)
 - **AI Agent Optimization** - Automatic detection and implementation for all major AI coding tools

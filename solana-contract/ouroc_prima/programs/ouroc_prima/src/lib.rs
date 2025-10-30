@@ -91,12 +91,25 @@ pub struct CreateSubscription<'info> {
     )]
     pub subscription: Account<'info, Subscription>,
 
+    /// Subscription PDA (same as subscription account key, for delegation)
+    /// CHECK: PDA derived from subscription_id
+    #[account(
+        seeds = [b"subscription", subscription_id.as_bytes()],
+        bump
+    )]
+    pub subscription_pda: UncheckedAccount<'info>,
+
+    /// Subscriber's USDC token account (for automatic delegation)
+    #[account(mut)]
+    pub subscriber_token_account: Account<'info, TokenAccount>,
+
     #[account(seeds = [b"config"], bump)]
     pub config: Account<'info, Config>,
 
     #[account(mut)]
     pub subscriber: Signer<'info>,
 
+    pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
 }
 
@@ -349,12 +362,14 @@ pub mod ouroc_prima {
     }
 
     /// Approve subscription PDA to spend USDC tokens
+    /// Automatically calculates one year of delegation based on amount and interval
     pub fn approve_subscription_delegate(
         ctx: Context<ApproveDelegate>,
         subscription_id: String,
         amount: u64,
+        interval_seconds: i64,
     ) -> Result<()> {
-        instruction_handlers::approve_subscription_delegate(ctx, subscription_id, amount)
+        instruction_handlers::approve_subscription_delegate(ctx, subscription_id, amount, interval_seconds)
     }
 
     /// Create a new subscription

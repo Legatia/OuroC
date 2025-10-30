@@ -121,6 +121,7 @@ pub async fn create_subscription(req: CreateSubscriptionRequest) -> Result<Subsc
         subscriber_address: req.subscriber_address,
         merchant_address: req.merchant_address,
         payment_token_mint: req.payment_token_mint,
+        amount: req.amount,
         interval_seconds: req.interval_seconds,
         next_execution: start_time,
         status: SubscriptionStatus::Active,
@@ -283,17 +284,19 @@ pub async fn trigger_subscription(subscription_id: String) {
 
     if let Some(mut sub) = subscription {
         if sub.status == SubscriptionStatus::Active {
-            // Send payment opcode
-            let result = crate::solana::send_solana_opcode(
+            // Send payment opcode using SOL RPC canister
+            let result = crate::solana_rpc::send_solana_opcode_via_rpc(
                 &sub.solana_contract_address,
                 &subscription_id,
                 &sub.subscriber_address,
                 &sub.merchant_address,
+                sub.amount, // Actual subscription amount
                 0, // Opcode 0 = Payment
             ).await;
 
             let now = time();
-            let next_execution = now + sub.interval_seconds * 1_000_000_000;
+            // Calculate next execution from scheduled time (not current time) to prevent drift
+            let next_execution = sub.next_execution + sub.interval_seconds * 1_000_000_000;
 
             match result {
                 Ok(tx_hash) => {
@@ -362,12 +365,13 @@ pub async fn trigger_notification(subscription_id: String) {
 
     if let Some(sub) = subscription {
         if sub.status == SubscriptionStatus::Active {
-            // Send notification opcode
-            let result = crate::solana::send_solana_opcode(
+            // Send notification opcode using SOL RPC canister
+            let result = crate::solana_rpc::send_solana_opcode_via_rpc(
                 &sub.solana_contract_address,
                 &subscription_id,
                 &sub.subscriber_address,
                 &sub.merchant_address,
+                sub.amount, // Actual subscription amount
                 1, // Opcode 1 = Notification
             ).await;
 

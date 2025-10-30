@@ -60,3 +60,42 @@ pub fn derive_escrow_pda(subscription_id: &str, program_id: &Pubkey) -> (Pubkey,
     )
 }
 
+/// Calculate required delegation amount for one year of payments
+/// Formula: amount × (seconds_in_year / interval_seconds)
+/// This ensures users approve exactly one year of payments, balancing convenience and security
+pub fn calculate_one_year_delegation(amount: u64, interval_seconds: i64) -> Result<u64> {
+    const SECONDS_IN_YEAR: i64 = 365 * 24 * 60 * 60; // 31,536,000 seconds
+
+    // Handle one-time payments (interval = -1)
+    if interval_seconds == -1 {
+        return Ok(amount);
+    }
+
+    // Ensure interval is positive
+    if interval_seconds <= 0 {
+        return Err(anchor_lang::error::Error::from(anchor_lang::error::ErrorCode::AccountNotInitialized));
+    }
+
+    // Calculate number of payments in one year
+    let payments_per_year = (SECONDS_IN_YEAR / interval_seconds) as u64;
+
+    // Add 1 extra payment as buffer (in case of clock drift or early payments)
+    let total_payments = payments_per_year.checked_add(1)
+        .ok_or(anchor_lang::error::ErrorCode::AccountNotInitialized)?;
+
+    // Calculate total delegation needed
+    let total_delegation = (amount as u128)
+        .checked_mul(total_payments as u128)
+        .ok_or(anchor_lang::error::ErrorCode::AccountNotInitialized)?;
+
+    // Ensure it doesn't exceed u64 or max approval amount
+    let delegation = u64::try_from(total_delegation)
+        .map_err(|_| anchor_lang::error::ErrorCode::AccountNotInitialized)?;
+
+    if delegation > MAX_APPROVAL_AMOUNT {
+        return Ok(MAX_APPROVAL_AMOUNT); // Cap at max
+    }
+
+    Ok(delegation)
+}
+
