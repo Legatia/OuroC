@@ -1,0 +1,26 @@
+[dependencies]
+new-base = "0.4.0"
+base = "0.14.9"
+
+[package]
+name = "base-x-encoder"
+version = "1.0.0"
+description = "A text/binary encoding library for base64, 16 (Hex), 58, etc..."
+repository = "https://github.com/edjcase/motoko_base_x"
+keywords = [
+    "base64",
+    "base58",
+    "base16",
+    "hex",
+    "base32",
+    "encoding",
+    "decoding",
+]
+license = "MIT"
+
+[toolchain]
+moc = "0.14.9"
+
+[dev-dependencies]
+test = "2.1.1"
+bench = "1.0.0"

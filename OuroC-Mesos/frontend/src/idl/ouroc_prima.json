@@ -1,0 +1,1762 @@
+{
+  "address": "CFEtrptTe5eFXpZtB3hr1VMGuWF9oXguTnUFUaeVgeyT",
+  "metadata": {
+    "name": "ouroc_prima",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Created with Anchor"
+  },
+  "instructions": [
+    {
+      "name": "approve_subscription_delegate",
+      "docs": [
+        "Approve subscription PDA to spend USDC tokens"
+      ],
+      "discriminator": [
+        179,
+        213,
+        151,
+        131,
+        168,
+        228,
+        98,
+        216
+      ],
+      "accounts": [
+        {
+          "name": "subscription_pda",
+          "docs": [
+            "Subscription PDA that will be approved as delegate"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  117,
+                  98,
+                  115,
+                  99,
+                  114,
+                  105,
+                  112,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "subscription_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "subscriber_token_account",
+          "docs": [
+            "Subscriber's USDC token account"
+          ],
+          "writable": true
+        },
+        {
+          "name": "subscriber",
+          "docs": [
+            "Subscriber (must sign to approve delegation)"
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "subscription_id",
+          "type": "string"
+        },
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "cancel_subscription",
+      "docs": [
+        "Cancel a subscription"
+      ],
+      "discriminator": [
+        60,
+        139,
+        189,
+        242,
+        191,
+        208,
+        143,
+        18
+      ],
+      "accounts": [
+        {
+          "name": "subscription",
+          "writable": true
+        },
+        {
+          "name": "subscriber",
+          "signer": true,
+          "relations": [
+            "subscription"
+          ]
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "claim_from_escrow",
+      "docs": [
+        "Merchant claims USDC from escrow after off-ramp confirmation"
+      ],
+      "discriminator": [
+        170,
+        61,
+        36,
+        124,
+        213,
+        162,
+        153,
+        15
+      ],
+      "accounts": [
+        {
+          "name": "subscription",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  117,
+                  98,
+                  115,
+                  99,
+                  114,
+                  105,
+                  112,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "subscription_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow_token_account",
+          "docs": [
+            "Escrow PDA token account (holds USDC before claim)"
+          ],
+          "writable": true
+        },
+        {
+          "name": "merchant_token_account",
+          "docs": [
+            "Merchant's USDC token account (receives claimed funds)"
+          ],
+          "writable": true
+        },
+        {
+          "name": "merchant",
+          "docs": [
+            "Merchant (must sign to claim)"
+          ],
+          "signer": true,
+          "relations": [
+            "subscription"
+          ]
+        },
+        {
+          "name": "escrow_pda",
+          "docs": [
+            "Escrow PDA (has authority over escrow token account)"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "subscription_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "subscription_id",
+          "type": "string"
+        },
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "create_subscription",
+      "docs": [
+        "Create a new subscription"
+      ],
+      "discriminator": [
+        65,
+        71,
+        10,
+        60,
+        249,
+        82,
+        197,
+        12
+      ],
+      "accounts": [
+        {
+          "name": "subscription",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  117,
+                  98,
+                  115,
+                  99,
+                  114,
+                  105,
+                  112,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "subscription_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "subscriber",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "subscription_id",
+          "type": "string"
+        },
+        {
+          "name": "amount",
+          "type": "u64"
+        },
+        {
+          "name": "interval_seconds",
+          "type": "i64"
+        },
+        {
+          "name": "merchant_address",
+          "type": "pubkey"
+        },
+        {
+          "name": "merchant_name",
+          "type": "string"
+        },
+        {
+          "name": "reminder_days_before_payment",
+          "type": "u32"
+        },
+        {
+          "name": "icp_canister_signature",
+          "type": {
+            "array": [
+              "u8",
+              64
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "emergency_pause",
+      "docs": [
+        "Emergency pause the entire program (admin only)"
+      ],
+      "discriminator": [
+        21,
+        143,
+        27,
+        142,
+        200,
+        181,
+        210,
+        255
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "initialize",
+      "docs": [
+        "Initialize the subscription program"
+      ],
+      "discriminator": [
+        175,
+        175,
+        109,
+        31,
+        13,
+        152,
+        155,
+        237
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "authorization_mode",
+          "type": {
+            "defined": {
+              "name": "AuthorizationMode"
+            }
+          }
+        },
+        {
+          "name": "icp_public_key",
+          "type": {
+            "option": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "pause_subscription",
+      "docs": [
+        "Pause a subscription"
+      ],
+      "discriminator": [
+        18,
+        180,
+        147,
+        157,
+        114,
+        60,
+        213,
+        241
+      ],
+      "accounts": [
+        {
+          "name": "subscription",
+          "writable": true
+        },
+        {
+          "name": "subscriber",
+          "signer": true,
+          "relations": [
+            "subscription"
+          ]
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "process_manual_payment",
+      "docs": [
+        "Manual payment processing (subscriber only)"
+      ],
+      "discriminator": [
+        122,
+        37,
+        28,
+        88,
+        72,
+        133,
+        246,
+        94
+      ],
+      "accounts": [
+        {
+          "name": "subscription",
+          "writable": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "trigger_authority",
+          "signer": true
+        },
+        {
+          "name": "subscriber"
+        },
+        {
+          "name": "subscriber_token_account",
+          "docs": [
+            "USDC Token accounts with mint verification"
+          ],
+          "writable": true
+        },
+        {
+          "name": "merchant_token_account",
+          "writable": true
+        },
+        {
+          "name": "icp_fee_token_account",
+          "writable": true
+        },
+        {
+          "name": "usdc_mint",
+          "docs": [
+            "USDC Mint - must be the official USDC mint"
+          ]
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "instructions_sysvar",
+          "address": "Sysvar1nstructions1111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "process_payment",
+      "docs": [
+        "Process payment with automatic swap (Router function for multi-token support)",
+        "Process payment for a subscription (supports multiple authorization modes)"
+      ],
+      "discriminator": [
+        189,
+        81,
+        30,
+        198,
+        139,
+        186,
+        115,
+        23
+      ],
+      "accounts": [
+        {
+          "name": "subscription",
+          "writable": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "trigger_authority",
+          "signer": true
+        },
+        {
+          "name": "subscriber"
+        },
+        {
+          "name": "subscriber_token_account",
+          "docs": [
+            "USDC Token accounts with mint verification"
+          ],
+          "writable": true
+        },
+        {
+          "name": "merchant_token_account",
+          "writable": true
+        },
+        {
+          "name": "icp_fee_token_account",
+          "writable": true
+        },
+        {
+          "name": "usdc_mint",
+          "docs": [
+            "USDC Mint - must be the official USDC mint"
+          ]
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "instructions_sysvar",
+          "address": "Sysvar1nstructions1111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "icp_signature",
+          "type": {
+            "option": {
+              "array": [
+                "u8",
+                64
+              ]
+            }
+          }
+        },
+        {
+          "name": "timestamp",
+          "type": "i64"
+        }
+      ]
+    },
+    {
+      "name": "process_trigger",
+      "docs": [
+        "Main entry point from ICP: Process trigger with opcode routing"
+      ],
+      "discriminator": [
+        212,
+        102,
+        71,
+        228,
+        39,
+        36,
+        10,
+        65
+      ],
+      "accounts": [
+        {
+          "name": "subscription",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  117,
+                  98,
+                  115,
+                  99,
+                  114,
+                  105,
+                  112,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "subscription.id",
+                "account": "Subscription"
+              }
+            ]
+          }
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "trigger_authority",
+          "docs": [
+            "ICP canister authority (verified via signature)"
+          ],
+          "signer": true
+        },
+        {
+          "name": "subscriber_token_account",
+          "docs": [
+            "Subscriber's USDC token account (source of payment)"
+          ],
+          "writable": true
+        },
+        {
+          "name": "escrow_usdc_account",
+          "docs": [
+            "Escrow USDC token account (receives payment before off-ramp)"
+          ],
+          "writable": true
+        },
+        {
+          "name": "icp_fee_usdc_account",
+          "docs": [
+            "ICP fee collection USDC account (receives treasury fee)"
+          ],
+          "writable": true
+        },
+        {
+          "name": "usdc_mint",
+          "docs": [
+            "USDC Mint for validation"
+          ]
+        },
+        {
+          "name": "subscription_pda",
+          "docs": [
+            "Subscription PDA (has delegate authority)"
+          ]
+        },
+        {
+          "name": "subscriber",
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "memo_program"
+        },
+        {
+          "name": "instructions_sysvar",
+          "address": "Sysvar1nstructions1111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "opcode",
+          "type": "u8"
+        },
+        {
+          "name": "icp_signature",
+          "type": {
+            "option": {
+              "array": [
+                "u8",
+                64
+              ]
+            }
+          }
+        },
+        {
+          "name": "timestamp",
+          "type": "i64"
+        }
+      ]
+    },
+    {
+      "name": "resume_program",
+      "docs": [
+        "Resume the program (admin only)"
+      ],
+      "discriminator": [
+        253,
+        125,
+        38,
+        109,
+        196,
+        141,
+        189,
+        30
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "resume_subscription",
+      "docs": [
+        "Resume a subscription"
+      ],
+      "discriminator": [
+        122,
+        92,
+        183,
+        0,
+        139,
+        188,
+        185,
+        71
+      ],
+      "accounts": [
+        {
+          "name": "subscription",
+          "writable": true
+        },
+        {
+          "name": "subscriber",
+          "signer": true,
+          "relations": [
+            "subscription"
+          ]
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "revoke_subscription_delegate",
+      "docs": [
+        "Revoke subscription PDA delegate (after cancellation)"
+      ],
+      "discriminator": [
+        251,
+        28,
+        204,
+        179,
+        157,
+        41,
+        169,
+        168
+      ],
+      "accounts": [
+        {
+          "name": "subscription"
+        },
+        {
+          "name": "subscriber_token_account",
+          "docs": [
+            "Subscriber's USDC token account"
+          ],
+          "writable": true
+        },
+        {
+          "name": "subscriber",
+          "docs": [
+            "Subscriber (must sign to revoke delegation)"
+          ],
+          "signer": true,
+          "relations": [
+            "subscription"
+          ]
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "send_notification",
+      "docs": [
+        "Process trigger with Jupiter swap (opcode 0 only for non-USDC tokens)",
+        "Send notification to subscriber via Solana memo transaction"
+      ],
+      "discriminator": [
+        78,
+        183,
+        81,
+        89,
+        170,
+        147,
+        185,
+        61
+      ],
+      "accounts": [
+        {
+          "name": "subscription",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  117,
+                  98,
+                  115,
+                  99,
+                  114,
+                  105,
+                  112,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "subscription.id",
+                "account": "Subscription"
+              }
+            ]
+          }
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "notification_sender",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "subscriber",
+          "writable": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "memo_program"
+        }
+      ],
+      "args": [
+        {
+          "name": "memo_message",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "update_authorization_mode",
+      "docs": [
+        "Update authorization mode (admin only)"
+      ],
+      "discriminator": [
+        104,
+        0,
+        155,
+        102,
+        114,
+        68,
+        46,
+        217
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "new_mode",
+          "type": {
+            "defined": {
+              "name": "AuthorizationMode"
+            }
+          }
+        },
+        {
+          "name": "icp_public_key",
+          "type": {
+            "option": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "update_fee_destination",
+      "docs": [
+        "Update fee collection address (admin only)"
+      ],
+      "discriminator": [
+        233,
+        234,
+        249,
+        55,
+        15,
+        29,
+        217,
+        166
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "new_fee_address",
+          "type": "pubkey"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Config",
+      "discriminator": [
+        155,
+        12,
+        170,
+        224,
+        30,
+        250,
+        204,
+        130
+      ]
+    },
+    {
+      "name": "Subscription",
+      "discriminator": [
+        64,
+        7,
+        26,
+        135,
+        102,
+        132,
+        98,
+        33
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "DelegateApproved",
+      "discriminator": [
+        180,
+        218,
+        19,
+        23,
+        104,
+        176,
+        112,
+        123
+      ]
+    },
+    {
+      "name": "FeeDestinationUpdated",
+      "discriminator": [
+        236,
+        137,
+        81,
+        117,
+        7,
+        164,
+        112,
+        129
+      ]
+    },
+    {
+      "name": "PaymentProcessed",
+      "discriminator": [
+        22,
+        109,
+        191,
+        213,
+        83,
+        63,
+        120,
+        219
+      ]
+    },
+    {
+      "name": "SubscriptionCancelled",
+      "discriminator": [
+        158,
+        216,
+        233,
+        205,
+        138,
+        62,
+        176,
+        239
+      ]
+    },
+    {
+      "name": "SubscriptionCreated",
+      "discriminator": [
+        215,
+        63,
+        169,
+        25,
+        179,
+        200,
+        180,
+        105
+      ]
+    },
+    {
+      "name": "SubscriptionPaused",
+      "discriminator": [
+        102,
+        112,
+        218,
+        248,
+        248,
+        234,
+        67,
+        152
+      ]
+    },
+    {
+      "name": "SubscriptionResumed",
+      "discriminator": [
+        181,
+        238,
+        107,
+        157,
+        132,
+        237,
+        178,
+        98
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "ProgramPaused",
+      "msg": "Program is currently paused"
+    },
+    {
+      "code": 6001,
+      "name": "InvalidAmount",
+      "msg": "Invalid payment amount"
+    },
+    {
+      "code": 6002,
+      "name": "InvalidInterval",
+      "msg": "Invalid interval"
+    },
+    {
+      "code": 6003,
+      "name": "InvalidSubscriptionId",
+      "msg": "Invalid subscription ID"
+    },
+    {
+      "code": 6004,
+      "name": "SubscriptionNotActive",
+      "msg": "Subscription is not active"
+    },
+    {
+      "code": 6005,
+      "name": "SubscriptionNotPaused",
+      "msg": "Subscription is not paused"
+    },
+    {
+      "code": 6006,
+      "name": "SubscriptionAlreadyCancelled",
+      "msg": "Subscription already cancelled"
+    },
+    {
+      "code": 6007,
+      "name": "PaymentNotDue",
+      "msg": "Payment not yet due"
+    },
+    {
+      "code": 6008,
+      "name": "InvalidSignature",
+      "msg": "Invalid signature"
+    },
+    {
+      "code": 6009,
+      "name": "SignatureExpired",
+      "msg": "Signature has expired"
+    },
+    {
+      "code": 6010,
+      "name": "TimestampExpired",
+      "msg": "Timestamp has expired or is too old"
+    },
+    {
+      "code": 6011,
+      "name": "UnauthorizedCanister",
+      "msg": "Unauthorized canister"
+    },
+    {
+      "code": 6012,
+      "name": "UnauthorizedAccess",
+      "msg": "Unauthorized access"
+    },
+    {
+      "code": 6013,
+      "name": "MissingSignature",
+      "msg": "Missing ICP signature"
+    },
+    {
+      "code": 6014,
+      "name": "MissingICPKey",
+      "msg": "Missing ICP public key"
+    },
+    {
+      "code": 6015,
+      "name": "AuthorizationFailed",
+      "msg": "Authorization failed"
+    },
+    {
+      "code": 6016,
+      "name": "MathOverflow",
+      "msg": "Math overflow"
+    },
+    {
+      "code": 6017,
+      "name": "InsufficientAmount",
+      "msg": "Insufficient amount for fee"
+    },
+    {
+      "code": 6018,
+      "name": "InvalidTokenMint",
+      "msg": "Invalid token mint - must be USDC"
+    },
+    {
+      "code": 6019,
+      "name": "InvalidSubscriptionPDA",
+      "msg": "Invalid subscription PDA"
+    },
+    {
+      "code": 6020,
+      "name": "DelegateNotSet",
+      "msg": "Token delegation not set to subscription PDA"
+    },
+    {
+      "code": 6021,
+      "name": "InsufficientDelegation",
+      "msg": "Delegated amount insufficient for payment"
+    },
+    {
+      "code": 6022,
+      "name": "InvalidJupiterProgram",
+      "msg": "Invalid Jupiter program"
+    },
+    {
+      "code": 6023,
+      "name": "FeeTooHigh",
+      "msg": "Fee percentage too high - maximum 10%"
+    },
+    {
+      "code": 6024,
+      "name": "UnsupportedPaymentToken",
+      "msg": "Unsupported payment token - must be USDC"
+    },
+    {
+      "code": 6025,
+      "name": "MemoTooLong",
+      "msg": "Memo message too long - maximum 566 bytes"
+    },
+    {
+      "code": 6026,
+      "name": "InvalidReminderDays",
+      "msg": "Invalid reminder days - must be between 1 and 30 days"
+    },
+    {
+      "code": 6027,
+      "name": "InvalidMerchantName",
+      "msg": "Invalid merchant name - must be between 1 and 32 characters"
+    },
+    {
+      "code": 6028,
+      "name": "InvalidOpcode",
+      "msg": "Invalid opcode - must be 0 (payment) or 1 (notification)"
+    },
+    {
+      "code": 6029,
+      "name": "FeeCollectionAddressNotSet",
+      "msg": "Fee collection address not set - admin must call update_fee_destination"
+    },
+    {
+      "code": 6030,
+      "name": "ReplayAttack",
+      "msg": "Replay attack detected - timestamp already used"
+    },
+    {
+      "code": 6031,
+      "name": "SwapNotImplemented",
+      "msg": "Token swap not implemented - only USDC supported"
+    }
+  ],
+  "types": [
+    {
+      "name": "AuthorizationMode",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "ICPSignature"
+          },
+          {
+            "name": "ManualOnly"
+          },
+          {
+            "name": "TimeBased"
+          },
+          {
+            "name": "Hybrid"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Config",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "total_subscriptions",
+            "type": "u64"
+          },
+          {
+            "name": "paused",
+            "type": "bool"
+          },
+          {
+            "name": "authorization_mode",
+            "type": {
+              "defined": {
+                "name": "AuthorizationMode"
+              }
+            }
+          },
+          {
+            "name": "icp_public_key",
+            "type": {
+              "option": {
+                "array": [
+                  "u8",
+                  32
+                ]
+              }
+            }
+          },
+          {
+            "name": "manual_processing_enabled",
+            "type": "bool"
+          },
+          {
+            "name": "time_based_processing_enabled",
+            "type": "bool"
+          },
+          {
+            "name": "fee_config",
+            "type": {
+              "defined": {
+                "name": "FeeConfig"
+              }
+            }
+          },
+          {
+            "name": "icp_fee_collection_address",
+            "type": {
+              "option": "pubkey"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "DelegateApproved",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "subscription_id",
+            "type": "string"
+          },
+          {
+            "name": "subscriber",
+            "type": "pubkey"
+          },
+          {
+            "name": "delegate",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "FeeConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "fee_percentage_basis_points",
+            "type": "u16"
+          },
+          {
+            "name": "min_fee_amount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "FeeDestinationUpdated",
+      "docs": [
+        "Event emitted when fee collection address is updated"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "old_address",
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "new_address",
+            "type": "pubkey"
+          },
+          {
+            "name": "updated_by",
+            "type": "pubkey"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PaymentProcessed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "subscription_id",
+            "type": "string"
+          },
+          {
+            "name": "payment_number",
+            "type": "u64"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "merchant_amount",
+            "type": "u64"
+          },
+          {
+            "name": "fee_amount",
+            "type": "u64"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Subscription",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "id",
+            "type": "string"
+          },
+          {
+            "name": "subscriber",
+            "type": "pubkey"
+          },
+          {
+            "name": "merchant",
+            "type": "pubkey"
+          },
+          {
+            "name": "merchant_name",
+            "type": "string"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "interval_seconds",
+            "type": "i64"
+          },
+          {
+            "name": "next_payment_time",
+            "type": "i64"
+          },
+          {
+            "name": "status",
+            "type": {
+              "defined": {
+                "name": "SubscriptionStatus"
+              }
+            }
+          },
+          {
+            "name": "created_at",
+            "type": "i64"
+          },
+          {
+            "name": "last_payment_time",
+            "type": {
+              "option": "i64"
+            }
+          },
+          {
+            "name": "payments_made",
+            "type": "u64"
+          },
+          {
+            "name": "total_paid",
+            "type": "u64"
+          },
+          {
+            "name": "icp_canister_signature",
+            "type": {
+              "array": [
+                "u8",
+                64
+              ]
+            }
+          },
+          {
+            "name": "reminder_days_before_payment",
+            "type": "u32"
+          },
+          {
+            "name": "escrow_pda",
+            "type": "pubkey"
+          },
+          {
+            "name": "escrow_balance",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SubscriptionCancelled",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "subscription_id",
+            "type": "string"
+          },
+          {
+            "name": "cancelled_at",
+            "type": "i64"
+          },
+          {
+            "name": "total_payments_made",
+            "type": "u64"
+          },
+          {
+            "name": "total_paid",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SubscriptionCreated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "subscription_id",
+            "type": "string"
+          },
+          {
+            "name": "subscriber",
+            "type": "pubkey"
+          },
+          {
+            "name": "merchant",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "interval_seconds",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SubscriptionPaused",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "subscription_id",
+            "type": "string"
+          },
+          {
+            "name": "paused_at",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SubscriptionResumed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "subscription_id",
+            "type": "string"
+          },
+          {
+            "name": "resumed_at",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SubscriptionStatus",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Active"
+          },
+          {
+            "name": "Paused"
+          },
+          {
+            "name": "Cancelled"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -6,1077 +6,27 @@ use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token, TokenAccount, Mint};
 use std::str::FromStr;
 
+// Import modules
+mod constants;
+mod events;
+mod errors;
+mod data_structures;
+mod payment_helpers;
+mod instruction_handlers;
 mod crypto;
-use crypto::{create_payment_message, verify_ed25519_ix, verify_timestamp};
 
-// SPL Memo Program for wallet-visible notifications
-pub const SPL_MEMO_PROGRAM_ID: &str = "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr";
-
-mod price_oracle;
-
-mod jupiter_swap;
-
-declare_id!("7c1tGePFVT3ztPEESfzG7gFqYiCJUDjFa7PCeyMSYtub");
+// Re-export commonly used items
+pub use constants::*;
+pub use events::*;
+pub use data_structures::*;
 
 // ============================================================================
-// Constants
+// Account Structures
 // ============================================================================
 
-// Basis points constants
-pub const BASIS_POINTS_DIVISOR: u64 = 10000; // 100% = 10000 basis points
-pub const MAX_FEE_BPS: u16 = 1000; // 10% maximum fee
-pub const MAX_SLIPPAGE_BPS: u16 = 500; // 5% maximum slippage
-pub const MAX_APPROVAL_AMOUNT: u64 = 1_000_000_000_000; // 1M USDC (6 decimals)
-pub const MAX_REMINDER_DAYS: u32 = 30; // Maximum days before payment for reminder
-
-// Timestamp validation
-pub const MAX_TIMESTAMP_DRIFT: i64 = 300; // 5 minutes max drift for signature validation
-
-// USDC Mint Addresses
-pub const USDC_MINT_MAINNET: &str = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
-pub const USDC_MINT_DEVNET: &str = "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU";
-
-// Multi-token support: Other stablecoins (Mainnet)
-pub const USDT_MINT_MAINNET: &str = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB";
-pub const PYUSD_MINT_MAINNET: &str = "2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo";
-pub const DAI_MINT_MAINNET: &str = "EjmyN6qEC1Tf1JxiG1ae7UTJhUxSwk1TCWNWqxWV4J6o";
-
-// Devnet versions (Custom test tokens - create your own or use these placeholders)
-// NOTE: Official USDT/PYUSD/DAI tokens don't exist on devnet
-// For testing, create custom SPL tokens using:
-//   spl-token create-token --decimals 6
-// Then update these addresses with your test token mint addresses
-pub const USDT_MINT_DEVNET: &str = "Gh9ZwEmdLJ8DscKNTkTqPbNwLNNBjuSzaG9Vp2KGtKJr"; // Replace with your test USDT
-pub const PYUSD_MINT_DEVNET: &str = "CXk2AMBfi3TwaEL2468s6zP8xq9NxTXjp9gjMgzeUynM"; // Replace with your test PYUSD
-pub const DAI_MINT_DEVNET: &str = "FTkSmGsJ3ZqDSHdcnY7ejN1pWV3Ej7i88MYpZyyaqgGt"; // Replace with your test DAI
-
-// Use devnet USDC by default for development
-#[cfg(feature = "mainnet")]
-pub const USDC_MINT: &str = USDC_MINT_MAINNET;
-
-#[cfg(not(feature = "mainnet"))]
-pub const USDC_MINT: &str = USDC_MINT_DEVNET;
-
-// Helper function to check if token is whitelisted stablecoin
-pub fn is_supported_stablecoin(mint_address: &str) -> bool {
-    #[cfg(feature = "mainnet")]
-    {
-        matches!(
-            mint_address,
-            USDC_MINT_MAINNET | USDT_MINT_MAINNET | PYUSD_MINT_MAINNET | DAI_MINT_MAINNET
-        )
-    }
-    #[cfg(not(feature = "mainnet"))]
-    {
-        matches!(
-            mint_address,
-            USDC_MINT_DEVNET | USDT_MINT_DEVNET | PYUSD_MINT_DEVNET | DAI_MINT_DEVNET
-        )
-    }
-}
-
-// Helper to get USDC mint Pubkey (efficient comparison)
-pub fn get_usdc_mint() -> Pubkey {
-    Pubkey::from_str(USDC_MINT).unwrap()
-}
-
-// Helper to get Jupiter program ID Pubkey
-pub fn get_jupiter_program_id() -> Pubkey {
-    Pubkey::from_str(crate::jupiter_swap::JUPITER_PROGRAM_ID).unwrap()
-}
-
-#[program]
-pub mod ouroc_prima {
-    use super::*;
-
-    /// Initialize the subscription program
-    pub fn initialize(
-        ctx: Context<Initialize>,
-        authorization_mode: AuthorizationMode,
-        icp_public_key: Option<[u8; 32]>,
-        fee_percentage_basis_points: u16, // e.g., 100 = 1%
-    ) -> Result<()> {
-        // Validate fee percentage
-        require!(
-            fee_percentage_basis_points <= MAX_FEE_BPS,
-            ErrorCode::FeeTooHigh
-        );
-
-        let config = &mut ctx.accounts.config;
-        config.authority = ctx.accounts.authority.key();
-        config.total_subscriptions = 0;
-        config.paused = false;
-        config.authorization_mode = authorization_mode;
-        config.icp_public_key = icp_public_key;
-        config.manual_processing_enabled = matches!(authorization_mode, AuthorizationMode::ManualOnly | AuthorizationMode::Hybrid);
-        config.time_based_processing_enabled = matches!(authorization_mode, AuthorizationMode::TimeBased | AuthorizationMode::Hybrid);
-
-        // SECURITY: No hardcoded fee address - must be set via update_fee_destination
-        // This prevents single point of failure and enables proper governance
-        config.icp_fee_collection_address = None; // Must be set explicitly by admin
-
-        config.fee_config = FeeConfig {
-            fee_percentage_basis_points,
-            min_fee_amount: 1000, // 0.001 USDC minimum fee
-        };
-
-        msg!("⚠️ FEE COLLECTION ADDRESS NOT SET - Admin must call update_fee_destination() to set fee destination");
-        msg!("Current authority: {:?}", ctx.accounts.authority.key());
-
-        msg!("Ouro-C Subscriptions initialized by: {:?}", ctx.accounts.authority.key());
-        msg!("Authorization mode: {:?}", authorization_mode);
-        msg!("Fee percentage: {}% ({} basis points)", fee_percentage_basis_points as f64 / 100.0, fee_percentage_basis_points);
-        msg!("Fee collection address: CKEY8bppifSErEfP5cvX8hCnmQ2Yo911mosdRx7M3HxF");
-        Ok(())
-    }
-
-    /// Update fee collection address (admin only)
-    /// Allows changing where platform fees are sent
-    /// Can be used to upgrade to multisig or change wallets
-    pub fn update_fee_destination(
-        ctx: Context<UpdateFeeDestination>,
-        new_fee_address: Pubkey,
-    ) -> Result<()> {
-        let config = &mut ctx.accounts.config;
-        let old_address = config.icp_fee_collection_address;
-
-        // Update the fee collection address
-        config.icp_fee_collection_address = Some(new_fee_address);
-
-        msg!(
-            "Fee destination updated from {:?} to {}",
-            old_address,
-            new_fee_address
-        );
-
-        // Emit event for transparency
-        emit!(FeeDestinationUpdated {
-            old_address,
-            new_address: new_fee_address,
-            updated_by: ctx.accounts.authority.key(),
-            timestamp: Clock::get()?.unix_timestamp,
-        });
-
-        Ok(())
-    }
-
-    /// Approve subscription PDA to spend USDC tokens
-    /// Subscriber must call this before creating subscription
-    /// Amount should be sufficient for multiple payments (subscription_amount * num_payments)
-    pub fn approve_subscription_delegate(
-        ctx: Context<ApproveDelegate>,
-        subscription_id: String,
-        amount: u64,
-    ) -> Result<()> {
-        // Enhanced amount validation
-        require!(amount > 0, ErrorCode::InsufficientAmount);
-        require!(amount >= 1000, ErrorCode::InsufficientAmount); // Minimum 0.001 USDC
-        require!(amount <= MAX_APPROVAL_AMOUNT, ErrorCode::InvalidAmount);
-
-        // Validate subscription ID format and content
-        require!(subscription_id.len() > 0, ErrorCode::InvalidSubscriptionId);
-        require!(subscription_id.len() <= 32, ErrorCode::InvalidSubscriptionId);
-        require!(
-            subscription_id.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '-'),
-            ErrorCode::InvalidSubscriptionId
-        );
-
-        // Approve the subscription PDA as delegate for the subscriber's token account
-        let cpi_accounts = token::Approve {
-            to: ctx.accounts.subscriber_token_account.to_account_info(),
-            delegate: ctx.accounts.subscription_pda.to_account_info(),
-            authority: ctx.accounts.subscriber.to_account_info(),
-        };
-
-        let cpi_program = ctx.accounts.token_program.to_account_info();
-        let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
-
-        token::approve(cpi_ctx, amount)?;
-
-        msg!(
-            "Approved subscription PDA {} to spend {} USDC for subscription {}",
-            ctx.accounts.subscription_pda.key(),
-            amount,
-            subscription_id
-        );
-
-        // Emit event
-        emit!(DelegateApproved {
-            subscription_id: subscription_id.clone(),
-            subscriber: ctx.accounts.subscriber.key(),
-            delegate: ctx.accounts.subscription_pda.key(),
-            amount,
-        });
-
-        Ok(())
-    }
-
-    /// Create a new subscription
-    pub fn create_subscription(
-        ctx: Context<CreateSubscription>,
-        subscription_id: String,
-        amount: u64,
-        interval_seconds: i64,
-        merchant_address: Pubkey,
-        merchant_name: String, // Merchant's app/business name for notifications (max 32 chars)
-        payment_token_mint: Pubkey, // Token user will pay with (USDC/USDT/PYUSD/DAI)
-        reminder_days_before_payment: u32, // Days before payment to send reminder (merchant configured)
-        slippage_bps: u16, // Slippage tolerance in basis points (e.g., 100 = 1%, max 500 = 5%)
-        icp_canister_signature: [u8; 64], // Ed25519 signature from ICP canister
-    ) -> Result<()> {
-        require!(!ctx.accounts.config.paused, ErrorCode::ProgramPaused);
-
-        // Enhanced input validation
-        require!(amount > 0, ErrorCode::InvalidAmount);
-        require!(amount >= 1000, ErrorCode::InvalidAmount); // Minimum 0.001 USDC
-        require!(amount <= 1_000_000_000_000_000, ErrorCode::InvalidAmount); // Maximum 1B USDC
-
-        require!(interval_seconds > 0, ErrorCode::InvalidInterval);
-        require!(interval_seconds >= 3600, ErrorCode::InvalidInterval); // Minimum 1 hour
-        require!(interval_seconds <= 365 * 24 * 60 * 60, ErrorCode::InvalidInterval); // Maximum 1 year
-
-        // Validate subscription ID format and content
-        require!(subscription_id.len() > 0, ErrorCode::InvalidSubscriptionId);
-        require!(subscription_id.len() <= 32, ErrorCode::InvalidSubscriptionId);
-        require!(
-            subscription_id.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '-'),
-            ErrorCode::InvalidSubscriptionId
-        );
-
-        // Enhanced merchant name validation
-        require!(merchant_name.len() > 0 && merchant_name.len() <= 32, ErrorCode::InvalidMerchantName);
-        require!(
-            merchant_name.chars().all(|c| c.is_alphanumeric() || c.is_whitespace() || c == '_' || c == '-' || c == '&' || c == '@' || c == '.'),
-            ErrorCode::InvalidMerchantName
-        );
-
-        // Enhanced reminder days validation
-        require!(reminder_days_before_payment > 0 && reminder_days_before_payment <= MAX_REMINDER_DAYS, ErrorCode::InvalidReminderDays);
-
-        // Enhanced slippage validation
-        require!(slippage_bps > 0 && slippage_bps <= MAX_SLIPPAGE_BPS, ErrorCode::InvalidSlippage);
-
-        // Additional security: Prevent unreasonable payment amounts
-        let amount_usdc = amount as f64 / 1_000_000.0;
-        require!(amount_usdc <= 1_000_000.0, ErrorCode::InvalidAmount); // Max $1M per payment
-
-        // Validate payment token is supported
-        let token_str = payment_token_mint.to_string();
-        require!(
-            is_supported_stablecoin(&token_str),
-            ErrorCode::UnsupportedPaymentToken
-        );
-
-        let subscription = &mut ctx.accounts.subscription;
-        let clock = Clock::get()?;
-
-        subscription.id = subscription_id.clone();
-        subscription.subscriber = ctx.accounts.subscriber.key();
-        subscription.merchant = merchant_address;
-        subscription.merchant_name = merchant_name.clone(); // Store merchant name for notifications
-        subscription.amount = amount; // Amount merchant receives in USDC
-        subscription.interval_seconds = interval_seconds;
-        subscription.next_payment_time = clock.unix_timestamp + interval_seconds;
-        subscription.status = SubscriptionStatus::Active;
-        subscription.created_at = clock.unix_timestamp;
-        subscription.payments_made = 0;
-        subscription.total_paid = 0;
-        subscription.icp_canister_signature = icp_canister_signature;
-        subscription.payment_token_mint = payment_token_mint; // Lock in payment token
-        subscription.reminder_days_before_payment = reminder_days_before_payment; // Merchant-configured reminder timing
-        subscription.slippage_bps = slippage_bps; // User-configured slippage tolerance
-
-        // Update global config
-        ctx.accounts.config.total_subscriptions += 1;
-
-        msg!(
-            "Subscription created: {} for {} USDC every {} seconds, paying with token: {}, reminder: {} days before",
-            subscription.id,
-            amount,
-            interval_seconds,
-            payment_token_mint,
-            reminder_days_before_payment
-        );
-
-        // Emit event
-        emit!(SubscriptionCreated {
-            subscription_id: subscription_id.clone(),
-            subscriber: ctx.accounts.subscriber.key(),
-            merchant: merchant_address,
-            amount,
-            interval_seconds,
-            payment_token_mint,
-            slippage_bps,
-        });
-
-        Ok(())
-    }
-
-    /// Process payment with automatic swap (Router function for multi-token support)
-    /// This function checks the subscription's payment_token_mint:
-    /// - If USDC: uses standard process_payment flow directly
-    /// - If other token (USDT/PYUSD/DAI): swaps to USDC first, then processes payment
-    pub fn process_payment_with_swap<'info>(
-        ctx: Context<'_, '_, '_, 'info, ProcessPaymentWithSwap<'info>>,
-        icp_signature: Option<[u8; 64]>,
-        timestamp: i64,
-    ) -> Result<()> {
-        let subscription = &ctx.accounts.subscription;
-
-        // Check if payment token is USDC - if so, skip swap
-        let usdc_mint_str = subscription.payment_token_mint.to_string();
-        let is_usdc = usdc_mint_str == USDC_MINT;
-
-        let _usdc_amount = if is_usdc {
-            // Standard USDC payment - no swap needed
-            msg!("Payment token is USDC, using standard payment flow");
-            subscription.amount
-        } else {
-            // Non-USDC stablecoin - swap via Jupiter with Pyth oracle validation
-            msg!("Payment token is non-USDC ({}), swapping to USDC via Jupiter", usdc_mint_str);
-
-            // Step 1: Get price from Pyth oracle for validation
-            let price_feed = &ctx.accounts.price_feed;
-            let conversion = price_oracle::get_price_conversion(
-                &subscription.payment_token_mint,
-                subscription.amount,
-                price_feed,
-                subscription.slippage_bps, // Use subscription's configured slippage
-            )?;
-
-            // Step 2: Validate price confidence
-            price_oracle::validate_price_confidence(&conversion)?;
-
-            msg!(
-                "Oracle validation: {} {} → min {} USDC (1% slippage protection)",
-                conversion.input_amount,
-                usdc_mint_str,
-                conversion.output_amount_min
-            );
-
-            // Step 3: Execute swap via Jupiter
-            let jupiter_program = &ctx.accounts.jupiter_program;
-            let source_token_account = &ctx.accounts.payment_token_account;
-            let _temp_usdc_account = &ctx.accounts.temp_usdc_account; // Reserved for future swap implementation
-            let subscriber_authority = &ctx.accounts.subscriber;
-            let source_mint = &ctx.accounts.payment_token_mint;
-            let usdc_mint_account = &ctx.accounts.usdc_mint;
-
-            // Get remaining accounts for Jupiter routing
-            let remaining_accounts = ctx.remaining_accounts;
-
-            let output_amount = jupiter_swap::swap_stablecoin_to_usdc(
-                jupiter_program,
-                source_token_account,
-                &mut ctx.accounts.temp_usdc_account,
-                subscriber_authority,
-                source_mint,
-                usdc_mint_account,
-                subscription.amount,
-                conversion.output_amount_min, // Slippage protection from oracle
-                remaining_accounts,
-                &ctx.accounts.token_program,
-            )?;
-
-            msg!("Swap completed: received {} USDC", output_amount);
-
-            // Use the actual swapped USDC amount for payment
-            output_amount
-        };
-
-        // Execute standard payment processing logic (works for both USDC and post-swap)
-        payment_helpers::process_payment_core(
-            &mut ctx.accounts.subscription,
-            &ctx.accounts.config,
-            &ctx.accounts.trigger_authority,
-            &ctx.accounts.payment_token_account,
-            &ctx.accounts.merchant_usdc_account,
-            &ctx.accounts.icp_fee_usdc_account,
-            &ctx.accounts.token_program,
-            ctx.program_id,
-            icp_signature,
-            timestamp,
-            &ctx.accounts.instructions_sysvar,
-        )
-    }
-
-    /// Process payment for a subscription (supports multiple authorization modes)
-    /// Standard entry point for USDC-only subscriptions
-    pub fn process_payment(
-        ctx: Context<ProcessPayment>,
-        icp_signature: Option<[u8; 64]>,
-        timestamp: i64,
-    ) -> Result<()> {
-        payment_helpers::process_payment_core(
-            &mut ctx.accounts.subscription,
-            &ctx.accounts.config,
-            &ctx.accounts.trigger_authority,
-            &ctx.accounts.subscriber_token_account,
-            &ctx.accounts.merchant_token_account,
-            &ctx.accounts.icp_fee_token_account,
-            &ctx.accounts.token_program,
-            ctx.program_id,
-            icp_signature,
-            timestamp,
-            &ctx.accounts.instructions_sysvar,
-        )
-    }
-
-    /// Pause a subscription
-    pub fn pause_subscription(ctx: Context<UpdateSubscription>) -> Result<()> {
-        let subscription = &mut ctx.accounts.subscription;
-        require!(subscription.status == SubscriptionStatus::Active, ErrorCode::SubscriptionNotActive);
-
-        let clock = Clock::get()?;
-        let subscription_id = subscription.id.clone();
-
-        subscription.status = SubscriptionStatus::Paused;
-
-        msg!("Subscription {} paused", subscription_id);
-
-        emit!(SubscriptionPaused {
-            subscription_id,
-            paused_at: clock.unix_timestamp,
-        });
-
-        Ok(())
-    }
-
-    /// Resume a subscription
-    pub fn resume_subscription(ctx: Context<UpdateSubscription>) -> Result<()> {
-        let subscription = &mut ctx.accounts.subscription;
-        require!(subscription.status == SubscriptionStatus::Paused, ErrorCode::SubscriptionNotPaused);
-
-        let clock = Clock::get()?;
-        let subscription_id = subscription.id.clone();
-
-        subscription.status = SubscriptionStatus::Active;
-        subscription.next_payment_time = clock.unix_timestamp + subscription.interval_seconds;
-
-        msg!("Subscription {} resumed", subscription_id);
-
-        emit!(SubscriptionResumed {
-            subscription_id,
-            resumed_at: clock.unix_timestamp,
-        });
-
-        Ok(())
-    }
-
-    /// Cancel a subscription
-    pub fn cancel_subscription(ctx: Context<UpdateSubscription>) -> Result<()> {
-        let subscription = &mut ctx.accounts.subscription;
-        require!(
-            subscription.status == SubscriptionStatus::Active ||
-            subscription.status == SubscriptionStatus::Paused,
-            ErrorCode::SubscriptionAlreadyCancelled
-        );
-
-        let clock = Clock::get()?;
-        let subscription_id = subscription.id.clone();
-        let total_payments = subscription.payments_made;
-        let total = subscription.total_paid;
-
-        subscription.status = SubscriptionStatus::Cancelled;
-
-        msg!("Subscription {} cancelled", subscription_id);
-
-        emit!(SubscriptionCancelled {
-            subscription_id,
-            cancelled_at: clock.unix_timestamp,
-            total_payments_made: total_payments,
-            total_paid: total,
-        });
-
-        Ok(())
-    }
-
-    /// Revoke subscription PDA delegate (after cancellation)
-    pub fn revoke_subscription_delegate(
-        ctx: Context<RevokeDelegate>,
-    ) -> Result<()> {
-        // Revoke the subscription PDA's delegate authority
-        let cpi_accounts = token::Revoke {
-            source: ctx.accounts.subscriber_token_account.to_account_info(),
-            authority: ctx.accounts.subscriber.to_account_info(),
-        };
-
-        let cpi_program = ctx.accounts.token_program.to_account_info();
-        let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
-
-        token::revoke(cpi_ctx)?;
-
-        msg!("Revoked subscription PDA delegate for {}", ctx.accounts.subscription.id);
-        Ok(())
-    }
-
-    /// Emergency pause the entire program (admin only)
-    pub fn emergency_pause(ctx: Context<AdminAction>) -> Result<()> {
-        ctx.accounts.config.paused = true;
-        msg!("Ouro-C Subscriptions emergency paused");
-        Ok(())
-    }
-
-    /// Resume the program (admin only)
-    pub fn resume_program(ctx: Context<AdminAction>) -> Result<()> {
-        ctx.accounts.config.paused = false;
-        msg!("Ouro-C Subscriptions resumed");
-        Ok(())
-    }
-
-    /// Update authorization mode (admin only)
-    pub fn update_authorization_mode(
-        ctx: Context<AdminAction>,
-        new_mode: AuthorizationMode,
-        icp_public_key: Option<[u8; 32]>,
-    ) -> Result<()> {
-        let config = &mut ctx.accounts.config;
-        config.authorization_mode = new_mode;
-        config.icp_public_key = icp_public_key;
-        config.manual_processing_enabled = matches!(new_mode, AuthorizationMode::ManualOnly | AuthorizationMode::Hybrid);
-        config.time_based_processing_enabled = matches!(new_mode, AuthorizationMode::TimeBased | AuthorizationMode::Hybrid);
-
-        msg!("Authorization mode updated to: {:?}", new_mode);
-        Ok(())
-    }
-
-    /// Manual payment processing (subscriber only)
-    pub fn process_manual_payment(ctx: Context<ProcessPayment>) -> Result<()> {
-        require!(!ctx.accounts.config.paused, ErrorCode::ProgramPaused);
-        require!(
-            ctx.accounts.config.manual_processing_enabled,
-            ErrorCode::AuthorizationFailed
-        );
-
-        // Call main process_payment with manual authorization
-        ouroc_prima::process_payment(ctx, None, 0)
-    }
-
-    /// Send notification to subscriber via Solana memo transaction
-    /// This function sends a tiny SOL transfer (0.000001 SOL) with a memo message
-    /// Users can see this notification in their wallet transaction history
-    /// Main entry point from ICP: Process trigger with opcode routing
-    /// Opcode 0: Payment (direct USDC only - use process_trigger_with_swap for swaps)
-    /// Opcode 1: Notification (send memo to subscriber)
-    pub fn process_trigger(
-        ctx: Context<ProcessTrigger>,
-        opcode: u8,
-        icp_signature: Option<[u8; 64]>,
-        timestamp: i64,
-    ) -> Result<()> {
-        require!(!ctx.accounts.config.paused, ErrorCode::ProgramPaused);
-
-        let subscription = &ctx.accounts.subscription;
-        let config = &ctx.accounts.config;
-
-        // Verify trigger authority based on authorization mode
-        match config.authorization_mode {
-            AuthorizationMode::ICPSignature => {
-                // ICP signature required
-                let _sig = icp_signature.ok_or(ErrorCode::InvalidSignature)?;
-                let icp_pubkey = config
-                    .icp_public_key
-                    .ok_or(ErrorCode::InvalidSignature)?;
-
-                // Create message: subscription_id + timestamp + amount
-                let message = crate::crypto::create_payment_message(
-                    &subscription.id,
-                    timestamp,
-                    subscription.amount,
-                );
-
-                // Verify timestamp (5 minute window)
-                let current_time = Clock::get()?.unix_timestamp;
-                require!(
-                    crate::crypto::verify_timestamp(timestamp, current_time, 60)?,
-                    ErrorCode::TimestampExpired
-                );
-
-                // Verify Ed25519 signature using precompile
-                let is_valid = verify_ed25519_ix(
-                    &ctx.accounts.instructions_sysvar,
-                    &icp_pubkey,
-                    &message,
-                )?;
-
-                require!(is_valid, ErrorCode::InvalidSignature);
-            }
-            AuthorizationMode::ManualOnly => {
-                // Verify signer is subscriber or merchant
-                let signer = ctx.accounts.trigger_authority.key();
-                require!(
-                    signer == subscription.subscriber || signer == subscription.merchant,
-                    ErrorCode::UnauthorizedAccess
-                );
-            }
-            AuthorizationMode::TimeBased => {
-                // Anyone can trigger if payment is due
-                let current_time = Clock::get()?.unix_timestamp;
-                require!(
-                    current_time >= subscription.next_payment_time,
-                    ErrorCode::PaymentNotDue
-                );
-            }
-            AuthorizationMode::Hybrid => {
-                // Try ICP signature first, fallback to manual if overdue
-                if let Some(_sig) = icp_signature {
-                    if let Some(icp_pubkey) = config.icp_public_key {
-                        let message = crate::crypto::create_payment_message(
-                            &subscription.id,
-                            timestamp,
-                            subscription.amount,
-                        );
-
-                        let current_time = Clock::get()?.unix_timestamp;
-                        let timestamp_valid = crate::crypto::verify_timestamp(timestamp, current_time, 60)?;
-
-                        if timestamp_valid {
-                            let is_valid = verify_ed25519_ix(
-                                &ctx.accounts.instructions_sysvar,
-                                &icp_pubkey,
-                                &message,
-                            )?;
-
-                            if is_valid {
-                                // ICP signature valid, proceed
-                            } else {
-                                return Err(ErrorCode::InvalidSignature.into());
-                            }
-                        }
-                    }
-                } else {
-                    // No signature - check if payment is overdue (5 min grace period)
-                    let current_time = Clock::get()?.unix_timestamp;
-                    let grace_period = 60; // 1 minute
-                    require!(
-                        current_time >= subscription.next_payment_time + grace_period,
-                        ErrorCode::PaymentNotDue
-                    );
-
-                    // Verify signer is authorized
-                    let signer = ctx.accounts.trigger_authority.key();
-                    require!(
-                        signer == subscription.subscriber || signer == subscription.merchant,
-                        ErrorCode::UnauthorizedAccess
-                    );
-                }
-            }
-        }
-
-        match opcode {
-            0 => {
-                // Payment: Direct USDC only
-                // For swaps, use process_trigger_with_swap instruction
-                let token_mint = subscription.payment_token_mint;
-                let usdc_mint = Pubkey::from_str(USDC_MINT).unwrap();
-
-                require!(token_mint == usdc_mint, ErrorCode::SwapNotImplemented);
-
-                msg!("Processing direct USDC payment for subscription: {}", subscription.id);
-                process_direct_usdc_payment(ctx)?;
-            },
-            1 => {
-                // Notification: Send memo to subscriber
-                msg!("Sending notification for subscription: {}", subscription.id);
-
-                // Build notification message with merchant name and subscription details
-                let memo = format!(
-                    "{}: Payment due in {} days. Amount: {} {}",
-                    subscription.merchant_name,
-                    subscription.reminder_days_before_payment,
-                    subscription.amount,
-                    subscription.payment_token_mint
-                );
-
-                send_notification_internal(ctx, memo)?;
-            },
-            _ => {
-                return Err(ErrorCode::InvalidOpcode.into());
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Process trigger with Jupiter swap (opcode 0 only for non-USDC tokens)
-    /// Solana handles Jupiter quote and swap execution internally
-    pub fn process_trigger_with_swap(
-        ctx: Context<ProcessTriggerWithSwap>,
-        icp_signature: Option<[u8; 64]>,
-        timestamp: i64,
-    ) -> Result<()> {
-        require!(!ctx.accounts.config.paused, ErrorCode::ProgramPaused);
-
-        let subscription = &ctx.accounts.subscription;
-        let config = &ctx.accounts.config;
-
-        // Verify token is NOT USDC (swap only needed for other tokens)
-        let token_mint = subscription.payment_token_mint;
-        let usdc_mint = Pubkey::from_str(USDC_MINT).unwrap();
-
-        require!(token_mint != usdc_mint, ErrorCode::InvalidTokenMint);
-
-        // Verify trigger authority (same logic as process_trigger)
-        match config.authorization_mode {
-            AuthorizationMode::ICPSignature => {
-                let _sig = icp_signature.ok_or(ErrorCode::InvalidSignature)?;
-                let icp_pubkey = config.icp_public_key.ok_or(ErrorCode::InvalidSignature)?;
-
-                let message = crate::crypto::create_payment_message(
-                    &subscription.id,
-                    timestamp,
-                    subscription.amount,
-                );
-
-                let current_time = Clock::get()?.unix_timestamp;
-                require!(
-                    crate::crypto::verify_timestamp(timestamp, current_time, 60)?,
-                    ErrorCode::TimestampExpired
-                );
-
-                let is_valid = verify_ed25519_ix(
-                    &ctx.accounts.instructions_sysvar,
-                    &icp_pubkey,
-                    &message,
-                )?;
-                require!(is_valid, ErrorCode::InvalidSignature);
-            }
-            AuthorizationMode::ManualOnly => {
-                let signer = ctx.accounts.trigger_authority.key();
-                require!(
-                    signer == subscription.subscriber || signer == subscription.merchant,
-                    ErrorCode::UnauthorizedAccess
-                );
-            }
-            AuthorizationMode::TimeBased => {
-                let current_time = Clock::get()?.unix_timestamp;
-                require!(
-                    current_time >= subscription.next_payment_time,
-                    ErrorCode::PaymentNotDue
-                );
-            }
-            AuthorizationMode::Hybrid => {
-                if let Some(_sig) = icp_signature {
-                    if let Some(icp_pubkey) = config.icp_public_key {
-                        let message = crate::crypto::create_payment_message(&subscription.id, timestamp, subscription.amount);
-                        let current_time = Clock::get()?.unix_timestamp;
-
-                        if crate::crypto::verify_timestamp(timestamp, current_time, 60)? {
-                            let is_valid = verify_ed25519_ix(
-                                &ctx.accounts.instructions_sysvar,
-                                &icp_pubkey,
-                                &message,
-                            )?;
-                            require!(is_valid, ErrorCode::InvalidSignature);
-                        }
-                    }
-                } else {
-                    let current_time = Clock::get()?.unix_timestamp;
-                    require!(
-                        current_time >= subscription.next_payment_time + 300,
-                        ErrorCode::PaymentNotDue
-                    );
-
-                    let signer = ctx.accounts.trigger_authority.key();
-                    require!(
-                        signer == subscription.subscriber || signer == subscription.merchant,
-                        ErrorCode::UnauthorizedAccess
-                    );
-                }
-            }
-        }
-
-        msg!("Processing swap payment for subscription: {} (token: {})",
-            subscription.id, token_mint);
-
-        // Solana fetches Jupiter quote and executes swap internally
-        process_swap_then_split(ctx)?;
-
-        Ok(())
-    }
-
-    pub fn send_notification(
-        ctx: Context<SendNotification>,
-        memo_message: String,
-    ) -> Result<()> {
-        require!(!ctx.accounts.config.paused, ErrorCode::ProgramPaused);
-        require!(memo_message.len() <= 566, ErrorCode::MemoTooLong);
-
-        let subscription = &ctx.accounts.subscription;
-
-        // Verify the notification sender is authorized (ICP canister or admin)
-        require!(
-            ctx.accounts.notification_sender.key() == ctx.accounts.config.authority,
-            ErrorCode::UnauthorizedAccess
-        );
-
-        // 1. Transfer tiny amount of SOL (0.000001 SOL = 1000 lamports) to subscriber
-        let notification_amount = 1000u64; // 0.000001 SOL
-
-        let transfer_ix = anchor_lang::solana_program::system_instruction::transfer(
-            &ctx.accounts.notification_sender.key(),
-            &subscription.subscriber,
-            notification_amount,
-        );
-
-        anchor_lang::solana_program::program::invoke(
-            &transfer_ix,
-            &[
-                ctx.accounts.notification_sender.to_account_info(),
-                ctx.accounts.subscriber.to_account_info(),
-            ],
-        )?;
-
-        // 2. Add SPL Memo instruction to make message visible in wallets
-        let memo_ix = spl_memo::build_memo(
-            memo_message.as_bytes(),
-            &[&ctx.accounts.notification_sender.key()],
-        );
-
-        anchor_lang::solana_program::program::invoke(
-            &memo_ix,
-            &[
-                ctx.accounts.notification_sender.to_account_info(),
-                ctx.accounts.memo_program.to_account_info(),
-            ],
-        )?;
-
-        msg!("Notification sent to subscriber with memo: {}", memo_message);
-
-        Ok(())
-    }
-
-}
-
-/// Helper module for shared payment logic (outside #[program])
-mod payment_helpers {
-    use super::*;
-
-    /// Core payment processing logic (used by both direct and swap flows)
-    pub fn process_payment_core<'info>(
-        subscription: &mut Account<'info, Subscription>,
-        config: &Account<'info, Config>,
-        trigger_authority: &Signer<'info>,
-        subscriber_token_account: &Account<'info, TokenAccount>,
-        merchant_token_account: &Account<'info, TokenAccount>,
-        icp_fee_token_account: &Account<'info, TokenAccount>,
-        token_program: &Program<'info, Token>,
-        program_id: &Pubkey,
-        icp_signature: Option<[u8; 64]>,
-        timestamp: i64,
-        instructions_sysvar: &UncheckedAccount<'info>,
-    ) -> Result<()> {
-        require!(!config.paused, ErrorCode::ProgramPaused);
-        require!(subscription.status == SubscriptionStatus::Active, ErrorCode::SubscriptionNotActive);
-
-        // SECURITY: Validate fee collection address is set
-        require!(
-            config.icp_fee_collection_address.is_some(),
-            ErrorCode::FeeCollectionAddressNotSet
-        );
-
-        let clock = Clock::get()?;
-
-        // Authorization based on configured mode
-        match config.authorization_mode {
-            AuthorizationMode::ICPSignature => {
-                // Original ICP signature verification
-                require!(icp_signature.is_some(), ErrorCode::MissingSignature);
-                let signature = icp_signature.unwrap();
-
-                require!(
-                    clock.unix_timestamp >= subscription.next_payment_time,
-                    ErrorCode::PaymentNotDue
-                );
-
-                // Verify timestamp is recent (prevent replay attacks)
-                let max_age_seconds = 60; // 1 minute
-                require!(
-                    verify_timestamp(timestamp, clock.unix_timestamp, max_age_seconds)?,
-                    ErrorCode::SignatureExpired
-                );
-
-                // Create message that ICP canister should have signed
-                let message = create_payment_message(
-                    &subscription.id,
-                    timestamp,
-                    subscription.amount
-                );
-
-                // Verify ICP canister signature
-                let icp_public_key = config.icp_public_key.ok_or(ErrorCode::MissingICPKey)?;
-                require!(
-                    verify_ed25519_ix(instructions_sysvar, &icp_public_key, &message)?,
-                    ErrorCode::InvalidSignature
-                );
-
-                // Update signature for next payment verification
-                subscription.icp_canister_signature = signature;
-            },
-            AuthorizationMode::ManualOnly => {
-                // Manual processing - subscriber or authorized party can trigger
-                require!(
-                    trigger_authority.key() == subscription.subscriber ||
-                    trigger_authority.key() == config.authority,
-                    ErrorCode::UnauthorizedAccess
-                );
-                // No time restriction for manual processing
-            },
-            AuthorizationMode::TimeBased => {
-                // Time-based processing - anyone can trigger if payment is due
-                require!(
-                    clock.unix_timestamp >= subscription.next_payment_time,
-                    ErrorCode::PaymentNotDue
-                );
-            },
-            AuthorizationMode::Hybrid => {
-                // Multiple authorization methods
-                let is_icp_valid = if let Some(_signature) = icp_signature {
-                    if let Some(icp_key) = config.icp_public_key {
-                        let message = create_payment_message(
-                            &subscription.id,
-                            timestamp,
-                            subscription.amount
-                        );
-                        verify_ed25519_ix(instructions_sysvar, &icp_key, &message).unwrap_or(false)
-                    } else { false }
-                } else { false };
-
-                let is_manual_valid = trigger_authority.key() == subscription.subscriber;
-                let is_time_valid = clock.unix_timestamp >= subscription.next_payment_time;
-
-                require!(
-                    is_icp_valid || (is_manual_valid && config.manual_processing_enabled) ||
-                    (is_time_valid && config.time_based_processing_enabled),
-                    ErrorCode::AuthorizationFailed
-                );
-
-                if is_icp_valid && icp_signature.is_some() {
-                    subscription.icp_canister_signature = icp_signature.unwrap();
-                }
-            }
-        }
-
-        // Execute USDC transfer from subscriber to merchant
-
-        // Calculate fee (e.g., 1% of payment amount)
-        let fee_config = &config.fee_config;
-        let platform_fee = subscription.amount
-            .checked_mul(fee_config.fee_percentage_basis_points as u64)
-            .ok_or(ErrorCode::MathOverflow)?
-            .checked_div(BASIS_POINTS_DIVISOR)
-            .ok_or(ErrorCode::MathOverflow)?;
-
-        let merchant_amount = subscription.amount
-            .checked_sub(platform_fee)
-            .ok_or(ErrorCode::InsufficientAmount)?;
-
-        // Use subscription PDA as authority (subscriber must delegate to this PDA)
-        // Derive PDA signer seeds for CPI - Clone ID to avoid borrow issues
-        let subscription_id = subscription.id.clone();
-        let subscription_key = subscription.key();
-
-        // Find the bump seed for this subscription PDA
-        let (subscription_pda, bump) = Pubkey::find_program_address(
-            &[b"subscription", subscription_id.as_bytes()],
-            program_id
-        );
-
-        // Verify the subscription account matches the derived PDA
-        require!(
-            subscription_pda == subscription_key,
-            ErrorCode::InvalidSubscriptionPDA
-        );
-
-        let seeds = &[
-            b"subscription".as_ref(),
-            subscription_id.as_bytes(),
-            &[bump],
-        ];
-        let signer_seeds = &[&seeds[..]];
-
-        // EFFECTS: Update subscription state BEFORE external calls (CEI pattern)
-        subscription.payments_made += 1;
-        subscription.total_paid += subscription.amount;
-
-        // Schedule next payment relative to scheduled time (not current time) to prevent drift
-        subscription.next_payment_time = subscription.next_payment_time
-            .checked_add(subscription.interval_seconds)
-            .ok_or(ErrorCode::MathOverflow)?;
-
-        // Handle multiple missed payments by advancing until future
-        while subscription.next_payment_time < clock.unix_timestamp {
-            subscription.next_payment_time = subscription.next_payment_time
-                .checked_add(subscription.interval_seconds)
-                .ok_or(ErrorCode::MathOverflow)?;
-        }
-
-        subscription.last_payment_time = Some(clock.unix_timestamp);
-
-        // Get subscription account info after state updates
-        let subscription_account_info = subscription.to_account_info();
-
-        // INTERACTIONS: External token transfers AFTER state updates (CEI pattern)
-        // Transfer merchant_amount to merchant via CPI with PDA authority
-        let transfer_to_merchant = token::Transfer {
-            from: subscriber_token_account.to_account_info(),
-            to: merchant_token_account.to_account_info(),
-            authority: subscription_account_info.clone(),
-        };
-
-        token::transfer(
-            CpiContext::new_with_signer(
-                token_program.to_account_info(),
-                transfer_to_merchant,
-                signer_seeds,
-            ),
-            merchant_amount,
-        )?;
-
-        msg!("Transferred {} micro-USDC to merchant", merchant_amount);
-
-        // Transfer platform_fee to ICP canister fee collection account
-        if platform_fee > 0 {
-            let transfer_to_icp = token::Transfer {
-                from: subscriber_token_account.to_account_info(),
-                to: icp_fee_token_account.to_account_info(),
-                authority: subscription_account_info.clone(),
-            };
-
-            token::transfer(
-                CpiContext::new_with_signer(
-                    token_program.to_account_info(),
-                    transfer_to_icp,
-                    signer_seeds,
-                ),
-                platform_fee,
-            )?;
-
-            msg!("Transferred {} micro-USDC fee to ICP canister", platform_fee);
-        }
-
-        msg!(
-            "Payment #{} processed: total={}, merchant={}, platform_fee={}",
-            subscription.payments_made,
-            subscription.amount,
-            merchant_amount,
-            platform_fee
-        );
-
-        // Emit payment event
-        emit!(PaymentProcessed {
-            subscription_id: subscription.id.clone(),
-            payment_number: subscription.payments_made,
-            amount: subscription.amount,
-            merchant_amount,
-            fee_amount: platform_fee,
-            timestamp: clock.unix_timestamp,
-            payment_type: "USDC".to_string(),
-        });
-
-        Ok(())
-    }
-}
+use crate::constants::*;
+use crate::data_structures::*;
+use crate::errors::ErrorCode;
 
 #[derive(Accounts)]
 #[instruction(subscription_id: String)]
@@ -1141,12 +91,25 @@ pub struct CreateSubscription<'info> {
     )]
     pub subscription: Account<'info, Subscription>,
 
+    /// Subscription PDA (same as subscription account key, for delegation)
+    /// CHECK: PDA derived from subscription_id
+    #[account(
+        seeds = [b"subscription", subscription_id.as_bytes()],
+        bump
+    )]
+    pub subscription_pda: UncheckedAccount<'info>,
+
+    /// Subscriber's USDC token account (for automatic delegation)
+    #[account(mut)]
+    pub subscriber_token_account: Account<'info, TokenAccount>,
+
     #[account(seeds = [b"config"], bump)]
     pub config: Account<'info, Config>,
 
     #[account(mut)]
     pub subscriber: Signer<'info>,
 
+    pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
 }
 
@@ -1197,83 +160,6 @@ pub struct ProcessPayment<'info> {
     pub instructions_sysvar: UncheckedAccount<'info>,
 }
 
-/// Account structure for multi-token payment with swap
-/// This is a wrapper around ProcessPayment that includes swap-related accounts
-#[derive(Accounts)]
-pub struct ProcessPaymentWithSwap<'info> {
-    #[account(mut)]
-    pub subscription: Account<'info, Subscription>,
-
-    #[account(seeds = [b"config"], bump)]
-    pub config: Account<'info, Config>,
-
-    /// CHECK: ICP canister or anyone can trigger payment
-    pub trigger_authority: Signer<'info>,
-
-    /// CHECK: Subscriber's wallet (does not need to sign)
-    pub subscriber: UncheckedAccount<'info>,
-
-    /// Payment token account (could be USDT, PYUSD, DAI, or USDC)
-    /// Must match subscription.payment_token_mint
-    #[account(
-        mut,
-        constraint = payment_token_account.mint == subscription.payment_token_mint @ ErrorCode::InvalidTokenMint
-    )]
-    pub payment_token_account: Account<'info, TokenAccount>,
-
-    /// Merchant's USDC account (always receives USDC)
-    #[account(
-        mut,
-        constraint = merchant_usdc_account.mint == get_usdc_mint() @ ErrorCode::InvalidTokenMint
-    )]
-    pub merchant_usdc_account: Account<'info, TokenAccount>,
-
-    /// ICP fee collection USDC account
-    #[account(
-        mut,
-        constraint = icp_fee_usdc_account.mint == get_usdc_mint() @ ErrorCode::InvalidTokenMint
-    )]
-    pub icp_fee_usdc_account: Account<'info, TokenAccount>,
-
-    /// USDC Mint
-    #[account(
-        constraint = usdc_mint.key() == get_usdc_mint() @ ErrorCode::InvalidTokenMint
-    )]
-    pub usdc_mint: Account<'info, Mint>,
-
-    /// Payment token mint (for validation)
-    pub payment_token_mint: Account<'info, Mint>,
-
-    /// Pyth price feed account for the payment token
-    /// Only required if payment_token != USDC
-    /// CHECK: Validated in price_oracle module
-    pub price_feed: AccountInfo<'info>,
-
-    /// Jupiter V6 Program for token swaps
-    /// CHECK: Program ID validated in jupiter_swap module
-    pub jupiter_program: AccountInfo<'info>,
-
-    /// Temporary USDC account to receive swapped funds (PDA-owned by this program)
-    /// Only required if payment_token != USDC
-    /// PDA derivation: seeds = [b"temp_usdc", subscriber.key().as_ref()], bump
-    #[account(
-        mut,
-        seeds = [b"temp_usdc", subscriber.key().as_ref()],
-        bump,
-        constraint = temp_usdc_account.mint == usdc_mint.key() @ ErrorCode::InvalidTokenMint
-    )]
-    pub temp_usdc_account: Account<'info, TokenAccount>,
-
-    pub token_program: Program<'info, Token>,
-    pub system_program: Program<'info, System>,
-
-    /// CHECK: Instructions sysvar for Ed25519 signature verification
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instructions_sysvar: UncheckedAccount<'info>,
-
-    // Remaining accounts: Jupiter routing accounts (dynamically determined by quote)
-    // These are passed via ctx.remaining_accounts
-}
 
 #[derive(Accounts)]
 pub struct UpdateSubscription<'info> {
@@ -1342,6 +228,48 @@ pub struct SendNotification<'info> {
     pub memo_program: UncheckedAccount<'info>,
 }
 
+/// Context for merchant to claim USDC from escrow after off-ramp confirmation
+#[derive(Accounts)]
+#[instruction(subscription_id: String)]
+pub struct ClaimFromEscrow<'info> {
+    #[account(
+        mut,
+        seeds = [b"subscription", subscription_id.as_bytes()],
+        bump,
+        has_one = merchant @ ErrorCode::UnauthorizedAccess
+    )]
+    pub subscription: Account<'info, Subscription>,
+
+    /// Escrow PDA token account (holds USDC before claim)
+    #[account(
+        mut,
+        constraint = escrow_token_account.owner == subscription.escrow_pda @ ErrorCode::UnauthorizedAccess,
+        constraint = escrow_token_account.mint == get_usdc_mint() @ ErrorCode::InvalidTokenMint
+    )]
+    pub escrow_token_account: Account<'info, TokenAccount>,
+
+    /// Merchant's USDC token account (receives claimed funds)
+    #[account(
+        mut,
+        constraint = merchant_token_account.owner == subscription.merchant @ ErrorCode::UnauthorizedAccess,
+        constraint = merchant_token_account.mint == get_usdc_mint() @ ErrorCode::InvalidTokenMint
+    )]
+    pub merchant_token_account: Account<'info, TokenAccount>,
+
+    /// Merchant (must sign to claim)
+    pub merchant: Signer<'info>,
+
+    /// Escrow PDA (has authority over escrow token account)
+    /// CHECK: Verified via seeds
+    #[account(
+        seeds = [b"escrow", subscription_id.as_bytes()],
+        bump
+    )]
+    pub escrow_pda: UncheckedAccount<'info>,
+
+    pub token_program: Program<'info, Token>,
+}
+
 #[derive(Accounts)]
 pub struct ProcessTrigger<'info> {
     #[account(
@@ -1367,13 +295,13 @@ pub struct ProcessTrigger<'info> {
     )]
     pub subscriber_token_account: Account<'info, TokenAccount>,
 
-    /// Merchant's USDC token account (receives payment)
+    /// Escrow USDC token account (receives payment before off-ramp)
     #[account(
         mut,
-        constraint = merchant_usdc_account.owner == subscription.merchant @ ErrorCode::UnauthorizedAccess,
-        constraint = merchant_usdc_account.mint == get_usdc_mint() @ ErrorCode::InvalidTokenMint
+        constraint = escrow_usdc_account.owner == subscription.escrow_pda @ ErrorCode::UnauthorizedAccess,
+        constraint = escrow_usdc_account.mint == get_usdc_mint() @ ErrorCode::InvalidTokenMint
     )]
-    pub merchant_usdc_account: Account<'info, TokenAccount>,
+    pub escrow_usdc_account: Account<'info, TokenAccount>,
 
     /// ICP fee collection USDC account (receives treasury fee)
     #[account(
@@ -1405,631 +333,167 @@ pub struct ProcessTrigger<'info> {
     pub instructions_sysvar: UncheckedAccount<'info>,
 }
 
-/// Extended ProcessTrigger with Jupiter swap accounts
-#[derive(Accounts)]
-pub struct ProcessTriggerWithSwap<'info> {
-    #[account(
-        mut,
-        seeds = [b"subscription", subscription.id.as_bytes()],
-        bump
-    )]
-    pub subscription: Account<'info, Subscription>,
 
-    #[account(seeds = [b"config"], bump)]
-    pub config: Account<'info, Config>,
+declare_id!("CFEtrptTe5eFXpZtB3hr1VMGuWF9oXguTnUFUaeVgeyT");
 
-    /// ICP canister authority (verified via signature)
-    pub trigger_authority: Signer<'info>,
+#[program]
+pub mod ouroc_prima {
+    use super::*;
 
-    /// Subscriber's payment token account (source - swapped to USDC)
-    #[account(
-        mut,
-        constraint = subscriber_token_account.owner == subscription.subscriber @ ErrorCode::UnauthorizedAccess
-    )]
-    pub subscriber_token_account: Account<'info, TokenAccount>,
-
-    /// Subscriber's USDC account (receives swapped USDC)
-    #[account(
-        mut,
-        constraint = subscriber_usdc_account.owner == subscription.subscriber @ ErrorCode::UnauthorizedAccess,
-        constraint = subscriber_usdc_account.mint == get_usdc_mint() @ ErrorCode::InvalidTokenMint
-    )]
-    pub subscriber_usdc_account: Account<'info, TokenAccount>,
-
-    /// Merchant's USDC token account (receives payment)
-    #[account(
-        mut,
-        constraint = merchant_usdc_account.owner == subscription.merchant @ ErrorCode::UnauthorizedAccess,
-        constraint = merchant_usdc_account.mint == get_usdc_mint() @ ErrorCode::InvalidTokenMint
-    )]
-    pub merchant_usdc_account: Account<'info, TokenAccount>,
-
-    /// ICP fee collection USDC account (receives treasury fee)
-    #[account(
-        mut,
-        constraint = icp_fee_usdc_account.mint == get_usdc_mint() @ ErrorCode::InvalidTokenMint
-    )]
-    pub icp_fee_usdc_account: Account<'info, TokenAccount>,
-
-    /// Subscription PDA (has delegate authority)
-    /// CHECK: Verified via seeds
-    pub subscription_pda: UncheckedAccount<'info>,
-
-    /// CHECK: Subscriber wallet (for notifications)
-    #[account(mut)]
-    pub subscriber: UncheckedAccount<'info>,
-
-    /// Payment token mint (being swapped from)
-    pub payment_token_mint: Account<'info, Mint>,
-
-    /// USDC mint (swapping to)
-    #[account(
-        constraint = usdc_mint.key() == get_usdc_mint() @ ErrorCode::InvalidTokenMint
-    )]
-    pub usdc_mint: Account<'info, Mint>,
-
-    /// Jupiter Aggregator V6 program
-    /// CHECK: Validated against JUPITER_PROGRAM_ID constant in jupiter_swap module
-    #[account(
-        constraint = jupiter_program.key() == get_jupiter_program_id() @ ErrorCode::InvalidJupiterProgram
-    )]
-    pub jupiter_program: AccountInfo<'info>,
-
-    pub token_program: Program<'info, Token>,
-    pub system_program: Program<'info, System>,
-
-    /// CHECK: Instructions sysvar for Ed25519 signature verification
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instructions_sysvar: UncheckedAccount<'info>,
-}
-
-#[account]
-pub struct Config {
-    pub authority: Pubkey,
-    pub total_subscriptions: u64,
-    pub paused: bool,
-    pub authorization_mode: AuthorizationMode,
-    pub icp_public_key: Option<[u8; 32]>,
-    pub manual_processing_enabled: bool,
-    pub time_based_processing_enabled: bool,
-    pub fee_config: FeeConfig,
-    pub icp_fee_collection_address: Option<Pubkey>, // ICP canister's Solana wallet for fees
-}
-
-impl Config {
-    pub const LEN: usize = 32 + 8 + 1 + 1 + 33 + 1 + 1 + FeeConfig::LEN + 33;
-}
-
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy)]
-pub struct FeeConfig {
-    pub fee_percentage_basis_points: u16, // e.g., 100 = 1%, 10 = 0.1%
-    pub min_fee_amount: u64,               // Minimum fee in micro-USDC
-}
-
-impl FeeConfig {
-    pub const LEN: usize = 2 + 8;
-}
-
-#[account]
-pub struct Subscription {
-    pub id: String,                      // 32 bytes max
-    pub subscriber: Pubkey,              // 32 bytes
-    pub merchant: Pubkey,                // 32 bytes
-    pub merchant_name: String,           // 32 bytes max - Merchant's app/business name for notifications
-    pub amount: u64,                     // 8 bytes - USDC amount in micro-units (merchant always receives this in USDC)
-    pub interval_seconds: i64,           // 8 bytes
-    pub next_payment_time: i64,          // 8 bytes
-    pub status: SubscriptionStatus,      // 1 byte
-    pub created_at: i64,                 // 8 bytes
-    pub last_payment_time: Option<i64>,  // 9 bytes (1 + 8)
-    pub payments_made: u64,              // 8 bytes
-    pub total_paid: u64,                 // 8 bytes
-    pub icp_canister_signature: [u8; 64], // 64 bytes - Ed25519 signature from ICP
-    pub payment_token_mint: Pubkey,      // 32 bytes - Token user pays with (USDC/USDT/PYUSD/DAI), locked at creation
-    pub reminder_days_before_payment: u32, // 4 bytes - Days before payment to send reminder (configured by merchant)
-    pub slippage_bps: u16,               // 2 bytes - Slippage tolerance in basis points (e.g., 100 = 1%)
-}
-
-impl Subscription {
-    pub const LEN: usize = 32 + 32 + 32 + 32 + 8 + 8 + 8 + 1 + 8 + 9 + 8 + 8 + 64 + 32 + 4 + 2;
-}
-
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq)]
-pub enum SubscriptionStatus {
-    Active,
-    Paused,
-    Cancelled,
-}
-
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, Debug)]
-pub enum AuthorizationMode {
-    ICPSignature,      // Original ICP canister authorization
-    ManualOnly,        // Manual payment processing by subscriber
-    TimeBased,         // Time-based automatic processing
-    Hybrid,            // Multiple authorization methods enabled
-}
-
-// Helper functions for process_trigger
-fn process_direct_usdc_payment(ctx: Context<ProcessTrigger>) -> Result<()> {
-    let subscription = &mut ctx.accounts.subscription;
-    let config = &ctx.accounts.config;
-
-    // Calculate fee (treasury gets X%, merchant gets rest)
-    let payment_amount = subscription.amount;
-    let fee_amount_u128 = (payment_amount as u128)
-        .checked_mul(config.fee_config.fee_percentage_basis_points as u128)
-        .ok_or(ErrorCode::MathOverflow)?
-        .checked_div(BASIS_POINTS_DIVISOR as u128)
-        .ok_or(ErrorCode::MathOverflow)?;
-    // SECURITY: Safe cast with overflow check
-    let fee_amount = u64::try_from(fee_amount_u128)
-        .map_err(|_| ErrorCode::MathOverflow)?;
-    let fee_amount = fee_amount.max(config.fee_config.min_fee_amount);
-    let merchant_amount = payment_amount.checked_sub(fee_amount).ok_or(ErrorCode::InsufficientAmount)?;
-
-    // Get data needed for CPI before mutating subscription
-    let subscription_id = subscription.id.clone();
-
-    // EFFECTS: Update subscription state BEFORE external calls (CEI pattern)
-    subscription.last_payment_time = Some(Clock::get()?.unix_timestamp);
-    subscription.payments_made = subscription.payments_made.checked_add(1).ok_or(ErrorCode::MathOverflow)?;
-    subscription.total_paid = subscription.total_paid.checked_add(payment_amount).ok_or(ErrorCode::MathOverflow)?;
-
-    // INTERACTIONS: External token transfers AFTER state updates (CEI pattern)
-    let seeds = &[b"subscription", subscription_id.as_bytes(), &[ctx.bumps.subscription]];
-    let signer_seeds = &[&seeds[..]];
-
-    // Transfer fee to ICP treasury
-    let transfer_fee_ix = anchor_spl::token::spl_token::instruction::transfer(
-        ctx.accounts.token_program.key,
-        &ctx.accounts.subscriber_token_account.key(),
-        &ctx.accounts.icp_fee_usdc_account.key(),
-        ctx.accounts.subscription_pda.key,
-        &[],
-        fee_amount,
-    )?;
-
-    anchor_lang::solana_program::program::invoke_signed(
-        &transfer_fee_ix,
-        &[
-            ctx.accounts.subscriber_token_account.to_account_info(),
-            ctx.accounts.icp_fee_usdc_account.to_account_info(),
-            ctx.accounts.subscription_pda.to_account_info(),
-        ],
-        signer_seeds,
-    )?;
-
-    // Transfer remaining to merchant
-    let transfer_merchant_ix = anchor_spl::token::spl_token::instruction::transfer(
-        ctx.accounts.token_program.key,
-        &ctx.accounts.subscriber_token_account.key(),
-        &ctx.accounts.merchant_usdc_account.key(),
-        ctx.accounts.subscription_pda.key,
-        &[],
-        merchant_amount,
-    )?;
-
-    anchor_lang::solana_program::program::invoke_signed(
-        &transfer_merchant_ix,
-        &[
-            ctx.accounts.subscriber_token_account.to_account_info(),
-            ctx.accounts.merchant_usdc_account.to_account_info(),
-            ctx.accounts.subscription_pda.to_account_info(),
-        ],
-        signer_seeds,
-    )?;
-
-    msg!("Direct USDC payment processed: {} USDC (fee: {}, merchant: {})",
-        payment_amount, fee_amount, merchant_amount);
-
-    // Emit payment event
-    emit!(PaymentProcessed {
-        subscription_id: subscription_id.clone(),
-        payment_number: subscription.payments_made,
-        amount: payment_amount,
-        merchant_amount,
-        fee_amount,
-        timestamp: Clock::get()?.unix_timestamp,
-        payment_type: "USDC".to_string(),
-    });
-
-    Ok(())
-}
-
-fn process_swap_then_split(ctx: Context<ProcessTriggerWithSwap>) -> Result<()> {
-    let subscription = &mut ctx.accounts.subscription;
-    let config = &ctx.accounts.config;
-
-    msg!("Processing swap payment for subscription: {} (token: {})",
-        subscription.id, subscription.payment_token_mint);
-
-    let payment_token_amount = subscription.amount;
-
-    msg!("Swapping {} of token {} to USDC via Jupiter",
-        payment_token_amount,
-        subscription.payment_token_mint
-    );
-
-    // Step 1: Execute Jupiter swap via CPI
-    // Jupiter V6 uses a shared account model where the swap instruction
-    // includes all necessary routing accounts dynamically
-
-    let subscription_id = subscription.id.clone();
-    let seeds = &[b"subscription", subscription_id.as_bytes(), &[ctx.bumps.subscription]];
-    let signer_seeds = &[&seeds[..]];
-
-    // Build Jupiter swap instruction
-    // Note: In production, the route_plan (accounts) comes from Jupiter Quote API
-    // The ICP canister fetches the quote and passes the serialized route
-    // For now, we use a simplified direct swap
-
-    let swap_instruction_data = build_jupiter_swap_instruction(
-        payment_token_amount,
-        0, // min_output_amount (set based on quote + slippage)
-    );
-
-    let jupiter_program_id = *ctx.accounts.jupiter_program.key;
-
-    // Jupiter V6 swap accounts (simplified - actual swap needs route accounts from API)
-    let swap_accounts = vec![
-        // Core accounts
-        ctx.accounts.jupiter_program.to_account_info(),
-        ctx.accounts.subscription_pda.to_account_info(), // user_transfer_authority
-        ctx.accounts.subscriber_token_account.to_account_info(), // user_source_token_account
-        ctx.accounts.subscriber_usdc_account.to_account_info(), // user_destination_token_account
-        ctx.accounts.payment_token_mint.to_account_info(), // source_mint
-        ctx.accounts.usdc_mint.to_account_info(), // destination_mint
-        ctx.accounts.token_program.to_account_info(),
-        // Note: Additional routing accounts from Jupiter quote would be added here
-    ];
-
-    let swap_ix = anchor_lang::solana_program::instruction::Instruction {
-        program_id: jupiter_program_id,
-        accounts: swap_accounts.iter().map(|acc| {
-            anchor_lang::solana_program::instruction::AccountMeta {
-                pubkey: *acc.key,
-                is_signer: acc.key == ctx.accounts.subscription_pda.key,
-                is_writable: acc.is_writable,
-            }
-        }).collect(),
-        data: swap_instruction_data,
-    };
-
-    // Execute Jupiter swap
-    anchor_lang::solana_program::program::invoke_signed(
-        &swap_ix,
-        &swap_accounts,
-        signer_seeds,
-    )?;
-
-    msg!("Jupiter swap executed successfully");
-
-    // Step 2: Get actual USDC output amount
-    // SECURITY: Verify actual swap output to prevent cheating
-    let subscriber_usdc_account_after = &mut ctx.accounts.subscriber_usdc_account;
-    subscriber_usdc_account_after.reload()?;
-    let usdc_output = subscriber_usdc_account_after.amount;
-
-    msg!("Swapped {} tokens → {} USDC (verified actual balance)", payment_token_amount, usdc_output);
-
-    // SECURITY: Verify we received reasonable amount (within slippage tolerance)
-    let expected_output = payment_token_amount; // For stablecoins, expect ~1:1
-    let max_slippage = expected_output.checked_mul(9500).unwrap() / 10000; // 5% max slippage
-
-    require!(
-        usdc_output >= max_slippage,
-        ErrorCode::SlippageExceeded
-    );
-
-    // Step 3: Calculate fee split from swapped USDC
-    let fee_amount_u128 = (usdc_output as u128)
-        .checked_mul(config.fee_config.fee_percentage_basis_points as u128)
-        .ok_or(ErrorCode::MathOverflow)?
-        .checked_div(BASIS_POINTS_DIVISOR as u128)
-        .ok_or(ErrorCode::MathOverflow)?;
-    // SECURITY: Safe cast with overflow check
-    let fee_amount = u64::try_from(fee_amount_u128)
-        .map_err(|_| ErrorCode::MathOverflow)?;
-    let fee_amount = fee_amount.max(config.fee_config.min_fee_amount);
-    let merchant_amount = usdc_output.checked_sub(fee_amount).ok_or(ErrorCode::InsufficientAmount)?;
-
-    msg!("Fee split: fee={}, merchant={}", fee_amount, merchant_amount);
-
-    // EFFECTS: Update subscription state BEFORE external transfers (CEI pattern)
-    subscription.last_payment_time = Some(Clock::get()?.unix_timestamp);
-    subscription.payments_made = subscription.payments_made.checked_add(1).ok_or(ErrorCode::MathOverflow)?;
-    subscription.total_paid = subscription.total_paid.checked_add(usdc_output).ok_or(ErrorCode::MathOverflow)?;
-
-    // INTERACTIONS: External token transfers AFTER state updates (CEI pattern)
-    // Step 4: Transfer USDC fee to ICP treasury
-    let transfer_fee_ix = anchor_spl::token::spl_token::instruction::transfer(
-        ctx.accounts.token_program.key,
-        &ctx.accounts.subscriber_usdc_account.key(),
-        &ctx.accounts.icp_fee_usdc_account.key(),
-        ctx.accounts.subscription_pda.key,
-        &[],
-        fee_amount,
-    )?;
-
-    anchor_lang::solana_program::program::invoke_signed(
-        &transfer_fee_ix,
-        &[
-            ctx.accounts.subscriber_usdc_account.to_account_info(),
-            ctx.accounts.icp_fee_usdc_account.to_account_info(),
-            ctx.accounts.subscription_pda.to_account_info(),
-        ],
-        signer_seeds,
-    )?;
-
-    // Step 5: Transfer merchant payment
-    let transfer_merchant_ix = anchor_spl::token::spl_token::instruction::transfer(
-        ctx.accounts.token_program.key,
-        &ctx.accounts.subscriber_usdc_account.key(),
-        &ctx.accounts.merchant_usdc_account.key(),
-        ctx.accounts.subscription_pda.key,
-        &[],
-        merchant_amount,
-    )?;
-
-    anchor_lang::solana_program::program::invoke_signed(
-        &transfer_merchant_ix,
-        &[
-            ctx.accounts.subscriber_usdc_account.to_account_info(),
-            ctx.accounts.merchant_usdc_account.to_account_info(),
-            ctx.accounts.subscription_pda.to_account_info(),
-        ],
-        signer_seeds,
-    )?;
-
-    msg!("Swap payment completed: {} tokens → {} USDC (fee: {}, merchant: {})",
-        payment_token_amount, usdc_output, fee_amount, merchant_amount);
-
-    // Emit payment event for swap
-    emit!(PaymentProcessed {
-        subscription_id: subscription_id.clone(),
-        payment_number: subscription.payments_made,
-        amount: usdc_output,
-        merchant_amount,
-        fee_amount,
-        timestamp: Clock::get()?.unix_timestamp,
-        payment_type: "SWAP".to_string(),
-    });
-
-    Ok(())
-}
-
-// Helper: Build Jupiter V6 swap instruction data
-// Format: [discriminator] + [in_amount: u64] + [min_out_amount: u64]
-fn build_jupiter_swap_instruction(in_amount: u64, min_out_amount: u64) -> Vec<u8> {
-    let mut data = Vec::with_capacity(24);
-
-    // ⚠️ PRODUCTION REQUIRED: Get actual Jupiter V6 discriminator from IDL
-    // Current discriminator is for development only
-    let discriminator = std::env::var("JUPITER_V6_DISCRIMINATOR")
-        .unwrap_or_else(|_| "e445a52e51cb9a1d".to_string());
-
-    if let Ok(hex_str) = hex::decode(discriminator) {
-        data.extend_from_slice(&hex_str);
-    } else {
-        // Development discriminator (may not work with mainnet Jupiter)
-        data.extend_from_slice(&[0xe4, 0x45, 0xa5, 0x2e, 0x51, 0xcb, 0x9a, 0x1d]);
+    /// Initialize the subscription program
+    pub fn initialize(
+        ctx: Context<Initialize>,
+        authorization_mode: AuthorizationMode,
+        icp_public_key: Option<[u8; 32]>,
+    ) -> Result<()> {
+        instruction_handlers::initialize(
+            ctx,
+            authorization_mode,
+            icp_public_key,
+        )
     }
 
-    // in_amount (8 bytes, little-endian)
-    data.extend_from_slice(&in_amount.to_le_bytes());
+    /// Update fee collection address (admin only)
+    pub fn update_fee_destination(
+        ctx: Context<UpdateFeeDestination>,
+        new_fee_address: Pubkey,
+    ) -> Result<()> {
+        instruction_handlers::update_fee_destination(ctx, new_fee_address)
+    }
 
-    // min_out_amount (8 bytes, little-endian)
-    data.extend_from_slice(&min_out_amount.to_le_bytes());
+    /// Approve subscription PDA to spend USDC tokens
+    /// Automatically calculates one year of delegation based on amount and interval
+    pub fn approve_subscription_delegate(
+        ctx: Context<ApproveDelegate>,
+        subscription_id: String,
+        amount: u64,
+        interval_seconds: i64,
+    ) -> Result<()> {
+        instruction_handlers::approve_subscription_delegate(ctx, subscription_id, amount, interval_seconds)
+    }
 
-    data
-}
+    /// Create a new subscription
+    pub fn create_subscription(
+        ctx: Context<CreateSubscription>,
+        subscription_id: String,
+        amount: u64,
+        interval_seconds: i64,
+        merchant_address: Pubkey,
+        merchant_name: String, // Merchant's app/business name for notifications (max 32 chars)
+        reminder_days_before_payment: u32, // Days before payment to send reminder (merchant configured)
+        icp_canister_signature: [u8; 64], // Ed25519 signature from ICP canister
+    ) -> Result<()> {
+        instruction_handlers::create_subscription(
+            ctx,
+            subscription_id,
+            amount,
+            interval_seconds,
+            merchant_address,
+            merchant_name,
+            reminder_days_before_payment,
+            icp_canister_signature,
+        )
+    }
 
-fn send_notification_internal(ctx: Context<ProcessTrigger>, memo: String) -> Result<()> {
-    require!(memo.len() <= 566, ErrorCode::MemoTooLong);
+    /// Process payment with automatic swap (Router function for multi-token support)
+    // COMMENTED OUT - Only USDC supported
+    // pub fn process_payment_with_swap<'info>(
+    //     ctx: Context<'_, '_, '_, 'info, ProcessPaymentWithSwap<'info>>,
+    //     icp_signature: Option<[u8; 64]>,
+    //     timestamp: i64,
+    // ) -> Result<()> {
+    //     instruction_handlers::process_payment_with_swap(ctx, icp_signature, timestamp)
+    // }
 
-    // 1. Transfer tiny SOL amount (0.000001 SOL = 1000 lamports)
-    let notification_amount = 1000u64;
+    /// Process payment for a subscription (supports multiple authorization modes)
+    pub fn process_payment(
+        ctx: Context<ProcessPayment>,
+        icp_signature: Option<[u8; 64]>,
+        timestamp: i64,
+    ) -> Result<()> {
+        instruction_handlers::process_payment(ctx, icp_signature, timestamp)
+    }
 
-    let transfer_ix = anchor_lang::solana_program::system_instruction::transfer(
-        &ctx.accounts.trigger_authority.key(),
-        &ctx.accounts.subscriber.key(),
-        notification_amount,
-    );
+    /// Pause a subscription
+    pub fn pause_subscription(ctx: Context<UpdateSubscription>) -> Result<()> {
+        instruction_handlers::pause_subscription(ctx)
+    }
 
-    anchor_lang::solana_program::program::invoke(
-        &transfer_ix,
-        &[
-            ctx.accounts.trigger_authority.to_account_info(),
-            ctx.accounts.subscriber.to_account_info(),
-        ],
-    )?;
+    /// Resume a subscription
+    pub fn resume_subscription(ctx: Context<UpdateSubscription>) -> Result<()> {
+        instruction_handlers::resume_subscription(ctx)
+    }
 
-    // 2. Add SPL Memo instruction to make message visible in wallets
-    let memo_ix = spl_memo::build_memo(
-        memo.as_bytes(),
-        &[&ctx.accounts.trigger_authority.key()],
-    );
+    /// Cancel a subscription
+    pub fn cancel_subscription(ctx: Context<UpdateSubscription>) -> Result<()> {
+        instruction_handlers::cancel_subscription(ctx)
+    }
 
-    anchor_lang::solana_program::program::invoke(
-        &memo_ix,
-        &[
-            ctx.accounts.trigger_authority.to_account_info(),
-            ctx.accounts.memo_program.to_account_info(),
-        ],
-    )?;
+    /// Revoke subscription PDA delegate (after cancellation)
+    pub fn revoke_subscription_delegate(
+        ctx: Context<RevokeDelegate>,
+    ) -> Result<()> {
+        instruction_handlers::revoke_subscription_delegate(ctx)
+    }
 
-    msg!("Notification sent with memo: {}", memo);
-    Ok(())
-}
+    /// Merchant claims USDC from escrow after off-ramp confirmation
+    pub fn claim_from_escrow(
+        ctx: Context<ClaimFromEscrow>,
+        subscription_id: String,
+        amount: u64,
+    ) -> Result<()> {
+        instruction_handlers::claim_from_escrow(ctx, subscription_id, amount)
+    }
 
-// ============================================================================
-// Events
-// ============================================================================
+    /// Emergency pause the entire program (admin only)
+    pub fn emergency_pause(ctx: Context<AdminAction>) -> Result<()> {
+        instruction_handlers::emergency_pause(ctx)
+    }
 
-#[event]
-pub struct SubscriptionCreated {
-    pub subscription_id: String,
-    pub subscriber: Pubkey,
-    pub merchant: Pubkey,
-    pub amount: u64,
-    pub interval_seconds: i64,
-    pub payment_token_mint: Pubkey,
-    pub slippage_bps: u16,
-}
+    /// Resume the program (admin only)
+    pub fn resume_program(ctx: Context<AdminAction>) -> Result<()> {
+        instruction_handlers::resume_program(ctx)
+    }
 
-#[event]
-pub struct PaymentProcessed {
-    pub subscription_id: String,
-    pub payment_number: u64,
-    pub amount: u64,
-    pub merchant_amount: u64,
-    pub fee_amount: u64,
-    pub timestamp: i64,
-    pub payment_type: String, // "USDC" or "SWAP"
-}
+    /// Update authorization mode (admin only)
+    pub fn update_authorization_mode(
+        ctx: Context<AdminAction>,
+        new_mode: AuthorizationMode,
+        icp_public_key: Option<[u8; 32]>,
+    ) -> Result<()> {
+        instruction_handlers::update_authorization_mode(ctx, new_mode, icp_public_key)
+    }
 
-#[event]
-pub struct SubscriptionPaused {
-    pub subscription_id: String,
-    pub paused_at: i64,
-}
+    /// Manual payment processing (subscriber only)
+    pub fn process_manual_payment(ctx: Context<ProcessPayment>) -> Result<()> {
+        instruction_handlers::process_manual_payment(ctx)
+    }
 
-#[event]
-pub struct SubscriptionResumed {
-    pub subscription_id: String,
-    pub resumed_at: i64,
-}
+    /// Main entry point from ICP: Process trigger with opcode routing
+    pub fn process_trigger(
+        ctx: Context<ProcessTrigger>,
+        opcode: u8,
+        icp_signature: Option<[u8; 64]>,
+        timestamp: i64,
+    ) -> Result<()> {
+        instruction_handlers::process_trigger(ctx, opcode, icp_signature, timestamp)
+    }
 
-#[event]
-pub struct SubscriptionCancelled {
-    pub subscription_id: String,
-    pub cancelled_at: i64,
-    pub total_payments_made: u64,
-    pub total_paid: u64,
-}
+    /// Process trigger with Jupiter swap (opcode 0 only for non-USDC tokens)
+    // COMMENTED OUT - Only USDC supported
+    // pub fn process_trigger_with_swap(
+    //     ctx: Context<ProcessTriggerWithSwap>,
+    //     icp_signature: Option<[u8; 64]>,
+    //     timestamp: i64,
+    // ) -> Result<()> {
+    //     instruction_handlers::process_trigger_with_swap(ctx, icp_signature, timestamp)
+    // }
 
-#[event]
-pub struct DelegateApproved {
-    pub subscription_id: String,
-    pub subscriber: Pubkey,
-    pub delegate: Pubkey,
-    pub amount: u64,
-}
-
-/// Event emitted when fee collection address is updated
-#[event]
-pub struct FeeDestinationUpdated {
-    pub old_address: Option<Pubkey>,
-    pub new_address: Pubkey,
-    pub updated_by: Pubkey,
-    pub timestamp: i64,
-}
-
-// ============================================================================
-// Error Codes
-// ============================================================================
-
-#[error_code]
-pub enum ErrorCode {
-    #[msg("Program is currently paused")]
-    ProgramPaused,
-
-    #[msg("Invalid payment amount")]
-    InvalidAmount,
-
-    #[msg("Invalid interval")]
-    InvalidInterval,
-
-    #[msg("Invalid subscription ID")]
-    InvalidSubscriptionId,
-
-    #[msg("Subscription is not active")]
-    SubscriptionNotActive,
-
-    #[msg("Subscription is not paused")]
-    SubscriptionNotPaused,
-
-    #[msg("Subscription already cancelled")]
-    SubscriptionAlreadyCancelled,
-
-    #[msg("Payment not yet due")]
-    PaymentNotDue,
-
-    #[msg("Invalid signature")]
-    InvalidSignature,
-
-    #[msg("Signature has expired")]
-    SignatureExpired,
-
-    #[msg("Timestamp has expired or is too old")]
-    TimestampExpired,
-
-    #[msg("Unauthorized canister")]
-    UnauthorizedCanister,
-
-    #[msg("Unauthorized access")]
-    UnauthorizedAccess,
-
-    #[msg("Missing ICP signature")]
-    MissingSignature,
-
-    #[msg("Missing ICP public key")]
-    MissingICPKey,
-
-    #[msg("Authorization failed")]
-    AuthorizationFailed,
-
-    #[msg("Math overflow")]
-    MathOverflow,
-
-    #[msg("Insufficient amount for fee")]
-    InsufficientAmount,
-
-    #[msg("Invalid token mint - must be USDC")]
-    InvalidTokenMint,
-
-    #[msg("Invalid subscription PDA")]
-    InvalidSubscriptionPDA,
-
-    #[msg("Token delegation not set to subscription PDA")]
-    DelegateNotSet,
-
-    #[msg("Delegated amount insufficient for payment")]
-    InsufficientDelegation,
-
-    #[msg("Invalid Jupiter program")]
-    InvalidJupiterProgram,
-
-    #[msg("Fee percentage too high - maximum 10%")]
-    FeeTooHigh,
-
-    #[msg("Invalid slippage - must be between 0 and 500 basis points (5%)")]
-    InvalidSlippage,
-
-    #[msg("Unsupported payment token - must be whitelisted stablecoin")]
-    UnsupportedPaymentToken,
-
-    #[msg("Swap failed - insufficient output amount")]
-    SwapFailed,
-
-    #[msg("Slippage tolerance exceeded")]
-    SlippageExceeded,
-
-    #[msg("Memo message too long - maximum 566 bytes")]
-    MemoTooLong,
-
-    #[msg("Invalid reminder days - must be between 1 and 30 days")]
-    InvalidReminderDays,
-
-    #[msg("Invalid merchant name - must be between 1 and 32 characters")]
-    InvalidMerchantName,
-
-    #[msg("Invalid opcode - must be 0 (payment) or 1 (notification)")]
-    InvalidOpcode,
-
-    #[msg("Swap not yet implemented - requires DEX integration")]
-    SwapNotImplemented,
-
-    #[msg("Fee collection address not set - admin must call update_fee_destination")]
-    FeeCollectionAddressNotSet,
+    /// Send notification to subscriber via Solana memo transaction
+    pub fn send_notification(
+        ctx: Context<SendNotification>,
+        memo_message: String,
+    ) -> Result<()> {
+        instruction_handlers::send_notification(ctx, memo_message)
+    }
 }

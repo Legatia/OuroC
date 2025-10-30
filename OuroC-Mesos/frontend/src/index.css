@@ -1,0 +1,78 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    --background: 248 25% 8%;
+    --foreground: 280 8% 95%;
+
+    --card: 248 20% 12%;
+    --card-foreground: 280 8% 95%;
+
+    --popover: 248 25% 10%;
+    --popover-foreground: 280 8% 95%;
+
+    --primary: 271 81% 64%;
+    --primary-foreground: 280 8% 95%;
+
+    --secondary: 189 94% 43%;
+    --secondary-foreground: 280 8% 95%;
+
+    --muted: 248 15% 20%;
+    --muted-foreground: 280 5% 65%;
+
+    --accent: 330 81% 69%;
+    --accent-foreground: 280 8% 95%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 280 8% 95%;
+
+    --border: 248 15% 20%;
+    --input: 248 15% 18%;
+    --ring: 271 81% 64%;
+
+    --radius: 0.75rem;
+
+    /* Web3 gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(271 81% 64%), hsl(189 94% 43%));
+    --gradient-card: linear-gradient(135deg, hsl(248 20% 12% / 0.6), hsl(248 20% 16% / 0.4));
+    --gradient-hero: linear-gradient(135deg, hsl(271 81% 64% / 0.1), hsl(189 94% 43% / 0.1));
+    
+    /* Glass effect */
+    --glass-bg: hsl(248 20% 12% / 0.4);
+    --glass-border: hsl(280 8% 95% / 0.1);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    background-image: radial-gradient(circle at 20% 50%, hsl(271 81% 64% / 0.15) 0%, transparent 50%),
+                      radial-gradient(circle at 80% 80%, hsl(189 94% 43% / 0.15) 0%, transparent 50%);
+  }
+}
+
+@layer utilities {
+  .glass {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+  }
+  
+  .gradient-primary {
+    background: var(--gradient-primary);
+  }
+  
+  .gradient-card {
+    background: var(--gradient-card);
+  }
+}

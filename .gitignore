@@ -223,7 +223,19 @@ OPTION_C_*.md
 # =============================================================================
 # Claude Code
 # =============================================================================
+.claude/
+.claude/**
 .claude/settings.local.json
+
+# Claude Code report and documentation files
+COMPLETE_USER_JOURNEY.md
+DEPLOYMENT_SUCCESS.md
+SOLANA_TRANSACTION_IMPLEMENTATION_GUIDE.md
+SOLANA_TRANSACTION_COMPLETE.md
+READY_FOR_TESTING.md
+FIXES_COMPLETED.md
+*_IMPLEMENTATION_GUIDE.md
+*_COMPLETE.md
 
 # =============================================================================
 # React/Next.js (demo-dapp)
