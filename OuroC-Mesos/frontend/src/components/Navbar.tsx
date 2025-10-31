@@ -18,26 +18,32 @@ const Navbar = () => {
           </Link>
           
           <div className="hidden md:flex items-center gap-6">
-            <Link 
-              to="/" 
+            <Link
+              to="/"
               className={`transition-colors ${isActive('/') ? 'text-primary font-medium' : 'text-muted-foreground hover:text-foreground'}`}
             >
               Home
             </Link>
-            <Link 
-              to="/subscriptions" 
+            <Link
+              to="/subscriptions"
               className={`transition-colors ${isActive('/subscriptions') ? 'text-primary font-medium' : 'text-muted-foreground hover:text-foreground'}`}
             >
               Subscriptions
             </Link>
-            <Link 
-              to="/gift-cards" 
+            <Link
+              to="/gift-cards"
               className={`transition-colors ${isActive('/gift-cards') ? 'text-primary font-medium' : 'text-muted-foreground hover:text-foreground'}`}
             >
               Gift Cards
             </Link>
-            <Link 
-              to="/profile" 
+            <Link
+              to="/invoice"
+              className={`transition-colors ${isActive('/invoice') ? 'text-primary font-medium' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              Invoice
+            </Link>
+            <Link
+              to="/profile"
               className={`transition-colors ${isActive('/profile') ? 'text-primary font-medium' : 'text-muted-foreground hover:text-foreground'}`}
             >
               Profile
