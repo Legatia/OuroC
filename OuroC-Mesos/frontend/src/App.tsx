@@ -8,6 +8,7 @@ import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
 import Subscriptions from "./pages/Subscriptions";
 import GiftCards from "./pages/GiftCards";
+import Invoice from "./pages/Invoice";
 import Profile from "./pages/Profile";
 import CheckoutSubscription from "./pages/CheckoutSubscription";
 import CheckoutGiftCard from "./pages/CheckoutGiftCard";
@@ -27,6 +28,7 @@ const App = () => (
             <Route path="/" element={<Home />} />
             <Route path="/subscriptions" element={<Subscriptions />} />
             <Route path="/gift-cards" element={<GiftCards />} />
+            <Route path="/invoice" element={<Invoice />} />
             <Route path="/checkout/subscription" element={<CheckoutSubscription />} />
             <Route path="/checkout/gift-card" element={<CheckoutGiftCard />} />
             <Route path="/profile" element={<Profile />} />
