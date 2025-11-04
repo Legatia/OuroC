@@ -136,14 +136,35 @@ pub async fn create_subscription(req: CreateSubscriptionRequest) -> Result<Subsc
     // Store subscription
     SUBSCRIPTIONS.with(|s| s.borrow_mut().insert(req.subscription_id.clone(), subscription.clone()));
 
-    // Schedule timers
-    crate::timer::schedule_subscription_timer(&subscription);
-    crate::timer::schedule_notification_timer(&subscription);
+    // Route subscription based on interval
+    let interval_hours = subscription.interval_seconds / 3600;
+
+    if interval_hours < 24 {
+        // Short intervals (<24h): Use IC timer for immediate, reliable execution
+        ic_cdk::println!("Short interval ({}h), using IC timer", interval_hours);
+        crate::timer::schedule_subscription_timer(&subscription);
+        crate::timer::schedule_notification_timer(&subscription);
+    } else {
+        // Long intervals (≥24h): Use agent network for cost-effective batch processing
+        ic_cdk::println!("Long interval ({}h), queuing for agent network", interval_hours);
+
+        let task = crate::agent_coordinator::create_agent_task_from_subscription(&subscription);
+
+        crate::state::AGENT_TASKS.with(|tasks| {
+            tasks.borrow_mut().insert(task.id.clone(), task.clone());
+        });
+
+        crate::state::PENDING_TASK_QUEUE.with(|queue| {
+            queue.borrow_mut().push_back(task.id.clone());
+        });
+
+        ic_cdk::println!("Subscription {} queued for agent execution", subscription.id);
+    }
 
     // Consume license usage
     let _ = crate::license::consume_license_usage(&req.api_key).await;
 
-    ic_cdk::println!("✅ Created subscription timer: {} for Solana contract: {}",
+    ic_cdk::println!("✅ Created subscription: {} for Solana contract: {}",
                       req.subscription_id, req.solana_contract_address);
     Ok(req.subscription_id)
 }

@@ -1,0 +1,55 @@
+{
+  "name": "ouroc-prima-arc",
+  "version": "1.0.0",
+  "description": "OuroC-Prima recurring payment protocol for Arc blockchain",
+  "main": "index.js",
+  "scripts": {
+    "compile": "hardhat compile",
+    "compile:foundry": "forge build",
+    "test": "hardhat test",
+    "test:foundry": "forge test -vvv",
+    "test:coverage": "forge coverage",
+    "deploy:testnet": "hardhat run scripts/deploy.ts --network arc-testnet",
+    "deploy:foundry": "./scripts/deploy-foundry.sh",
+    "verify": "hardhat verify --network arc-testnet",
+    "coverage": "hardhat coverage",
+    "lint": "solhint 'contracts/**/*.sol'",
+    "format": "prettier --write 'contracts/**/*.sol' 'test/**/*.ts' 'scripts/**/*.ts'"
+  },
+  "keywords": [
+    "arc",
+    "usdc",
+    "recurring-payments",
+    "subscriptions",
+    "icp",
+    "solidity"
+  ],
+  "author": "OuroC Team",
+  "license": "MIT",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "@nomicfoundation/hardhat-verify": "^2.0.0",
+    "@openzeppelin/hardhat-upgrades": "^3.0.0",
+    "@typechain/ethers-v6": "^0.5.0",
+    "@typechain/hardhat": "^9.0.0",
+    "@types/chai": "^4.3.0",
+    "@types/mocha": "^10.0.0",
+    "@types/node": "^20.0.0",
+    "chai": "^4.3.0",
+    "dotenv": "^16.0.0",
+    "ethers": "^6.10.0",
+    "hardhat": "^2.22.0",
+    "hardhat-gas-reporter": "^1.0.0",
+    "prettier": "^3.0.0",
+    "prettier-plugin-solidity": "^1.3.0",
+    "solhint": "^5.0.0",
+    "solidity-coverage": "^0.8.0",
+    "ts-node": "^10.9.0",
+    "typechain": "^8.3.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.0.0",
+    "@openzeppelin/contracts-upgradeable": "^5.0.0"
+  }
+}

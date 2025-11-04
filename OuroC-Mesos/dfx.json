@@ -6,6 +6,12 @@
       "package": "ouroc-timer-rust",
       "candid": "src/timer_rust/ouroc_timer_rust.did"
     },
+    "agent_worker": {
+      "type": "rust",
+      "package": "agent_worker",
+      "candid": "src/agent_worker/agent_worker.did",
+      "dependencies": ["timer_rust"]
+    },
     "license_registry": {
       "type": "motoko",
       "main": "src/license_registry/LicenseRegistry.mo"

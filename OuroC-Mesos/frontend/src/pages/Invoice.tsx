@@ -8,24 +8,33 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Upload, FileText, CheckCircle, Loader2 } from "lucide-react";
+import { Upload, FileText, CheckCircle, Loader2, Sparkles } from "lucide-react";
 import { createSubscription } from "@/lib/backend";
 import { approveDelegation, calculateDelegationAmount, checkUSDCBalance } from "@/lib/solana";
+import { processInvoiceImage, isValidImageFile, formatFileSize } from "@/lib/ocrService";
 
-// Mock OCR extraction function - replace with your backend API
-const mockExtractInvoiceData = async (file: File): Promise<InvoiceData> => {
-  // Simulate API call delay
-  await new Promise(resolve => setTimeout(resolve, 2000));
+// Convert OCR result to Invoice format
+const extractInvoiceData = async (
+  file: File,
+  onProgress?: (progress: number) => void
+): Promise<InvoiceData> => {
+  // Validate file type
+  if (!isValidImageFile(file) && file.type !== 'application/pdf') {
+    throw new Error('Please upload a valid image file (JPG, PNG, etc.)');
+  }
 
-  // Mock extracted data - replace with real OCR/AI extraction
+  // Process with Tesseract.js OCR
+  const ocrResult = await processInvoiceImage(file, onProgress);
+
+  // Map OCR result to InvoiceData format
   return {
-    amount: "500.00",
-    currency: "USD",
-    vendor: "ABC Electric Company",
-    bankAccount: "DE89 3704 0044 0532 0130 00",
+    amount: ocrResult.amount?.toString() || "0.00",
+    currency: "USD", // Default to USD
+    vendor: ocrResult.merchantName || "Unknown Vendor",
+    bankAccount: "", // Not extracted by basic OCR
     reference: `Invoice #${Math.floor(Math.random() * 10000)}`,
-    dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    description: "Monthly electricity service fee"
+    dueDate: ocrResult.date || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    description: ocrResult.items?.slice(0, 2).join(', ') || "Invoice payment",
   };
 };
 
@@ -49,6 +58,7 @@ const Invoice = () => {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [extractedData, setExtractedData] = useState<InvoiceData | null>(null);
   const [isExtracting, setIsExtracting] = useState(false);
+  const [ocrProgress, setOcrProgress] = useState(0);
   const [frequency, setFrequency] = useState<PaymentFrequency>("monthly");
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -89,17 +99,30 @@ const Invoice = () => {
     if (!file) return;
 
     setIsExtracting(true);
+    setOcrProgress(0);
+
     try {
-      // TODO: Replace with your backend OCR API endpoint
-      const data = await mockExtractInvoiceData(file);
+      toast.info("🔍 Processing image with OCR...");
+
+      // Extract data using Tesseract.js
+      const data = await extractInvoiceData(file, (progress) => {
+        setOcrProgress(progress);
+      });
+
       setExtractedData(data);
       setStep("confirm");
-      toast.success("Invoice data extracted successfully");
+      toast.success("✨ Invoice data extracted successfully!");
+
+      // Show what was found
+      if (data.vendor && data.amount) {
+        toast.info(`Found: ${data.vendor} - $${data.amount}`);
+      }
     } catch (error) {
-      toast.error("Failed to extract invoice data. Please try again.");
+      toast.error("Failed to extract invoice data. Please try a clearer image.");
       console.error(error);
     } finally {
       setIsExtracting(false);
+      setOcrProgress(0);
     }
   };
 
@@ -290,7 +313,7 @@ const Invoice = () => {
                       <div>
                         <p className="font-medium">{file.name}</p>
                         <p className="text-sm text-muted-foreground">
-                          {(file.size / 1024 / 1024).toFixed(2)} MB
+                          {formatFileSize(file.size)}
                         </p>
                       </div>
                       {previewUrl && (
@@ -331,24 +354,41 @@ const Invoice = () => {
                 {isExtracting ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Extracting Data...
+                    Extracting Data... {ocrProgress > 0 && `${ocrProgress}%`}
                   </>
                 ) : (
                   <>
-                    <CheckCircle className="w-4 h-4 mr-2" />
-                    Extract Invoice Data
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Extract Invoice Data with AI
                   </>
                 )}
               </Button>
 
+              {isExtracting && ocrProgress > 0 && (
+                <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                  <div
+                    className="bg-primary h-full transition-all duration-300"
+                    style={{ width: `${ocrProgress}%` }}
+                  />
+                </div>
+              )}
+
               <div className="bg-muted/50 rounded-lg p-4 text-sm text-muted-foreground">
-                <p className="font-medium mb-2">What we extract:</p>
-                <ul className="space-y-1 list-disc list-inside">
-                  <li>Amount and currency</li>
-                  <li>Vendor/payee name</li>
-                  <li>Bank account or payment reference</li>
-                  <li>Due date and description</li>
-                </ul>
+                <div className="flex items-start gap-2">
+                  <Sparkles className="w-4 h-4 mt-0.5 text-primary shrink-0" />
+                  <div>
+                    <p className="font-medium mb-2">AI-Powered OCR Extraction:</p>
+                    <ul className="space-y-1 list-disc list-inside">
+                      <li>Vendor/merchant name</li>
+                      <li>Total amount</li>
+                      <li>Invoice date</li>
+                      <li>Line items (if visible)</li>
+                    </ul>
+                    <p className="mt-2 text-xs">
+                      ✨ Powered by Tesseract.js - runs locally in your browser (100% free, no API keys needed)
+                    </p>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>

@@ -38,6 +38,12 @@ thread_local! {
     // Solana blockhash cache (to avoid consensus issues)
     static CACHED_BLOCKHASH: std::cell::RefCell<Option<String>> = std::cell::RefCell::new(None);
     static BLOCKHASH_FETCHED_AT: std::cell::RefCell<Timestamp> = std::cell::RefCell::new(0);
+
+    // Agent network state
+    pub static AGENTS: std::cell::RefCell<HashMap<String, Agent>> = std::cell::RefCell::new(HashMap::new());
+    pub static AGENT_TASKS: std::cell::RefCell<HashMap<String, AgentTask>> = std::cell::RefCell::new(HashMap::new());
+    pub static PENDING_TASK_QUEUE: std::cell::RefCell<std::collections::VecDeque<String>> = std::cell::RefCell::new(std::collections::VecDeque::new());
+    pub static HEARTBEAT_COUNTER: std::cell::RefCell<u64> = std::cell::RefCell::new(0);
 }
 
 // State structure for stable storage

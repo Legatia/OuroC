@@ -1,5 +1,5 @@
 [workspace]
-members = ["src/timer_rust"]
+members = ["src/timer_rust", "src/agent_worker"]
 resolver = "2"
 
 [profile.release]

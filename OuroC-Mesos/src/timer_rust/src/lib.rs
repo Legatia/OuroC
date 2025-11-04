@@ -16,6 +16,7 @@ mod nonce_manager; // NEW: Durable nonce management
 mod utils;
 mod health;
 mod threshold_ed25519;
+mod agent_coordinator; // NEW: Agent network coordination
 
 // Import types for use in public API
 use types::*;
@@ -722,6 +723,81 @@ fn transform_http_response(raw: TransformArgs) -> HttpResponse {
     });
 
     response
+}
+
+// =============================================================================
+// AGENT NETWORK API
+// =============================================================================
+
+/// Register a new agent in the network
+#[update]
+fn register_agent(agent_id: String, capacity: u32) -> Result<String, String> {
+    agent_coordinator::register_agent(agent_id.clone(), None, capacity)?;
+    Ok(format!("Agent {} registered successfully with capacity {}", agent_id, capacity))
+}
+
+/// Agent heartbeat to prove liveness
+#[update]
+fn agent_heartbeat(agent_id: String) -> Result<(), String> {
+    agent_coordinator::agent_heartbeat(agent_id)
+}
+
+/// Get all pending tasks ready for execution (called by agent every 12 hours)
+#[query]
+fn get_all_pending_tasks(agent_id: String) -> Vec<AgentTask> {
+    agent_coordinator::get_all_pending_tasks(agent_id)
+}
+
+/// Report single task completion
+#[update]
+fn report_task_completion(
+    agent_id: String,
+    task_id: String,
+    success: bool,
+    error: Option<String>
+) -> Result<(), String> {
+    agent_coordinator::report_task_completion(agent_id, task_id, success, error)
+}
+
+/// Report batch task completion (for efficiency)
+#[update]
+fn report_batch_completion(
+    agent_id: String,
+    results: Vec<(String, bool, Option<String>)>
+) -> Result<(), String> {
+    agent_coordinator::report_batch_completion(agent_id, results)
+}
+
+/// Get status of all agents (for monitoring)
+#[query]
+fn get_agent_status() -> Vec<Agent> {
+    agent_coordinator::get_agent_status()
+}
+
+/// Get all agent tasks (for monitoring)
+#[query]
+fn get_all_agent_tasks() -> Vec<AgentTask> {
+    agent_coordinator::get_all_agent_tasks()
+}
+
+/// Heartbeat function to check for stale tasks and fallback to IC timer
+#[ic_cdk::heartbeat]
+fn heartbeat() {
+    use crate::state::HEARTBEAT_COUNTER;
+
+    // Increment counter
+    let count = HEARTBEAT_COUNTER.with(|c| {
+        let mut counter = c.borrow_mut();
+        *counter += 1;
+        *counter
+    });
+
+    // Run watchdog once per day (heartbeat runs ~every second, so 86400 ticks = 1 day)
+    if count % 86400 == 0 {
+        ic_cdk::println!("Running daily agent task watchdog...");
+        agent_coordinator::check_stale_agent_tasks();
+        agent_coordinator::cleanup_completed_tasks();
+    }
 }
 
 // =============================================================================

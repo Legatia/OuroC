@@ -1,0 +1,381 @@
+[
+  {
+    "inputs": [
+      {"internalType": "address", "name": "_usdc", "type": "address"},
+      {"internalType": "address", "name": "_icpSignerAddress", "type": "address"},
+      {"internalType": "address", "name": "_feeCollectionAddress", "type": "address"}
+    ],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "inputs": [],
+    "name": "InsufficientAllowance",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InsufficientBalance",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidAmount",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidInterval",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidSignature",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidSubscriptionId",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "MaxFailuresReached",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NonceAlreadyUsed",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "PaymentTooEarly",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "SubscriptionNotActive",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "Unauthorized",
+    "type": "error"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {"indexed": true, "internalType": "address", "name": "oldAddress", "type": "address"},
+      {"indexed": true, "internalType": "address", "name": "newAddress", "type": "address"}
+    ],
+    "name": "FeeCollectionAddressUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {"indexed": false, "internalType": "uint16", "name": "feePercentageBasisPoints", "type": "uint16"},
+      {"indexed": false, "internalType": "uint64", "name": "minFeeAmount", "type": "uint64"}
+    ],
+    "name": "FeeConfigUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {"indexed": true, "internalType": "address", "name": "oldSigner", "type": "address"},
+      {"indexed": true, "internalType": "address", "name": "newSigner", "type": "address"}
+    ],
+    "name": "ICPSignerUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {"indexed": true, "internalType": "bytes32", "name": "subscriptionId", "type": "bytes32"},
+      {"indexed": false, "internalType": "address", "name": "subscriber", "type": "address"},
+      {"indexed": false, "internalType": "string", "name": "reason", "type": "string"},
+      {"indexed": false, "internalType": "uint256", "name": "consecutiveFailures", "type": "uint256"}
+    ],
+    "name": "PaymentFailed",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {"indexed": true, "internalType": "bytes32", "name": "subscriptionId", "type": "bytes32"},
+      {"indexed": true, "internalType": "address", "name": "subscriber", "type": "address"},
+      {"indexed": true, "internalType": "address", "name": "merchant", "type": "address"},
+      {"indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256"},
+      {"indexed": false, "internalType": "uint256", "name": "fee", "type": "uint256"},
+      {"indexed": false, "internalType": "uint256", "name": "paymentNumber", "type": "uint256"}
+    ],
+    "name": "PaymentProcessed",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {"indexed": true, "internalType": "bytes32", "name": "subscriptionId", "type": "bytes32"},
+      {"indexed": true, "internalType": "address", "name": "subscriber", "type": "address"},
+      {"indexed": true, "internalType": "address", "name": "merchant", "type": "address"},
+      {"indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256"},
+      {"indexed": false, "internalType": "uint256", "name": "intervalSeconds", "type": "uint256"}
+    ],
+    "name": "SubscriptionCreated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {"indexed": true, "internalType": "bytes32", "name": "subscriptionId", "type": "bytes32"},
+      {"indexed": false, "internalType": "enum OuroCPrimaArc.SubscriptionStatus", "name": "oldStatus", "type": "uint8"},
+      {"indexed": false, "internalType": "enum OuroCPrimaArc.SubscriptionStatus", "name": "newStatus", "type": "uint8"}
+    ],
+    "name": "SubscriptionStatusChanged",
+    "type": "event"
+  },
+  {
+    "inputs": [
+      {"internalType": "bytes32", "name": "subscriptionId", "type": "bytes32"}
+    ],
+    "name": "cancelSubscription",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"internalType": "bytes32", "name": "subscriptionId", "type": "bytes32"}
+    ],
+    "name": "canProcessSubscription",
+    "outputs": [
+      {"internalType": "bool", "name": "", "type": "bool"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"internalType": "uint256", "name": "amount", "type": "uint256"}
+    ],
+    "name": "calculateFee",
+    "outputs": [
+      {"internalType": "uint256", "name": "", "type": "uint256"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"internalType": "bytes32", "name": "subscriptionId", "type": "bytes32"},
+      {"internalType": "address", "name": "merchant", "type": "address"},
+      {"internalType": "string", "name": "merchantName", "type": "string"},
+      {"internalType": "uint256", "name": "amount", "type": "uint256"},
+      {"internalType": "uint256", "name": "intervalSeconds", "type": "uint256"},
+      {"internalType": "uint32", "name": "reminderDaysBeforePayment", "type": "uint32"},
+      {"internalType": "bytes", "name": "icpSignature", "type": "bytes"},
+      {"internalType": "bytes32", "name": "nonce", "type": "bytes32"}
+    ],
+    "name": "createSubscription",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "feeCollectionAddress",
+    "outputs": [
+      {"internalType": "address", "name": "", "type": "address"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "feeConfig",
+    "outputs": [
+      {"internalType": "uint16", "name": "feePercentageBasisPoints", "type": "uint16"},
+      {"internalType": "uint64", "name": "minFeeAmount", "type": "uint64"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"internalType": "bytes32", "name": "subscriptionId", "type": "bytes32"}
+    ],
+    "name": "getSubscription",
+    "outputs": [
+      {
+        "components": [
+          {"internalType": "bytes32", "name": "id", "type": "bytes32"},
+          {"internalType": "address", "name": "subscriber", "type": "address"},
+          {"internalType": "address", "name": "merchant", "type": "address"},
+          {"internalType": "string", "name": "merchantName", "type": "string"},
+          {"internalType": "uint256", "name": "amount", "type": "uint256"},
+          {"internalType": "uint256", "name": "intervalSeconds", "type": "uint256"},
+          {"internalType": "uint256", "name": "nextPaymentTime", "type": "uint256"},
+          {"internalType": "enum OuroCPrimaArc.SubscriptionStatus", "name": "status", "type": "uint8"},
+          {"internalType": "uint256", "name": "createdAt", "type": "uint256"},
+          {"internalType": "uint256", "name": "lastPaymentTime", "type": "uint256"},
+          {"internalType": "uint256", "name": "paymentsMade", "type": "uint256"},
+          {"internalType": "uint256", "name": "totalPaid", "type": "uint256"},
+          {"internalType": "uint32", "name": "reminderDaysBeforePayment", "type": "uint32"},
+          {"internalType": "uint256", "name": "consecutiveFailures", "type": "uint256"}
+        ],
+        "internalType": "struct OuroCPrimaArc.Subscription",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"internalType": "address", "name": "subscriber", "type": "address"}
+    ],
+    "name": "getSubscriberSubscriptions",
+    "outputs": [
+      {"internalType": "bytes32[]", "name": "", "type": "bytes32[]"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "icpSignerAddress",
+    "outputs": [
+      {"internalType": "address", "name": "", "type": "address"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "owner",
+    "outputs": [
+      {"internalType": "address", "name": "", "type": "address"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "pause",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "paused",
+    "outputs": [
+      {"internalType": "bool", "name": "", "type": "bool"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"internalType": "bytes32", "name": "subscriptionId", "type": "bytes32"}
+    ],
+    "name": "pauseSubscription",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"internalType": "bytes32", "name": "subscriptionId", "type": "bytes32"}
+    ],
+    "name": "processManualPayment",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"internalType": "bytes32", "name": "subscriptionId", "type": "bytes32"},
+      {"internalType": "bytes", "name": "icpSignature", "type": "bytes"},
+      {"internalType": "bytes32", "name": "nonce", "type": "bytes32"}
+    ],
+    "name": "processTrigger",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"internalType": "bytes32", "name": "subscriptionId", "type": "bytes32"}
+    ],
+    "name": "resumeSubscription",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "totalSubscriptions",
+    "outputs": [
+      {"internalType": "uint256", "name": "", "type": "uint256"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "unpause",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"internalType": "address", "name": "newAddress", "type": "address"}
+    ],
+    "name": "updateFeeCollectionAddress",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"internalType": "uint16", "name": "newFeePercentageBasisPoints", "type": "uint16"},
+      {"internalType": "uint64", "name": "newMinFeeAmount", "type": "uint64"}
+    ],
+    "name": "updateFeeConfig",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"internalType": "address", "name": "newSigner", "type": "address"}
+    ],
+    "name": "updateICPSigner",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"internalType": "uint256", "name": "newMax", "type": "uint256"}
+    ],
+    "name": "updateMaxConsecutiveFailures",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "usdc",
+    "outputs": [
+      {"internalType": "contract IERC20", "name": "", "type": "address"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+]

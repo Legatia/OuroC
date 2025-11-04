@@ -21,6 +21,11 @@ pub const MAX_CONSECUTIVE_FAILURES: u32 = 10;
 pub const EXPONENTIAL_BACKOFF_BASE: u64 = 2;
 pub const MAX_BACKOFF_MULTIPLIER: u64 = 16;
 
+// Agent constants
+pub const AGENT_POLL_INTERVAL_HOURS: u64 = 12;
+pub const AGENT_MAX_RETRIES: u32 = 3;
+pub const AGENT_TIMEOUT_HOURS: u64 = 24; // Fallback to IC timer after 24h
+
 // License tiers for IP protection
 #[derive(CandidType, Deserialize, Clone, Debug, PartialEq, SerdeSerialize)]
 pub enum LicenseTier {
@@ -130,6 +135,44 @@ pub struct LicenseValidationResult {
     pub rate_limit_remaining: usize,
     pub expires_at: Timestamp,
     pub message: String,
+}
+
+// Agent types for distributed task execution
+#[derive(CandidType, Deserialize, Clone, Debug, PartialEq, SerdeSerialize)]
+pub enum AgentTaskStatus {
+    Pending,      // Waiting for agent to pick up
+    Assigned,     // Agent claimed the task
+    InProgress,   // Agent is executing
+    Completed,    // Successfully executed
+    Failed,       // Failed after max retries
+    FallingBack,  // Using IC timer as backup
+}
+
+#[derive(CandidType, Deserialize, Clone, Debug, SerdeSerialize)]
+pub struct AgentTask {
+    pub id: String,
+    pub subscription_id: SubscriptionId,
+    pub chain: String, // "solana" or "arc"
+    pub next_execution_time: Timestamp,
+    pub status: AgentTaskStatus,
+    pub assigned_agent: Option<String>,
+    pub created_at: Timestamp,
+    pub retry_count: u32,
+    pub max_retries: u32,
+    pub last_error: Option<String>,
+}
+
+#[derive(CandidType, Deserialize, Clone, Debug, SerdeSerialize)]
+pub struct Agent {
+    pub id: String,
+    pub url: Option<String>,  // Optional webhook URL
+    pub last_heartbeat: Timestamp,
+    pub is_healthy: bool,
+    pub capacity: u32,  // Max concurrent tasks
+    pub current_load: u32,  // Current tasks assigned
+    pub success_count: u64,
+    pub failure_count: u64,
+    pub registered_at: Timestamp,
 }
 
 #[derive(CandidType, Deserialize, Clone, Debug)]
