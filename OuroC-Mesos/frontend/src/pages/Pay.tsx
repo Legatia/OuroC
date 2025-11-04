@@ -50,7 +50,7 @@ interface InvoiceData {
 
 type PaymentFrequency = "one-time" | "weekly" | "monthly" | "quarterly" | "yearly";
 
-const Invoice = () => {
+const Pay = () => {
   const { connected, publicKey, sendTransaction } = useWallet();
   const { connection } = useConnection();
   const [step, setStep] = useState<"upload" | "confirm" | "payment">("upload");
@@ -563,4 +563,4 @@ const Invoice = () => {
   );
 };
 
-export default Invoice;
+export default Pay;

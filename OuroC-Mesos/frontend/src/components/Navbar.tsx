@@ -58,10 +58,10 @@ const Navbar = () => {
               Home
             </Link>
             <Link
-              to="/subscriptions"
-              className={`transition-colors ${isActive('/subscriptions') ? 'text-primary font-medium' : 'text-muted-foreground hover:text-foreground'}`}
+              to="/buy"
+              className={`transition-colors ${isActive('/buy') ? 'text-primary font-medium' : 'text-muted-foreground hover:text-foreground'}`}
             >
-              Subscriptions
+              Buy
             </Link>
             <Link
               to="/community-hub"
@@ -70,16 +70,16 @@ const Navbar = () => {
               Community Hub
             </Link>
             <Link
-              to="/gift-cards"
-              className={`transition-colors ${isActive('/gift-cards') ? 'text-primary font-medium' : 'text-muted-foreground hover:text-foreground'}`}
+              to="/guild"
+              className={`transition-colors ${isActive('/guild') ? 'text-primary font-medium' : 'text-muted-foreground hover:text-foreground'}`}
             >
-              Gift Cards
+              Guild
             </Link>
             <Link
-              to="/invoice"
-              className={`transition-colors ${isActive('/invoice') ? 'text-primary font-medium' : 'text-muted-foreground hover:text-foreground'}`}
+              to="/pay"
+              className={`transition-colors ${isActive('/pay') ? 'text-primary font-medium' : 'text-muted-foreground hover:text-foreground'}`}
             >
-              Invoice
+              Pay
             </Link>
             <Link
               to="/profile"

@@ -7,10 +7,12 @@ import WalletContextProvider from "./contexts/WalletContextProvider";
 import { ArcWalletProvider } from "./contexts/ArcWalletContext";
 import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
-import Subscriptions from "./pages/Subscriptions";
+import Buy from "./pages/Buy";
 import CommunityHub from "./pages/CommunityHub";
-import GiftCards from "./pages/GiftCards";
-import Invoice from "./pages/Invoice";
+import Guild from "./pages/Guild";
+import GuildDetail from "./pages/GuildDetail";
+import CreateGuild from "./pages/CreateGuild";
+import Pay from "./pages/Pay";
 import Profile from "./pages/Profile";
 import CreateContent from "./pages/CreateContent";
 import CheckoutSubscription from "./pages/CheckoutSubscription";
@@ -30,10 +32,12 @@ const App = () => (
             <Navbar />
             <Routes>
               <Route path="/" element={<Home />} />
-              <Route path="/subscriptions" element={<Subscriptions />} />
+              <Route path="/buy" element={<Buy />} />
               <Route path="/community-hub" element={<CommunityHub />} />
-              <Route path="/gift-cards" element={<GiftCards />} />
-              <Route path="/invoice" element={<Invoice />} />
+              <Route path="/guild" element={<Guild />} />
+              <Route path="/guild/create" element={<CreateGuild />} />
+              <Route path="/guild/:guildId" element={<GuildDetail />} />
+              <Route path="/pay" element={<Pay />} />
               <Route path="/checkout/subscription" element={<CheckoutSubscription />} />
               <Route path="/checkout/gift-card" element={<CheckoutGiftCard />} />
               <Route path="/profile" element={<Profile />} />
