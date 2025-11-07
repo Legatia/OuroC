@@ -5,7 +5,23 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Search, Star, Users, Calendar } from 'lucide-react';
+import { Search, Star, Users, Calendar, Loader2 } from 'lucide-react';
+import { getAllContent, getLocalContent, type ContentMetadata } from '@/lib/alephSimple';
+import { useToast } from '@/hooks/use-toast';
+import { createSubscription } from '@/lib/backend';
+
+// Helper to convert interval to seconds
+const intervalToSeconds = (interval: 'weekly' | 'monthly' | 'quarterly'): number => {
+  const WEEK = 7 * 24 * 60 * 60;
+  const MONTH = 30 * 24 * 60 * 60;
+  const QUARTER = 90 * 24 * 60 * 60;
+
+  switch (interval) {
+    case 'weekly': return WEEK;
+    case 'monthly': return MONTH;
+    case 'quarterly': return QUARTER;
+  }
+};
 
 interface CommunityContent {
   id: string;
@@ -24,12 +40,20 @@ interface CommunityContent {
 const CommunityHub = () => {
   const { publicKey } = useWallet();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [maxPrice, setMaxPrice] = useState(50);
+  const [allContent, setAllContent] = useState<CommunityContent[]>([]);
+  const [filteredContent, setFilteredContent] = useState<CommunityContent[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [sortBy, setSortBy] = useState<'newest' | 'price-low' | 'price-high' | 'rating' | 'popular'>('newest');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 9;
 
-  // Mock data for demonstration
-  const allContent: CommunityContent[] = [
+  // Mock data for fallback (if Aleph is empty)
+  const mockContent: CommunityContent[] = [
     {
       id: 'content_1',
       title: 'Advanced React Patterns',
@@ -121,13 +145,71 @@ const CommunityHub = () => {
     { value: 'Art', label: 'Art', icon: '🖼️' },
   ];
 
-  const [filteredContent, setFilteredContent] = useState<CommunityContent[]>(allContent);
+  const [filteredContent, setFilteredContent] = useState<CommunityContent[]>([]);
 
+  // Fetch content from localStorage + Aleph on mount
   useEffect(() => {
-    let filtered = allContent;
+    const fetchContent = async () => {
+      try {
+        setIsLoading(true);
+        console.log('📖 Fetching content...');
 
-    // Category filter
-    if (selectedCategory !== 'all') {
+        // Get from localStorage first
+        const localData = await getLocalContent();
+        const alephData = await getAllContent();
+
+        // Combine both sources
+        const allData = [...localData, ...alephData];
+
+        if (allData.length > 0) {
+          // Convert to CommunityContent format
+          const content: CommunityContent[] = allData.map((item: ContentMetadata) => ({
+            id: item.id,
+            title: item.title,
+            creator: item.creatorName,
+            creatorWallet: item.creatorWallet,
+            price: item.price,
+            rating: 4.8, // TODO: Implement ratings system
+            subscribers: 0, // TODO: Implement subscriber tracking
+            thumbnail: item.thumbnailUrl,
+            category: item.category,
+            interval: item.interval,
+            description: item.description,
+          }));
+
+          console.log(`✅ Loaded ${content.length} courses`);
+          setAllContent(content);
+        } else {
+          // Use mock data as fallback
+          console.log('ℹ️ No content yet, using mock data');
+          setAllContent(mockContent);
+        }
+      } catch (error) {
+        console.error('❌ Failed to fetch content:', error);
+        toast({
+          title: 'Failed to load content',
+          description: 'Using demo content instead',
+          variant: 'default',
+        });
+        setAllContent(mockContent);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchContent();
+  }, []);
+
+  // Filter and sort content
+  useEffect(() => {
+    let filtered = [...allContent];
+
+    // Category filter (single or multiple)
+    if (selectedCategories.length > 0) {
+      filtered = filtered.filter(content =>
+        selectedCategories.includes(content.category)
+      );
+    } else if (selectedCategory !== 'all') {
       filtered = filtered.filter(content => content.category === selectedCategory);
     }
 
@@ -145,12 +227,110 @@ const CommunityHub = () => {
       );
     }
 
-    setFilteredContent(filtered);
-  }, [selectedCategory, maxPrice, searchQuery]);
+    // Sorting
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case 'price-low':
+          return a.price - b.price;
+        case 'price-high':
+          return b.price - a.price;
+        case 'rating':
+          return b.rating - a.rating;
+        case 'popular':
+          return b.subscribers - a.subscribers;
+        case 'newest':
+        default:
+          return b.id.localeCompare(a.id); // Assumes newer IDs are lexicographically larger
+      }
+    });
 
-  const handleSubscribe = (contentId: string) => {
-    alert(`Subscription flow for ${contentId} - Coming soon!`);
-    // TODO: Integrate with existing subscription flow
+    setFilteredContent(filtered);
+    setCurrentPage(1); // Reset to first page when filters change
+  }, [allContent, selectedCategory, selectedCategories, maxPrice, searchQuery, sortBy]);
+
+  // Pagination
+  const totalPages = Math.ceil(filteredContent.length / itemsPerPage);
+  const paginatedContent = filteredContent.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  const handleCategoryToggle = (category: string) => {
+    setSelectedCategories(prev =>
+      prev.includes(category)
+        ? prev.filter(c => c !== category)
+        : [...prev, category]
+    );
+  };
+
+  const handleSubscribe = async (contentId: string) => {
+    // Check wallet connection
+    if (!publicKey) {
+      toast({
+        title: 'Wallet not connected',
+        description: 'Please connect your wallet to subscribe',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      // Find the content
+      const content = allContent.find(c => c.id === contentId);
+
+      if (!content) {
+        throw new Error('Content not found');
+      }
+
+      console.log('📝 Subscribing to content:', {
+        contentId: content.id,
+        title: content.title,
+        creator: content.creator,
+        price: content.price,
+        interval: content.interval,
+      });
+
+      toast({
+        title: 'Creating subscription...',
+        description: `Subscribing to ${content.title}`,
+      });
+
+      // Create subscription via OuroC-Prima
+      // Payments will go DIRECTLY to creator's wallet!
+      const result = await createSubscription(
+        publicKey.toString(),                    // Student's wallet (subscriber)
+        content.creatorWallet,                   // Creator's wallet (merchant) - gets 98%!
+        content.price,                           // Amount in USDC
+        intervalToSeconds(content.interval),     // Interval in seconds
+        content.creator                          // Creator name
+      );
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to create subscription');
+      }
+
+      console.log('✅ Subscription created!');
+      console.log('   Subscription ID:', result.subscriptionId);
+      console.log('   Student wallet:', publicKey.toString());
+      console.log('   Creator wallet:', content.creatorWallet);
+      console.log('   Amount:', `$${content.price}/${content.interval}`);
+      console.log('   Payment flow: Student → Creator (98%) + ICP Fee (2%)');
+
+      toast({
+        title: 'Subscribed successfully! 🎉',
+        description: `You're now enrolled in ${content.title}. Payments go directly to the creator.`,
+      });
+
+      // Navigate to profile learning tab
+      navigate('/profile?tab=learn');
+    } catch (error) {
+      console.error('❌ Subscription failed:', error);
+      toast({
+        title: 'Subscription failed',
+        description: error instanceof Error ? error.message : 'Please try again later',
+        variant: 'destructive',
+      });
+    }
   };
 
   const totalSubscribers = allContent.reduce((sum, c) => sum + c.subscribers, 0);
@@ -266,14 +446,40 @@ const CommunityHub = () => {
 
           {/* Content Grid */}
           <main className="lg:col-span-3">
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold">
-                {filteredContent.length} {filteredContent.length === 1 ? 'Course' : 'Courses'}
-                {searchQuery && ` matching "${searchQuery}"`}
-              </h2>
-            </div>
+            {isLoading ? (
+              <div className="flex items-center justify-center py-24">
+                <div className="text-center space-y-4">
+                  <Loader2 className="w-12 h-12 animate-spin mx-auto text-primary" />
+                  <h3 className="text-xl font-semibold">Loading content from Aleph.im...</h3>
+                  <p className="text-muted-foreground">Fetching courses from decentralized storage</p>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Sort and Results Count */}
+                <div className="mb-6 flex items-center justify-between">
+                  <h2 className="text-2xl font-bold">
+                    {filteredContent.length} {filteredContent.length === 1 ? 'Course' : 'Courses'}
+                    {searchQuery && ` matching "${searchQuery}"`}
+                  </h2>
 
-            {filteredContent.length === 0 ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Sort by:</span>
+                    <select
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value as any)}
+                      className="px-3 py-2 rounded-md border border-input bg-background text-sm"
+                    >
+                      <option value="newest">Newest</option>
+                      <option value="price-low">Price: Low to High</option>
+                      <option value="price-high">Price: High to Low</option>
+                      <option value="rating">Highest Rated</option>
+                      <option value="popular">Most Popular</option>
+                    </select>
+                  </div>
+                </div>
+
+                {filteredContent.length === 0 ? (
               <Card className="text-center py-16">
                 <CardContent>
                   <div className="text-6xl mb-4">😕</div>
@@ -291,9 +497,14 @@ const CommunityHub = () => {
                 </CardContent>
               </Card>
             ) : (
+              <>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {filteredContent.map(content => (
-                  <Card key={content.id} className="overflow-hidden hover:shadow-lg transition-shadow">
+                {paginatedContent.map(content => (
+                  <Card
+                    key={content.id}
+                    className="overflow-hidden hover:shadow-lg transition-all cursor-pointer"
+                    onClick={() => navigate(`/content/${content.id}`)}
+                  >
                     <div className="relative">
                       <img
                         src={content.thumbnail}
@@ -330,10 +541,13 @@ const CommunityHub = () => {
                     <CardFooter className="flex justify-between items-center">
                       <div>
                         <span className="text-2xl font-bold text-primary">${content.price}</span>
-                        <span className="text-sm text-muted-foreground">/month</span>
+                        <span className="text-sm text-muted-foreground">/{content.interval}</span>
                       </div>
                       <Button
-                        onClick={() => handleSubscribe(content.id)}
+                        onClick={(e) => {
+                          e.stopPropagation(); // Prevent card click
+                          handleSubscribe(content.id);
+                        }}
                         disabled={!publicKey}
                       >
                         {publicKey ? 'Subscribe' : 'Connect Wallet'}
@@ -342,6 +556,54 @@ const CommunityHub = () => {
                   </Card>
                 ))}
               </div>
+
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="mt-8 flex items-center justify-center gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    Previous
+                  </Button>
+
+                  <div className="flex gap-1">
+                    {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+                      let page;
+                      if (totalPages <= 7) {
+                        page = i + 1;
+                      } else if (currentPage <= 4) {
+                        page = i + 1;
+                      } else if (currentPage >= totalPages - 3) {
+                        page = totalPages - 6 + i;
+                      } else {
+                        page = currentPage - 3 + i;
+                      }
+                      return (
+                        <Button
+                          key={page}
+                          variant={currentPage === page ? 'default' : 'outline'}
+                          onClick={() => setCurrentPage(page)}
+                          className="w-10"
+                        >
+                          {page}
+                        </Button>
+                      );
+                    })}
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                  >
+                    Next
+                  </Button>
+                </div>
+              )}
+            )}
+              </>
             )}
           </main>
         </div>

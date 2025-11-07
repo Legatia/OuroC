@@ -15,6 +15,8 @@ import CreateGuild from "./pages/CreateGuild";
 import Pay from "./pages/Pay";
 import Profile from "./pages/Profile";
 import CreateContent from "./pages/CreateContent";
+import ContentDetail from "./pages/ContentDetail";
+import Subscriptions from "./pages/Subscriptions";
 import CheckoutSubscription from "./pages/CheckoutSubscription";
 import CheckoutGiftCard from "./pages/CheckoutGiftCard";
 import NotFound from "./pages/NotFound";
@@ -34,10 +36,12 @@ const App = () => (
               <Route path="/" element={<Home />} />
               <Route path="/buy" element={<Buy />} />
               <Route path="/community-hub" element={<CommunityHub />} />
+              <Route path="/content/:contentId" element={<ContentDetail />} />
               <Route path="/guild" element={<Guild />} />
               <Route path="/guild/create" element={<CreateGuild />} />
               <Route path="/guild/:guildId" element={<GuildDetail />} />
               <Route path="/pay" element={<Pay />} />
+              <Route path="/subscriptions" element={<Subscriptions />} />
               <Route path="/checkout/subscription" element={<CheckoutSubscription />} />
               <Route path="/checkout/gift-card" element={<CheckoutGiftCard />} />
               <Route path="/profile" element={<Profile />} />

@@ -1,0 +1,172 @@
+/**
+ * Aleph.im Storage Service
+ *
+ * Handles decentralized file storage for OuroC-Mesos.
+ * Used for course thumbnails, profile images, and other media.
+ */
+
+import { ItemType } from '@aleph-sdk/message';
+import { AuthenticatedAlephHttpClient } from '@aleph-sdk/client';
+import { ETHAccount } from '@aleph-sdk/ethereum';
+
+// Configuration
+const ALEPH_API_SERVER = 'https://api2.aleph.im';
+const ALEPH_CHANNEL = 'OuroC-Mesos';
+
+export interface UploadResult {
+  success: boolean;
+  hash?: string;
+  url?: string;
+  error?: string;
+}
+
+/**
+ * Initialize Aleph account from private key
+ * Note: In production, use wallet signing instead of private key
+ */
+const getAlephAccount = async (privateKey?: string): Promise<ETHAccount> => {
+  if (privateKey) {
+    // Use provided private key (server-side or testing)
+    return ETHAccount.import({ privateKey });
+  }
+
+  // For development: generate temporary account
+  // In production: integrate with user's wallet
+  return ETHAccount.create();
+};
+
+/**
+ * Upload file to Aleph.im storage
+ *
+ * @param file - File to upload (thumbnail, image, etc.)
+ * @param account - Optional Aleph account (will generate if not provided)
+ * @returns Upload result with IPFS hash and URL
+ */
+export const uploadToAleph = async (
+  file: File,
+  account?: ETHAccount
+): Promise<UploadResult> => {
+  try {
+    console.log('📤 Uploading to Aleph.im:', file.name, `(${(file.size / 1024).toFixed(2)}KB)`);
+
+    // Get or create account
+    const alephAccount = account || await getAlephAccount();
+
+    // Create authenticated client
+    const client = new AuthenticatedAlephHttpClient(alephAccount, ALEPH_API_SERVER);
+
+    // Convert File to Buffer
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // Upload to Aleph
+    const result = await client.createStore({
+      fileObject: buffer,
+      storageEngine: ItemType.ipfs, // Use IPFS storage
+      channel: ALEPH_CHANNEL,
+    });
+
+    const hash = result.item_hash;
+    const url = `${ALEPH_API_SERVER}/api/v0/storage/raw/${hash}`;
+
+    console.log('✅ Upload successful!');
+    console.log('   Hash:', hash);
+    console.log('   URL:', url);
+
+    return {
+      success: true,
+      hash,
+      url
+    };
+  } catch (error) {
+    console.error('❌ Upload failed:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Upload failed'
+    };
+  }
+};
+
+/**
+ * Upload thumbnail for course/content
+ *
+ * @param file - Thumbnail file
+ * @param contentId - Content ID for reference
+ * @returns Upload result
+ */
+export const uploadThumbnail = async (
+  file: File,
+  contentId: string
+): Promise<UploadResult> => {
+  console.log(`📸 Uploading thumbnail for content: ${contentId}`);
+
+  // Validate file type
+  const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+  if (!validTypes.includes(file.type)) {
+    return {
+      success: false,
+      error: 'Invalid file type. Please upload an image (JPEG, PNG, WebP, or GIF).'
+    };
+  }
+
+  // Validate file size (max 5MB)
+  const maxSize = 5 * 1024 * 1024; // 5MB
+  if (file.size > maxSize) {
+    return {
+      success: false,
+      error: 'File too large. Maximum size is 5MB.'
+    };
+  }
+
+  return uploadToAleph(file);
+};
+
+/**
+ * Get file URL from Aleph hash
+ *
+ * @param hash - Aleph/IPFS hash
+ * @returns Full URL to access file
+ */
+export const getAlephUrl = (hash: string): string => {
+  return `${ALEPH_API_SERVER}/api/v0/storage/raw/${hash}`;
+};
+
+/**
+ * Check if file exists in Aleph storage
+ *
+ * @param hash - File hash
+ * @returns True if file exists
+ */
+export const checkFileExists = async (hash: string): Promise<boolean> => {
+  try {
+    const url = getAlephUrl(hash);
+    const response = await fetch(url, { method: 'HEAD' });
+    return response.ok;
+  } catch (error) {
+    console.error('Error checking file:', error);
+    return false;
+  }
+};
+
+/**
+ * Upload multiple files in parallel
+ *
+ * @param files - Array of files to upload
+ * @returns Array of upload results
+ */
+export const uploadMultiple = async (
+  files: File[]
+): Promise<UploadResult[]> => {
+  console.log(`📤 Uploading ${files.length} files to Aleph.im...`);
+
+  const uploads = files.map(file => uploadToAleph(file));
+  const results = await Promise.all(uploads);
+
+  const successful = results.filter(r => r.success).length;
+  console.log(`✅ Uploaded ${successful}/${files.length} files successfully`);
+
+  return results;
+};
+
+// Export types and constants
+export { ALEPH_API_SERVER, ALEPH_CHANNEL };

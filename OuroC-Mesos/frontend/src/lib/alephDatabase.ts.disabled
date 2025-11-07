@@ -1,0 +1,394 @@
+/**
+ * Aleph.im Database Service
+ *
+ * Handles decentralized data storage for OuroC-Mesos.
+ * Stores content metadata, guild data, and user profiles.
+ */
+
+import { AuthenticatedAlephHttpClient } from '@aleph-sdk/client';
+import { ETHAccount } from '@aleph-sdk/ethereum';
+import { ItemType } from '@aleph-sdk/message';
+
+// Configuration
+const ALEPH_API_SERVER = 'https://api2.aleph.im';
+const ALEPH_CHANNEL = 'OuroC-Mesos';
+
+// Data types
+const DATA_TYPES = {
+  CONTENT: 'OuroC-Mesos-Content',
+  GUILD: 'OuroC-Mesos-Guild',
+  PROPOSAL: 'OuroC-Mesos-Proposal',
+  ENROLLMENT: 'OuroC-Mesos-Enrollment',
+} as const;
+
+// Interfaces
+export interface ContentMetadata {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  price: number;
+  interval: 'weekly' | 'monthly' | 'quarterly';
+  creatorWallet: string;
+  creatorName: string;
+  thumbnailUrl: string;
+  thumbnailHash?: string; // Aleph/IPFS hash
+  tags?: string[];
+  createdAt: number;
+  updatedAt?: number;
+}
+
+export interface GuildMetadata {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  treasuryAddress: string; // Squads multisig address
+  subscriptionPrice: number;
+  interval: 'weekly' | 'monthly' | 'quarterly';
+  threshold: number;
+  members: string[]; // Wallet addresses
+  logoEmoji?: string;
+  tags?: string[];
+  createdAt: number;
+  updatedAt?: number;
+}
+
+export interface ProposalMetadata {
+  id: string;
+  guildId: string;
+  title: string;
+  description: string;
+  amount: number;
+  recipient: string;
+  createdBy: string;
+  createdAt: number;
+  status: 'active' | 'passed' | 'rejected';
+  votesFor: number;
+  votesAgainst: number;
+  multisigTxIndex?: number;
+}
+
+export interface DatabaseResult<T> {
+  success: boolean;
+  data?: T;
+  hash?: string;
+  error?: string;
+}
+
+/**
+ * Initialize Aleph account
+ */
+const getAlephAccount = async (privateKey?: string): Promise<ETHAccount> => {
+  if (privateKey) {
+    return ETHAccount.import({ privateKey });
+  }
+  return ETHAccount.create();
+};
+
+/**
+ * Store content metadata in Aleph
+ */
+export const storeContent = async (
+  content: ContentMetadata,
+  account?: ETHAccount
+): Promise<DatabaseResult<ContentMetadata>> => {
+  try {
+    console.log('💾 Storing content metadata:', content.id);
+
+    const alephAccount = account || await getAlephAccount();
+    const client = new AuthenticatedAlephHttpClient(alephAccount, ALEPH_API_SERVER);
+
+    const result = await client.createPost({
+      postType: DATA_TYPES.CONTENT,
+      content: content,
+      channel: ALEPH_CHANNEL,
+      storageEngine: ItemType.ipfs,
+    });
+
+    console.log('✅ Content stored! Hash:', result.item_hash);
+
+    return {
+      success: true,
+      data: content,
+      hash: result.item_hash
+    };
+  } catch (error) {
+    console.error('❌ Failed to store content:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Storage failed'
+    };
+  }
+};
+
+/**
+ * Get all content from Aleph
+ */
+export const getAllContent = async (): Promise<DatabaseResult<ContentMetadata[]>> => {
+  try {
+    console.log('📖 Fetching all content from Aleph...');
+
+    const response = await fetch(
+      `${ALEPH_API_SERVER}/api/v0/posts.json?types=${DATA_TYPES.CONTENT}&channels=${ALEPH_CHANNEL}`
+    );
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch content');
+    }
+
+    const data = await response.json();
+    const content = data.posts.map((post: any) => post.content as ContentMetadata);
+
+    console.log(`✅ Found ${content.length} courses`);
+
+    return {
+      success: true,
+      data: content
+    };
+  } catch (error) {
+    console.error('❌ Failed to fetch content:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Fetch failed'
+    };
+  }
+};
+
+/**
+ * Get content by ID
+ */
+export const getContentById = async (
+  contentId: string
+): Promise<DatabaseResult<ContentMetadata>> => {
+  try {
+    const result = await getAllContent();
+
+    if (!result.success || !result.data) {
+      throw new Error('Failed to fetch content');
+    }
+
+    const content = result.data.find(c => c.id === contentId);
+
+    if (!content) {
+      throw new Error('Content not found');
+    }
+
+    return {
+      success: true,
+      data: content
+    };
+  } catch (error) {
+    console.error('❌ Failed to get content:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Content not found'
+    };
+  }
+};
+
+/**
+ * Get content by creator wallet
+ */
+export const getContentByCreator = async (
+  creatorWallet: string
+): Promise<DatabaseResult<ContentMetadata[]>> => {
+  try {
+    const result = await getAllContent();
+
+    if (!result.success || !result.data) {
+      throw new Error('Failed to fetch content');
+    }
+
+    const creatorContent = result.data.filter(
+      c => c.creatorWallet.toLowerCase() === creatorWallet.toLowerCase()
+    );
+
+    return {
+      success: true,
+      data: creatorContent
+    };
+  } catch (error) {
+    console.error('❌ Failed to get creator content:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Fetch failed'
+    };
+  }
+};
+
+/**
+ * Store guild metadata in Aleph
+ */
+export const storeGuild = async (
+  guild: GuildMetadata,
+  account?: ETHAccount
+): Promise<DatabaseResult<GuildMetadata>> => {
+  try {
+    console.log('💾 Storing guild metadata:', guild.id);
+
+    const alephAccount = account || await getAlephAccount();
+    const client = new AuthenticatedAlephHttpClient(alephAccount, ALEPH_API_SERVER);
+
+    const result = await client.createPost({
+      postType: DATA_TYPES.GUILD,
+      content: guild,
+      channel: ALEPH_CHANNEL,
+      storageEngine: ItemType.ipfs,
+    });
+
+    console.log('✅ Guild stored! Hash:', result.item_hash);
+
+    return {
+      success: true,
+      data: guild,
+      hash: result.item_hash
+    };
+  } catch (error) {
+    console.error('❌ Failed to store guild:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Storage failed'
+    };
+  }
+};
+
+/**
+ * Get all guilds from Aleph
+ */
+export const getAllGuilds = async (): Promise<DatabaseResult<GuildMetadata[]>> => {
+  try {
+    console.log('📖 Fetching all guilds from Aleph...');
+
+    const response = await fetch(
+      `${ALEPH_API_SERVER}/api/v0/posts.json?types=${DATA_TYPES.GUILD}&channels=${ALEPH_CHANNEL}`
+    );
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch guilds');
+    }
+
+    const data = await response.json();
+    const guilds = data.posts.map((post: any) => post.content as GuildMetadata);
+
+    console.log(`✅ Found ${guilds.length} guilds`);
+
+    return {
+      success: true,
+      data: guilds
+    };
+  } catch (error) {
+    console.error('❌ Failed to fetch guilds:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Fetch failed'
+    };
+  }
+};
+
+/**
+ * Get guild by ID
+ */
+export const getGuildById = async (
+  guildId: string
+): Promise<DatabaseResult<GuildMetadata>> => {
+  try {
+    const result = await getAllGuilds();
+
+    if (!result.success || !result.data) {
+      throw new Error('Failed to fetch guilds');
+    }
+
+    const guild = result.data.find(g => g.id === guildId);
+
+    if (!guild) {
+      throw new Error('Guild not found');
+    }
+
+    return {
+      success: true,
+      data: guild
+    };
+  } catch (error) {
+    console.error('❌ Failed to get guild:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Guild not found'
+    };
+  }
+};
+
+/**
+ * Store proposal metadata in Aleph
+ */
+export const storeProposal = async (
+  proposal: ProposalMetadata,
+  account?: ETHAccount
+): Promise<DatabaseResult<ProposalMetadata>> => {
+  try {
+    console.log('💾 Storing proposal metadata:', proposal.id);
+
+    const alephAccount = account || await getAlephAccount();
+    const client = new AuthenticatedAlephHttpClient(alephAccount, ALEPH_API_SERVER);
+
+    const result = await client.createPost({
+      postType: DATA_TYPES.PROPOSAL,
+      content: proposal,
+      channel: ALEPH_CHANNEL,
+      storageEngine: ItemType.ipfs,
+    });
+
+    console.log('✅ Proposal stored! Hash:', result.item_hash);
+
+    return {
+      success: true,
+      data: proposal,
+      hash: result.item_hash
+    };
+  } catch (error) {
+    console.error('❌ Failed to store proposal:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Storage failed'
+    };
+  }
+};
+
+/**
+ * Get proposals for a guild
+ */
+export const getGuildProposals = async (
+  guildId: string
+): Promise<DatabaseResult<ProposalMetadata[]>> => {
+  try {
+    console.log('📖 Fetching proposals for guild:', guildId);
+
+    const response = await fetch(
+      `${ALEPH_API_SERVER}/api/v0/posts.json?types=${DATA_TYPES.PROPOSAL}&channels=${ALEPH_CHANNEL}`
+    );
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch proposals');
+    }
+
+    const data = await response.json();
+    const allProposals = data.posts.map((post: any) => post.content as ProposalMetadata);
+    const guildProposals = allProposals.filter(p => p.guildId === guildId);
+
+    console.log(`✅ Found ${guildProposals.length} proposals for guild`);
+
+    return {
+      success: true,
+      data: guildProposals
+    };
+  } catch (error) {
+    console.error('❌ Failed to fetch proposals:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Fetch failed'
+    };
+  }
+};
+
+// Export types and constants
+export { ALEPH_API_SERVER, ALEPH_CHANNEL, DATA_TYPES };

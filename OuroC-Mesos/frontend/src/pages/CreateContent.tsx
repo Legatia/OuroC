@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Upload, Loader2 } from 'lucide-react';
+import { storeContent, type ContentMetadata } from '@/lib/alephSimple';
 
 interface ContentFormData {
   title: string;
@@ -25,6 +26,7 @@ const CreateContent = () => {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [thumbnailPreview, setThumbnailPreview] = useState<string>('');
+  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
 
   const [formData, setFormData] = useState<ContentFormData>({
     title: '',
@@ -82,8 +84,8 @@ const CreateContent = () => {
       };
       reader.readAsDataURL(file);
 
-      // TODO: Upload to IPFS or storage service
-      // For now, just store the file name
+      // Store the file for later upload
+      setThumbnailFile(file);
       handleInputChange('thumbnailUrl', file.name);
     }
   };
@@ -150,22 +152,47 @@ const CreateContent = () => {
     setIsSubmitting(true);
 
     try {
-      // TODO: Integrate with backend
-      // 1. Upload thumbnail to IPFS/CDN
-      // 2. Create subscription via ICP timer
-      // 3. Store content metadata in database
-
-      // Mock API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
       const contentId = `content_${Date.now()}`;
 
-      console.log('Creating content:', {
-        id: contentId,
-        ...formData,
-        creatorWallet: publicKey.toString(),
-        priceUSD: priceNum,
+      // Store content metadata (localStorage for now)
+      toast({
+        title: 'Saving content...',
+        description: 'Creating your course',
       });
+
+      const contentMetadata: ContentMetadata = {
+        id: contentId,
+        title: formData.title.trim(),
+        description: formData.description.trim(),
+        category: formData.category,
+        price: priceNum,
+        interval: formData.interval,
+        creatorWallet: publicKey.toString(), // IMPORTANT: This is the merchant address
+        creatorName: 'Creator', // TODO: Get from user profile
+        thumbnailUrl: thumbnailPreview || 'https://via.placeholder.com/400x300',
+        tags: [formData.category],
+        createdAt: Date.now(),
+      };
+
+      const success = await storeContent(contentMetadata);
+
+      if (!success) {
+        throw new Error('Failed to store content');
+      }
+
+      console.log('✅ Content created!');
+      console.log('📦 Content ID:', contentId);
+      console.log('💰 Merchant Address:', publicKey.toString());
+      console.log('💵 Price:', `$${priceNum}/${formData.interval}`);
+
+      // IMPORTANT: When students subscribe to this content:
+      // - subscriberAddress = student's wallet
+      // - merchantAddress = creator's wallet (publicKey)
+      // - Recurring payments go DIRECTLY to creator's wallet
+      //
+      // Payment Flow:
+      // Student → OuroC-Prima Smart Contract → Creator's Wallet (98%)
+      //                                      → ICP Fee (2%)
 
       toast({
         title: 'Content created successfully! 🎉',
@@ -175,10 +202,10 @@ const CreateContent = () => {
       // Redirect to profile content tab
       navigate('/profile?tab=content');
     } catch (error) {
-      console.error('Error creating content:', error);
+      console.error('❌ Error creating content:', error);
       toast({
         title: 'Failed to create content',
-        description: 'Please try again later',
+        description: error instanceof Error ? error.message : 'Please try again later',
         variant: 'destructive',
       });
     } finally {
@@ -327,6 +354,7 @@ const CreateContent = () => {
                         variant="outline"
                         onClick={() => {
                           setThumbnailPreview('');
+                          setThumbnailFile(null);
                           handleInputChange('thumbnailUrl', '');
                         }}
                       >

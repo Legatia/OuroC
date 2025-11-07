@@ -12,6 +12,8 @@ import { usePromoCodes } from "@/contexts/PromoCodesContext";
 import { Copy, Gift, Plus, TrendingUp, Users, DollarSign, BookOpen, Award, Star, BarChart3, Calendar, CreditCard } from "lucide-react";
 import { format } from "date-fns";
 import { listSubscriptions, cancelSubscription } from "@/lib/backend";
+import { getAllContent, ContentMetadata } from "@/lib/alephSimple";
+import { CreatorAnalytics } from "@/components/CreatorAnalytics";
 
 const Profile = () => {
   const { connected, publicKey } = useWallet();
@@ -26,6 +28,10 @@ const Profile = () => {
   const [recurringPurchases, setRecurringPurchases] = useState<any[]>([]);
   const [isLoadingSubscriptions, setIsLoadingSubscriptions] = useState(false);
 
+  // Real creator content from Aleph.im
+  const [creatorContent, setCreatorContent] = useState<ContentMetadata[]>([]);
+  const [isLoadingContent, setIsLoadingContent] = useState(false);
+
   // Mock creator data (replace with real data from backend)
   const [creatorStats] = useState({
     monthlyEarnings: 1250,
@@ -34,33 +40,6 @@ const Profile = () => {
     level: 5,
     badges: ['🎓', '⭐', '🔥'],
   });
-
-  const [creatorContent] = useState([
-    {
-      id: 'content_1',
-      title: 'Advanced React Patterns',
-      subscribers: 23,
-      revenue: 460,
-      rating: 4.8,
-      status: 'active',
-    },
-    {
-      id: 'content_2',
-      title: 'TypeScript Masterclass',
-      subscribers: 15,
-      revenue: 300,
-      rating: 4.9,
-      status: 'active',
-    },
-    {
-      id: 'content_3',
-      title: 'Full Stack Development',
-      subscribers: 7,
-      revenue: 490,
-      rating: 4.7,
-      status: 'draft',
-    },
-  ]);
 
   const [learnerStats] = useState({
     coursesEnrolled: 5,
@@ -83,6 +62,12 @@ const Profile = () => {
   useEffect(() => {
     setActiveTab(initialTab);
   }, [initialTab]);
+
+  useEffect(() => {
+    if (connected && publicKey && activeTab === 'earn') {
+      loadMyContent();
+    }
+  }, [connected, publicKey, activeTab]);
 
   const loadSubscriptions = async () => {
     if (!publicKey) return;
@@ -138,6 +123,45 @@ const Profile = () => {
     } catch (error) {
       console.error("Failed to cancel subscription:", error);
       toast.error("Failed to cancel subscription");
+    }
+  };
+
+  const loadMyContent = async () => {
+    if (!publicKey) return;
+
+    setIsLoadingContent(true);
+    try {
+      const allContent = await getAllContent();
+      const myContent = allContent.filter(
+        (c) => c.creatorWallet === publicKey.toString()
+      );
+      setCreatorContent(myContent);
+      console.log(`✅ Loaded ${myContent.length} content items for creator`);
+    } catch (error) {
+      console.error('Failed to load content:', error);
+      toast.error('Failed to load content');
+    } finally {
+      setIsLoadingContent(false);
+    }
+  };
+
+  const handleEditContent = (contentId: string) => {
+    navigate(`/profile/edit-content/${contentId}`);
+  };
+
+  const handleDeleteContent = async (contentId: string) => {
+    if (!window.confirm('Are you sure you want to delete this content? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      // For now, just remove from local state
+      // TODO: Add backend endpoint to mark as deleted on Aleph.im
+      setCreatorContent(prev => prev.filter(c => c.id !== contentId));
+      toast.success('Content deleted successfully');
+    } catch (error) {
+      console.error('Failed to delete content:', error);
+      toast.error('Failed to delete content');
     }
   };
 
@@ -330,6 +354,18 @@ const Profile = () => {
 
               {/* Earn Tab */}
               <TabsContent value="earn" className="space-y-6">
+                {/* Creator Analytics */}
+                <CreatorAnalytics
+                  content={creatorContent}
+                  subscriptions={recurringPurchases.map(p => ({
+                    ...p,
+                    amount: BigInt(parseFloat(p.amount.replace('$', '')) * 1_000_000),
+                    interval_seconds: BigInt(parseInt(p.interval) * 86400),
+                    status: p.status === 'active' ? { Active: null } : { Paused: null },
+                    merchant_address: p.merchant,
+                  }))}
+                />
+
                 {/* Content Management */}
                 <Card className="glass">
                   <CardHeader>
@@ -348,41 +384,99 @@ const Profile = () => {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4">
-                      {creatorContent.map((content) => (
-                        <div key={content.id} className="p-4 border rounded-lg">
-                          <div className="flex items-start justify-between mb-3">
-                            <div>
-                              <h4 className="font-semibold">{content.title}</h4>
-                              <div className="flex gap-4 mt-2 text-sm text-muted-foreground">
-                                <span className="flex items-center gap-1">
-                                  <Users className="w-4 h-4" />
-                                  {content.subscribers}
-                                </span>
-                                <span className="flex items-center gap-1">
-                                  <DollarSign className="w-4 h-4" />
-                                  ${content.revenue}
-                                </span>
-                                <span className="flex items-center gap-1">
-                                  <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                                  {content.rating}
-                                </span>
+                    {isLoadingContent ? (
+                      <div className="text-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                        <p className="text-muted-foreground">Loading your content...</p>
+                      </div>
+                    ) : creatorContent.length > 0 ? (
+                      <div className="space-y-4">
+                        {creatorContent.map((content) => (
+                          <div key={content.id} className="p-4 border rounded-lg hover:shadow-md transition-shadow">
+                            <div className="flex items-start gap-4">
+                              {/* Thumbnail */}
+                              <div className="w-20 h-20 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                                {content.thumbnailUrl ? (
+                                  <img
+                                    src={content.thumbnailUrl}
+                                    alt={content.title}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-2xl">
+                                    📚
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Content Info */}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-start justify-between mb-2">
+                                  <div className="flex-1 min-w-0">
+                                    <h4 className="font-semibold truncate">{content.title}</h4>
+                                    <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
+                                      {content.description}
+                                    </p>
+                                  </div>
+                                  <Badge className="ml-2 flex-shrink-0">
+                                    {content.category}
+                                  </Badge>
+                                </div>
+
+                                <div className="flex gap-4 mt-2 text-sm text-muted-foreground">
+                                  <span className="flex items-center gap-1">
+                                    <DollarSign className="w-4 h-4" />
+                                    ${content.price}/{content.interval}
+                                  </span>
+                                  <span className="flex items-center gap-1">
+                                    <Calendar className="w-4 h-4" />
+                                    {new Date(content.createdAt).toLocaleDateString()}
+                                  </span>
+                                </div>
+
+                                {/* Action Buttons */}
+                                <div className="flex gap-2 mt-3">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => navigate(`/content/${content.id}`)}
+                                  >
+                                    View
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleEditContent(content.id)}
+                                  >
+                                    Edit
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleDeleteContent(content.id)}
+                                    className="text-red-600 hover:text-red-700 hover:border-red-600"
+                                  >
+                                    Delete
+                                  </Button>
+                                </div>
                               </div>
                             </div>
-                            <Badge variant={content.status === 'active' ? 'default' : 'secondary'}>
-                              {content.status}
-                            </Badge>
                           </div>
-                          <div className="flex gap-2">
-                            <Button size="sm" variant="outline">Edit</Button>
-                            <Button size="sm" variant="outline">
-                              <BarChart3 className="w-4 h-4 mr-1" />
-                              Analytics
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <BookOpen className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                        <p className="mb-2">No content created yet</p>
+                        <Button
+                          onClick={() => navigate('/profile/create-content')}
+                          className="mt-2"
+                        >
+                          <Plus className="w-4 h-4 mr-2" />
+                          Create Your First Content
+                        </Button>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
 

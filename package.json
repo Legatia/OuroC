@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@aleph-sdk/client": "^1.4.5"
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "canisters": {
+    "ouroc_mesos_backend": {
+      "type": "motoko",
+      "main": "src/main.mo",
+      "declarations": {
+        "output": "src/declarations",
+        "bindings": ["ts", "js"],
+        "env_override": null
+      }
+    }
+  },
+  "defaults": {
+    "build": {
+      "args": "",
+      "packtool": ""
+    }
+  },
+  "networks": {
+    "local": {
+      "bind": "127.0.0.1:8000",
+      "type": "ephemeral"
+    },
+    "ic": {
+      "providers": [
+        "https://mainnet.dfinity.network"
+      ],
+      "type": "persistent"
+    }
+  },
+  "version": 1
+}
