@@ -145,8 +145,6 @@ const CommunityHub = () => {
     { value: 'Art', label: 'Art', icon: '🖼️' },
   ];
 
-  const [filteredContent, setFilteredContent] = useState<CommunityContent[]>([]);
-
   // Fetch content from localStorage + Aleph on mount
   useEffect(() => {
     const fetchContent = async () => {
@@ -602,9 +600,10 @@ const CommunityHub = () => {
                   </Button>
                 </div>
               )}
+            </>
             )}
-              </>
-            )}
+          </>
+          )}
           </main>
         </div>
       </div>
