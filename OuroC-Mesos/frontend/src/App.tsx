@@ -16,6 +16,7 @@ import Pay from "./pages/Pay";
 import Profile from "./pages/Profile";
 import CreateContent from "./pages/CreateContent";
 import ContentDetail from "./pages/ContentDetail";
+import LiveLecture from "./pages/LiveLecture";
 import Subscriptions from "./pages/Subscriptions";
 import CheckoutSubscription from "./pages/CheckoutSubscription";
 import CheckoutGiftCard from "./pages/CheckoutGiftCard";
@@ -37,6 +38,7 @@ const App = () => (
               <Route path="/buy" element={<Buy />} />
               <Route path="/community-hub" element={<CommunityHub />} />
               <Route path="/content/:contentId" element={<ContentDetail />} />
+              <Route path="/lecture/:lectureId" element={<LiveLecture />} />
               <Route path="/guild" element={<Guild />} />
               <Route path="/guild/create" element={<CreateGuild />} />
               <Route path="/guild/:guildId" element={<GuildDetail />} />

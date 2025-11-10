@@ -6,6 +6,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import { post } from 'aleph-sdk-ts/dist/messages/index.js';
 import {
   initAlephAccount,
   storeContent,
@@ -250,7 +251,6 @@ app.post('/api/reviews', async (req, res) => {
     }
 
     // Store on Aleph with type "OuroC-Mesos-Review"
-    const { post } = await import('@aleph-sdk/client');
     const result = await post.Publish({
       account: alephAccount,
       postType: 'OuroC-Mesos-Review',
@@ -265,6 +265,45 @@ app.post('/api/reviews', async (req, res) => {
     } as ApiResponse<any>);
   } catch (error) {
     console.error('Error storing review:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    } as ApiResponse<never>);
+  }
+});
+
+// POST /api/lectures - Store a live lecture
+app.post('/api/lectures', async (req, res) => {
+  try {
+    const lecture = req.body;
+
+    // Validation
+    if (!lecture.id || !lecture.contentId || !lecture.title || !lecture.scheduledTime || !lecture.creatorWallet) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: id, contentId, title, scheduledTime, creatorWallet',
+      } as ApiResponse<never>);
+    }
+
+    console.log('📤 Storing live lecture:', lecture.title);
+
+    // Store on Aleph.im
+    const result = await post.Publish({
+      account: alephAccount!,
+      postType: 'OuroC-Mesos-Lecture',
+      content: lecture,
+      channel: 'OuroC-Mesos',
+    });
+
+    console.log('✅ Lecture stored on Aleph:', result.item_hash);
+
+    res.json({
+      success: true,
+      data: lecture,
+      hash: result.item_hash,
+    } as ApiResponse<any>);
+  } catch (error) {
+    console.error('Error storing lecture:', error);
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
@@ -295,5 +334,6 @@ app.listen(PORT, () => {
   console.log('  POST /api/proposals');
   console.log('  GET  /api/proposals');
   console.log('  POST /api/reviews');
+  console.log('  POST /api/lectures');
   console.log('\n✅ Ready to accept requests!\n');
 });

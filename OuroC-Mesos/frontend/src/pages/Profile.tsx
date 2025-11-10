@@ -3,16 +3,20 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import RecurringPurchase from "@/components/RecurringPurchase";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { toast } from "sonner";
 import { usePromoCodes } from "@/contexts/PromoCodesContext";
-import { Copy, Gift, Plus, TrendingUp, Users, DollarSign, BookOpen, Award, Star, BarChart3, Calendar, CreditCard } from "lucide-react";
+import { Copy, Gift, Plus, TrendingUp, Users, DollarSign, BookOpen, Award, Star, BarChart3, Calendar, CreditCard, Video } from "lucide-react";
 import { format } from "date-fns";
 import { listSubscriptions, cancelSubscription } from "@/lib/backend";
-import { getAllContent, ContentMetadata } from "@/lib/alephSimple";
+import { getAllContent, ContentMetadata, storeLiveLecture, LiveLecture } from "@/lib/alephSimple";
 import { CreatorAnalytics } from "@/components/CreatorAnalytics";
 
 const Profile = () => {
@@ -31,6 +35,18 @@ const Profile = () => {
   // Real creator content from Aleph.im
   const [creatorContent, setCreatorContent] = useState<ContentMetadata[]>([]);
   const [isLoadingContent, setIsLoadingContent] = useState(false);
+
+  // Lecture scheduling state
+  const [isSchedulingLecture, setIsSchedulingLecture] = useState(false);
+  const [selectedContentForLecture, setSelectedContentForLecture] = useState<ContentMetadata | null>(null);
+  const [lectureForm, setLectureForm] = useState({
+    title: '',
+    description: '',
+    scheduledDate: '',
+    scheduledTime: '',
+    duration: '60',
+    streamUrl: '',
+  });
 
   // Mock creator data (replace with real data from backend)
   const [creatorStats] = useState({
@@ -162,6 +178,76 @@ const Profile = () => {
     } catch (error) {
       console.error('Failed to delete content:', error);
       toast.error('Failed to delete content');
+    }
+  };
+
+  const handleScheduleLecture = (content: ContentMetadata) => {
+    setSelectedContentForLecture(content);
+    setLectureForm({
+      title: `Live Session: ${content.title}`,
+      description: `Join us for a live session on ${content.title}`,
+      scheduledDate: '',
+      scheduledTime: '',
+      duration: '60',
+      streamUrl: '',
+    });
+    setIsSchedulingLecture(true);
+  };
+
+  const handleSubmitLecture = async () => {
+    if (!publicKey || !selectedContentForLecture) return;
+
+    // Validation
+    if (!lectureForm.title || !lectureForm.scheduledDate || !lectureForm.scheduledTime) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    try {
+      // Combine date and time into Unix timestamp
+      const scheduledDateTime = new Date(`${lectureForm.scheduledDate}T${lectureForm.scheduledTime}`);
+      const scheduledTime = scheduledDateTime.getTime();
+
+      if (scheduledTime < Date.now()) {
+        toast.error('Scheduled time must be in the future');
+        return;
+      }
+
+      const lecture: LiveLecture = {
+        id: `lecture_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        contentId: selectedContentForLecture.id,
+        title: lectureForm.title.trim(),
+        description: lectureForm.description.trim() || 'Join us for this live session',
+        scheduledTime,
+        duration: parseInt(lectureForm.duration) || 60,
+        streamUrl: lectureForm.streamUrl.trim() || undefined,
+        status: 'scheduled',
+        creatorWallet: publicKey.toString(),
+        creatorName: selectedContentForLecture.creatorName,
+        attendees: [],
+        createdAt: Date.now(),
+      };
+
+      const success = await storeLiveLecture(lecture);
+
+      if (success) {
+        toast.success('Live lecture scheduled successfully!');
+        setIsSchedulingLecture(false);
+        setSelectedContentForLecture(null);
+        setLectureForm({
+          title: '',
+          description: '',
+          scheduledDate: '',
+          scheduledTime: '',
+          duration: '60',
+          streamUrl: '',
+        });
+      } else {
+        toast.error('Failed to schedule lecture');
+      }
+    } catch (error) {
+      console.error('Error scheduling lecture:', error);
+      toast.error('Failed to schedule lecture');
     }
   };
 
@@ -446,6 +532,15 @@ const Profile = () => {
                                   <Button
                                     size="sm"
                                     variant="outline"
+                                    onClick={() => handleScheduleLecture(content)}
+                                    className="text-purple-600 hover:text-purple-700 hover:border-purple-600"
+                                  >
+                                    <Video className="w-3 h-3 mr-1" />
+                                    Schedule Lecture
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
                                     onClick={() => handleEditContent(content.id)}
                                   >
                                     Edit
@@ -618,6 +713,112 @@ const Profile = () => {
             </Card>
           </div>
         </div>
+
+        {/* Schedule Lecture Dialog */}
+        <Dialog open={isSchedulingLecture} onOpenChange={setIsSchedulingLecture}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Schedule Live Lecture</DialogTitle>
+              <DialogDescription>
+                Schedule a live session for {selectedContentForLecture?.title}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              {/* Title */}
+              <div className="space-y-2">
+                <Label htmlFor="lecture-title">Lecture Title *</Label>
+                <Input
+                  id="lecture-title"
+                  value={lectureForm.title}
+                  onChange={(e) => setLectureForm({ ...lectureForm, title: e.target.value })}
+                  placeholder="e.g., Introduction to React Hooks"
+                  maxLength={100}
+                />
+              </div>
+
+              {/* Description */}
+              <div className="space-y-2">
+                <Label htmlFor="lecture-description">Description</Label>
+                <Textarea
+                  id="lecture-description"
+                  value={lectureForm.description}
+                  onChange={(e) => setLectureForm({ ...lectureForm, description: e.target.value })}
+                  placeholder="What will students learn in this session?"
+                  rows={3}
+                  maxLength={500}
+                />
+              </div>
+
+              {/* Date and Time */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="lecture-date">Date *</Label>
+                  <Input
+                    id="lecture-date"
+                    type="date"
+                    value={lectureForm.scheduledDate}
+                    onChange={(e) => setLectureForm({ ...lectureForm, scheduledDate: e.target.value })}
+                    min={new Date().toISOString().split('T')[0]}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lecture-time">Time *</Label>
+                  <Input
+                    id="lecture-time"
+                    type="time"
+                    value={lectureForm.scheduledTime}
+                    onChange={(e) => setLectureForm({ ...lectureForm, scheduledTime: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              {/* Duration */}
+              <div className="space-y-2">
+                <Label htmlFor="lecture-duration">Duration (minutes)</Label>
+                <Input
+                  id="lecture-duration"
+                  type="number"
+                  min="15"
+                  max="240"
+                  value={lectureForm.duration}
+                  onChange={(e) => setLectureForm({ ...lectureForm, duration: e.target.value })}
+                  placeholder="60"
+                />
+              </div>
+
+              {/* Stream URL */}
+              <div className="space-y-2">
+                <Label htmlFor="lecture-stream-url">Stream URL (optional)</Label>
+                <Input
+                  id="lecture-stream-url"
+                  type="url"
+                  value={lectureForm.streamUrl}
+                  onChange={(e) => setLectureForm({ ...lectureForm, streamUrl: e.target.value })}
+                  placeholder="https://youtube.com/live/... or https://twitch.tv/..."
+                />
+                <p className="text-xs text-muted-foreground">
+                  YouTube Live, Twitch, or custom RTMP stream URL. You can add this later.
+                </p>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsSchedulingLecture(false);
+                  setSelectedContentForLecture(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleSubmitLecture}>
+                Schedule Lecture
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

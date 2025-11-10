@@ -76,7 +76,7 @@ export async function storeContent(
   try {
     console.log('📤 Storing content on Aleph...', content.id);
 
-    const message = await post.publish({
+    const message = await post.Publish({
       account,
       postType: MESSAGE_TYPES.CONTENT,
       channel: ALEPH_CHANNEL,
@@ -102,7 +102,7 @@ export async function storeGuild(
   try {
     console.log('📤 Storing guild on Aleph...', guild.id);
 
-    const message = await post.publish({
+    const message = await post.Publish({
       account,
       postType: MESSAGE_TYPES.GUILD,
       channel: ALEPH_CHANNEL,
@@ -128,7 +128,7 @@ export async function storeProposal(
   try {
     console.log('📤 Storing proposal on Aleph...', proposal.id);
 
-    const message = await post.publish({
+    const message = await post.Publish({
       account,
       postType: MESSAGE_TYPES.PROPOSAL,
       channel: ALEPH_CHANNEL,
@@ -157,7 +157,7 @@ export async function getAllContent(): Promise<ContentMetadata[]> {
       throw new Error(`Aleph API error: ${response.statusText}`);
     }
 
-    const data = await response.json();
+    const data: any = await response.json();
     const content = data.posts?.map((post: any) => post.content as ContentMetadata) || [];
 
     console.log(`✅ Fetched ${content.length} courses from Aleph`);
@@ -181,7 +181,7 @@ export async function getAllGuilds(): Promise<GuildMetadata[]> {
       throw new Error(`Aleph API error: ${response.statusText}`);
     }
 
-    const data = await response.json();
+    const data: any = await response.json();
     const guilds = data.posts?.map((post: any) => post.content as GuildMetadata) || [];
 
     console.log(`✅ Fetched ${guilds.length} guilds from Aleph`);
@@ -205,7 +205,7 @@ export async function getAllProposals(): Promise<ProposalMetadata[]> {
       throw new Error(`Aleph API error: ${response.statusText}`);
     }
 
-    const data = await response.json();
+    const data: any = await response.json();
     const proposals = data.posts?.map((post: any) => post.content as ProposalMetadata) || [];
 
     console.log(`✅ Fetched ${proposals.length} proposals from Aleph`);

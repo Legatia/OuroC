@@ -6,9 +6,9 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Search, Star, Users, Calendar, Loader2 } from 'lucide-react';
-import { getAllContent, getLocalContent, type ContentMetadata } from '@/lib/alephSimple';
+import { getAllContent, getLocalContent, getContentReviews, type ContentMetadata, type Review } from '@/lib/alephSimple';
 import { useToast } from '@/hooks/use-toast';
-import { createSubscription } from '@/lib/backend';
+import { createSubscription, getSubscriberCount } from '@/lib/backend';
 
 // Helper to convert interval to seconds
 const intervalToSeconds = (interval: 'weekly' | 'monthly' | 'quarterly'): number => {
@@ -48,6 +48,7 @@ const CommunityHub = () => {
   const [allContent, setAllContent] = useState<CommunityContent[]>([]);
   const [filteredContent, setFilteredContent] = useState<CommunityContent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [reviewsMap, setReviewsMap] = useState<Map<string, Review[]>>(new Map());
   const [sortBy, setSortBy] = useState<'newest' | 'price-low' | 'price-high' | 'rating' | 'popular'>('newest');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 9;
@@ -145,6 +146,13 @@ const CommunityHub = () => {
     { value: 'Art', label: 'Art', icon: '🖼️' },
   ];
 
+  // Helper to calculate average rating from reviews
+  const calculateAverageRating = (reviews: Review[]): number => {
+    if (reviews.length === 0) return 0;
+    const sum = reviews.reduce((acc, review) => acc + review.rating, 0);
+    return parseFloat((sum / reviews.length).toFixed(1));
+  };
+
   // Fetch content from localStorage + Aleph on mount
   useEffect(() => {
     const fetchContent = async () => {
@@ -160,22 +168,51 @@ const CommunityHub = () => {
         const allData = [...localData, ...alephData];
 
         if (allData.length > 0) {
-          // Convert to CommunityContent format
-          const content: CommunityContent[] = allData.map((item: ContentMetadata) => ({
-            id: item.id,
-            title: item.title,
-            creator: item.creatorName,
-            creatorWallet: item.creatorWallet,
-            price: item.price,
-            rating: 4.8, // TODO: Implement ratings system
-            subscribers: 0, // TODO: Implement subscriber tracking
-            thumbnail: item.thumbnailUrl,
-            category: item.category,
-            interval: item.interval,
-            description: item.description,
-          }));
+          // Load reviews for all content
+          const reviewsMapTemp = new Map<string, Review[]>();
+          const subscriberCountsTemp = new Map<string, number>();
 
-          console.log(`✅ Loaded ${content.length} courses`);
+          await Promise.all(
+            allData.map(async (item) => {
+              try {
+                // Load reviews
+                const reviews = await getContentReviews(item.id);
+                reviewsMapTemp.set(item.id, reviews);
+
+                // Load subscriber count
+                const count = await getSubscriberCount(item.creatorWallet);
+                subscriberCountsTemp.set(item.creatorWallet, count);
+              } catch (error) {
+                console.error(`Failed to load data for ${item.id}:`, error);
+                reviewsMapTemp.set(item.id, []);
+                subscriberCountsTemp.set(item.creatorWallet, 0);
+              }
+            })
+          );
+          setReviewsMap(reviewsMapTemp);
+
+          // Convert to CommunityContent format with real ratings and subscriber counts
+          const content: CommunityContent[] = allData.map((item: ContentMetadata) => {
+            const reviews = reviewsMapTemp.get(item.id) || [];
+            const rating = calculateAverageRating(reviews);
+            const subscribers = subscriberCountsTemp.get(item.creatorWallet) || 0;
+
+            return {
+              id: item.id,
+              title: item.title,
+              creator: item.creatorName,
+              creatorWallet: item.creatorWallet,
+              price: item.price,
+              rating: rating || 0, // Real rating from reviews, or 0 if no reviews
+              subscribers, // Real subscriber count from ICP canister
+              thumbnail: item.thumbnailUrl,
+              category: item.category,
+              interval: item.interval,
+              description: item.description,
+            };
+          });
+
+          console.log(`✅ Loaded ${content.length} courses with reviews and subscriber counts`);
           setAllContent(content);
         } else {
           // Use mock data as fallback
@@ -523,8 +560,8 @@ const CommunityHub = () => {
                       </p>
                       <div className="flex gap-4 text-sm text-muted-foreground">
                         <span className="flex items-center gap-1">
-                          <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                          {content.rating}
+                          <Star className={`w-4 h-4 ${content.rating > 0 ? 'fill-yellow-400 text-yellow-400' : ''}`} />
+                          {content.rating > 0 ? content.rating : 'No reviews'}
                         </span>
                         <span className="flex items-center gap-1">
                           <Users className="w-4 h-4" />

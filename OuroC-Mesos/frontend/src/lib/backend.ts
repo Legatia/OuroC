@@ -289,6 +289,29 @@ export async function listSubscriptions(walletAddress: string): Promise<Subscrip
 }
 
 /**
+ * Get subscriber count for a merchant (content creator)
+ *
+ * @param merchantAddress - Creator's Solana wallet address
+ * @returns Number of active subscribers
+ */
+export async function getSubscriberCount(merchantAddress: string): Promise<number> {
+  try {
+    const actor = await getTimerActor();
+    const allSubscriptions = await actor.list_subscriptions();
+
+    // Count active subscriptions to this merchant
+    const activeCount = allSubscriptions.filter((sub: Subscription) =>
+      sub.merchant_address === merchantAddress && 'Active' in sub.status
+    ).length;
+
+    return activeCount;
+  } catch (error) {
+    console.error("Failed to get subscriber count:", error);
+    return 0;
+  }
+}
+
+/**
  * Pause a subscription
  *
  * @param subscriptionId - Subscription ID to pause

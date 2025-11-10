@@ -3,10 +3,11 @@ import { useState, useEffect } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
-import { getAllContent, ContentMetadata, getContentReviews, storeReview, Review } from '@/lib/alephSimple';
+import { getAllContent, ContentMetadata, getContentReviews, storeReview, Review, getContentLectures, LiveLecture } from '@/lib/alephSimple';
 import { createSubscription, listSubscriptions } from '@/lib/backend';
-import { ArrowLeft, Check, Share2, Heart } from 'lucide-react';
+import { ArrowLeft, Check, Share2, Heart, Video, Calendar, Clock } from 'lucide-react';
 import { ReviewList } from '@/components/ReviewList';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 // Interval mapping: UI string → seconds
 const INTERVAL_MAP: Record<string, number> = {
@@ -28,6 +29,8 @@ export default function ContentDetail() {
   const [checkingSubscription, setCheckingSubscription] = useState(false);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loadingReviews, setLoadingReviews] = useState(true);
+  const [lectures, setLectures] = useState<LiveLecture[]>([]);
+  const [loadingLectures, setLoadingLectures] = useState(true);
 
   // Load content on mount
   useEffect(() => {
@@ -116,6 +119,29 @@ export default function ContentDetail() {
     }
 
     loadReviews();
+  }, [contentId]);
+
+  // Load live lectures for this content
+  useEffect(() => {
+    async function loadLectures() {
+      if (!contentId) return;
+
+      setLoadingLectures(true);
+      try {
+        const contentLectures = await getContentLectures(contentId);
+        // Filter for upcoming or live lectures only
+        const upcomingLectures = contentLectures.filter(
+          (lecture) => lecture.status === 'scheduled' || lecture.status === 'live'
+        ).sort((a, b) => a.scheduledTime - b.scheduledTime);
+        setLectures(upcomingLectures);
+      } catch (error) {
+        console.error('Failed to load lectures:', error);
+      } finally {
+        setLoadingLectures(false);
+      }
+    }
+
+    loadLectures();
   }, [contentId]);
 
   const handleSubscribe = async () => {
@@ -460,6 +486,68 @@ export default function ContentDetail() {
           </li>
         </ol>
       </div>
+
+      {/* Live Lectures Section */}
+      {lectures.length > 0 && (
+        <div className="mt-12">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Video className="w-5 h-5" />
+                Upcoming Live Lectures
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {lectures.map((lecture) => (
+                <div
+                  key={lecture.id}
+                  className="border rounded-lg p-4 hover:shadow-md transition-shadow"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-lg mb-1">{lecture.title}</h4>
+                      <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+                        {lecture.description}
+                      </p>
+                      <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-4 h-4" />
+                          {new Date(lecture.scheduledTime).toLocaleDateString('en-US', {
+                            weekday: 'short',
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric'
+                          })}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-4 h-4" />
+                          {new Date(lecture.scheduledTime).toLocaleTimeString('en-US', {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </span>
+                        {lecture.status === 'live' && (
+                          <span className="flex items-center gap-1 text-red-600 font-semibold">
+                            <div className="w-2 h-2 bg-red-600 rounded-full animate-pulse"></div>
+                            LIVE NOW
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <Button
+                      onClick={() => navigate(`/lecture/${lecture.id}`)}
+                      variant={lecture.status === 'live' ? 'default' : 'outline'}
+                      className={lecture.status === 'live' ? 'bg-red-600 hover:bg-red-700' : ''}
+                    >
+                      {lecture.status === 'live' ? 'Join Live' : 'View Details'}
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Reviews Section */}
       <div className="mt-12">
